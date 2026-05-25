@@ -25,14 +25,15 @@ class LessonInterviewer:
                 id="scope",
                 question="Where should this lesson apply?",
                 options=[
-                    ReviewOption("project", "A", "Only this project", {"scope": Scope.PROJECT.value}),
-                    ReviewOption("team", "B", "Team repositories", {"scope": Scope.TEAM.value}),
-                    ReviewOption("organization", "C", "Organization-wide", {"scope": Scope.ORGANIZATION.value}),
-                    ReviewOption("global", "D", "All agent environments", {"scope": Scope.GLOBAL.value}),
-                    ReviewOption("other", "E", "Other (free text)", {}),
+                    ReviewOption("user", "A", "Only this user", {"scope": Scope.USER.value}),
+                    ReviewOption("project", "B", "Only this project", {"scope": Scope.PROJECT.value}),
+                    ReviewOption("team", "C", "Team repositories", {"scope": Scope.TEAM.value}),
+                    ReviewOption("organization", "D", "Organization-wide", {"scope": Scope.ORGANIZATION.value}),
+                    ReviewOption("global", "E", "All agent environments", {"scope": Scope.GLOBAL.value}),
+                    ReviewOption("other", "F", "Other (free text)", {}),
                 ],
-                recommended_option_id="project",
-                rationale="Evidence currently comes from a single trace, so project scope is safest.",
+                recommended_option_id=candidate.scope.value,
+                rationale="Evidence currently comes from a single trace, so the detected scope is preserved as recommendation.",
                 allow_free_text=True,
             ),
             ReviewQuestion(
@@ -53,13 +54,29 @@ class LessonInterviewer:
                         "Guardrail rule",
                         {"recommended_action_type": RecommendedActionType.GUARDRAIL.value},
                     ),
-                    ReviewOption("other", "E", "Other (free text)", {}),
+                    ReviewOption(
+                        "workflow_change",
+                        "E",
+                        "Workflow change",
+                        {"recommended_action_type": RecommendedActionType.WORKFLOW_CHANGE.value},
+                    ),
+                    ReviewOption(
+                        "retrieval_rule",
+                        "F",
+                        "Retrieval rule",
+                        {"recommended_action_type": RecommendedActionType.RETRIEVAL_RULE.value},
+                    ),
+                    ReviewOption(
+                        "documentation",
+                        "G",
+                        "Documentation update",
+                        {"recommended_action_type": RecommendedActionType.DOCUMENTATION.value},
+                    ),
+                    ReviewOption("test", "H", "Test / checklist", {"recommended_action_type": RecommendedActionType.TEST.value}),
+                    ReviewOption("reject", "I", "Reject lesson", {"recommended_action_type": RecommendedActionType.REJECT.value}),
+                    ReviewOption("other", "J", "Other (free text)", {}),
                 ],
-                recommended_option_id=(
-                    candidate.recommended_action_type.value
-                    if candidate.recommended_action_type.value in {"skill", "instruction_patch", "eval", "guardrail"}
-                    else "skill"
-                ),
+                recommended_option_id=candidate.recommended_action_type.value,
                 rationale="Match artifact type to observed operational failure mode.",
                 allow_free_text=True,
             ),

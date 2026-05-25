@@ -91,10 +91,11 @@ class LessonDetector:
         ]
         if failed_tool_calls:
             for failed_call in failed_tool_calls:
+                failed_index = events.index(failed_call)
                 success_after = next(
                     (
                         event
-                        for event in events
+                        for event in events[failed_index + 1:]
                         if event.type is TraceEventType.TOOL_CALL
                         and (event.success is True or event.status == "success")
                         and event.id != failed_call.id

@@ -17,5 +17,5 @@ def test_generate_mcq_review_questions() -> None:
     )
     questions = LessonInterviewer().build_questions(candidate)
     assert len(questions) >= 6
-    assert all(3 <= len(question.options) <= 5 for question in questions)
+    assert all(3 <= len(question.options) <= 10 for question in questions)
     assert all(question.allow_free_text for question in questions)
