@@ -1,0 +1,137 @@
+"""Conservative deterministic lesson candidate detection."""
+
+from __future__ import annotations
+
+from .models import (
+    LessonCandidate,
+    RecommendedActionType,
+    RiskLevel,
+    Scope,
+    TraceBundle,
+    TraceEventType,
+)
+
+
+class LessonDetector:
+    """Scan traces for candidate lessons using deterministic heuristics."""
+
+    def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
+        candidates: list[LessonCandidate] = []
+        events = trace.events
+
+        human_corrections = [e for e in events if e.type is TraceEventType.HUMAN_CORRECTION]
+        if human_corrections:
+            event_ids = [event.id for event in human_corrections]
+            candidates.append(
+                LessonCandidate(
+                    id=f"{trace.trace_id}-human-correction",
+                    summary="Candidate lesson based on observed correction by a human reviewer.",
+                    evidence_trace_ids=[trace.trace_id],
+                    evidence_event_ids=event_ids,
+                    observed_problem="Agent required explicit human correction before reaching acceptable behavior.",
+                    proposed_lesson="Possible reusable pattern: incorporate the corrected check earlier in similar tasks.",
+                    confidence=0.62,
+                    recommended_action_type=RecommendedActionType.SKILL,
+                    risk_level=RiskLevel.MEDIUM,
+                    scope=Scope.PROJECT,
+                )
+            )
+
+        failed_evals = [
+            event
+            for event in events
+            if event.type is TraceEventType.EVALUATION_RESULT and event.status == "failed"
+        ]
+        if failed_evals:
+            candidates.append(
+                LessonCandidate(
+                    id=f"{trace.trace_id}-failed-eval",
+                    summary="Candidate lesson based on failed evaluation_result signal.",
+                    evidence_trace_ids=[trace.trace_id],
+                    evidence_event_ids=[failed_evals[0].id],
+                    observed_problem="An evaluation_result event marked output quality/compliance as failed.",
+                    proposed_lesson="Possible reusable pattern: add stronger retrieval/version checks before answering.",
+                    confidence=0.58,
+                    recommended_action_type=RecommendedActionType.EVAL,
+                    risk_level=RiskLevel.HIGH,
+                    scope=Scope.PROJECT,
+                )
+            )
+
+        error_index = next((idx for idx, event in enumerate(events) if event.type is TraceEventType.ERROR), None)
+        if error_index is not None:
+            retry_index = next(
+                (
+                    idx
+                    for idx, event in enumerate(events[error_index + 1 :], start=error_index + 1)
+                    if event.type is TraceEventType.RETRY
+                ),
+                None,
+            )
+            if retry_index is not None and trace.outcome.lower() in {"success", "corrected_by_human"}:
+                candidates.append(
+                    LessonCandidate(
+                        id=f"{trace.trace_id}-error-retry-success",
+                        summary="Candidate lesson based on error followed by retry then success.",
+                        evidence_trace_ids=[trace.trace_id],
+                        evidence_event_ids=[events[error_index].id, events[retry_index].id],
+                        observed_problem="Task needed retry after an error to reach a successful outcome.",
+                        proposed_lesson="Possible reusable pattern: bake pre-checks to reduce retriable failure mode.",
+                        confidence=0.49,
+                        recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
+                        risk_level=RiskLevel.LOW,
+                        scope=Scope.PROJECT,
+                    )
+                )
+
+        failed_tool_calls = [
+            event
+            for event in events
+            if event.type is TraceEventType.TOOL_CALL and (event.success is False or event.status == "failed")
+        ]
+        if failed_tool_calls:
+            for failed_call in failed_tool_calls:
+                success_after = next(
+                    (
+                        event
+                        for event in events
+                        if event.type is TraceEventType.TOOL_CALL
+                        and (event.success is True or event.status == "success")
+                        and event.id != failed_call.id
+                    ),
+                    None,
+                )
+                if success_after is not None:
+                    candidates.append(
+                        LessonCandidate(
+                            id=f"{trace.trace_id}-tool-fallback",
+                            summary="Candidate lesson based on tool failure followed by successful alternative.",
+                            evidence_trace_ids=[trace.trace_id],
+                            evidence_event_ids=[failed_call.id, success_after.id],
+                            observed_problem="A tool call failed before a later successful alternative completed task progress.",
+                            proposed_lesson="Possible reusable pattern: define explicit tool fallback guidance for this task type.",
+                            confidence=0.44,
+                            recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
+                            risk_level=RiskLevel.MEDIUM,
+                            scope=Scope.PROJECT,
+                        )
+                    )
+                    break
+
+        if trace.outcome.lower() == "corrected_by_human" and not human_corrections:
+            candidates.append(
+                LessonCandidate(
+                    id=f"{trace.trace_id}-corrected-outcome",
+                    summary="Candidate lesson based on corrected_by_human final outcome.",
+                    evidence_trace_ids=[trace.trace_id],
+                    evidence_event_ids=[],
+                    observed_problem="Final outcome indicates correction was needed even without explicit correction event detail.",
+                    proposed_lesson="Possible reusable pattern: require extra validation before final answer in similar runs.",
+                    confidence=0.42,
+                    recommended_action_type=RecommendedActionType.TEST,
+                    risk_level=RiskLevel.MEDIUM,
+                    scope=Scope.PROJECT,
+                )
+            )
+
+        return candidates

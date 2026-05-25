@@ -1,0 +1,32 @@
+{
+  "trace_id": "trace-chatbot-policy-001",
+  "source": "customer_chatbot",
+  "task": "Answer policy refund question",
+  "events": [
+    {
+      "id": "p1",
+      "type": "user_message",
+      "content": "Can I get a full refund after 40 days?"
+    },
+    {
+      "id": "p2",
+      "type": "assistant_message",
+      "content": "Yes, full refunds are available up to 60 days.",
+      "metadata": {"policy_version": "2024-09"}
+    },
+    {
+      "id": "p3",
+      "type": "evaluation_result",
+      "status": "failed",
+      "content": "Ignored newer policy_version=2025-01 requiring escalation after 30 days.",
+      "metadata": {"expected_policy_version": "2025-01"}
+    },
+    {
+      "id": "p4",
+      "type": "final_answer",
+      "content": "Escalating to policy specialist due to version mismatch."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"channel": "web_chat"}
+}
