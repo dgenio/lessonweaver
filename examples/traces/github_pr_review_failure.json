@@ -1,0 +1,46 @@
+{
+  "trace_id": "trace-gh-pr-review-001",
+  "source": "github_coding_agent",
+  "task": "Review pull request quality",
+  "events": [
+    {
+      "id": "e1",
+      "type": "user_message",
+      "content": "Please review this PR.",
+      "metadata": {"pr_number": 42}
+    },
+    {
+      "id": "e2",
+      "type": "assistant_message",
+      "content": "Looks good from title and description.",
+      "metadata": {"evidence": "title_body_only"}
+    },
+    {
+      "id": "e3",
+      "type": "human_correction",
+      "content": "You did not inspect changed files/diff before reviewing.",
+      "metadata": {"required_step": "inspect_diff"}
+    },
+    {
+      "id": "e4",
+      "type": "tool_call",
+      "content": "get_pr_diff",
+      "status": "success",
+      "success": true,
+      "metadata": {"files_changed": 3}
+    },
+    {
+      "id": "e5",
+      "type": "assistant_message",
+      "content": "Found a null-check issue in changed file.",
+      "metadata": {"severity": "medium"}
+    },
+    {
+      "id": "e6",
+      "type": "final_answer",
+      "content": "Review updated with concrete diff-based findings."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {"repository": "example/repo"}
+}
