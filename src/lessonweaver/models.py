@@ -170,6 +170,8 @@ class LessonCandidate:
 
 @dataclass(slots=True)
 class ReviewOption:
+    """Single MCQ option; label is the display key shown to reviewers (e.g., A/B/C)."""
+
     id: str
     label: str
     description: str
