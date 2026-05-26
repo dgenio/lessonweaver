@@ -91,6 +91,14 @@ def test_lesson_candidate_round_trip_with_metadata() -> None:
     assert LessonCandidate.from_dict(candidate.to_dict()).to_dict() == candidate.to_dict()
 
 
+def test_lesson_candidate_from_dict_normalizes_naive_datetimes_to_utc() -> None:
+    data = _candidate().to_dict()
+    data["created_at"] = "2026-05-26T12:00:00"
+    candidate = LessonCandidate.from_dict(data)
+    assert candidate.created_at.tzinfo is timezone.utc
+    assert candidate.to_dict()["created_at"] == "2026-05-26T12:00:00+00:00"
+
+
 def test_operational_lesson_round_trip() -> None:
     lesson = OperationalLesson(
         lesson_id="lesson-1",

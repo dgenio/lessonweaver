@@ -130,3 +130,21 @@ def test_filesystem_registry_delete(tmp_path) -> None:
     registry.save_skill(skill)
     registry.delete_skill(skill.id)
     assert registry.list_skills() == []
+
+
+def test_filesystem_registry_list_rejects_non_object_json(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.skills_dir.mkdir(parents=True)
+    (registry.skills_dir / "bad.json").write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must contain a JSON object"):
+        registry.list_skills()
+
+
+def test_filesystem_registry_list_rejects_invalid_json(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.skills_dir.mkdir(parents=True)
+    (registry.skills_dir / "bad.json").write_text("{", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="contains invalid JSON"):
+        registry.list_skills()

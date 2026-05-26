@@ -79,3 +79,12 @@ def test_scope_boost_changes_ranking() -> None:
         [team, project], RetrievalQuery(task="reviewing code", scope="project")
     )
     assert results[0].skill.id == "project"
+
+
+def test_invalid_scope_and_risk_level_are_ignored() -> None:
+    skill = _skill("pr", "PR Diff First", ["reviewing pull requests"])
+    results = SkillRetriever().retrieve(
+        [skill],
+        RetrievalQuery(task="Review this PR", scope="not-a-scope", risk_level="not-a-risk"),
+    )
+    assert [result.skill.id for result in results] == ["pr"]

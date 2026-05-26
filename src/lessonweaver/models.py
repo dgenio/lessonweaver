@@ -16,11 +16,17 @@ def _parse_datetime(value: Any, *, default: datetime | None = None) -> datetime 
     if value is None:
         return default
     if isinstance(value, datetime):
-        return value
+        return _ensure_timezone_aware(value)
     if isinstance(value, str) and value:
         normalized = value.replace("Z", "+00:00")
-        return datetime.fromisoformat(normalized)
+        return _ensure_timezone_aware(datetime.fromisoformat(normalized))
     return default
+
+
+def _ensure_timezone_aware(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 def _datetime_to_str(value: datetime | None) -> str | None:

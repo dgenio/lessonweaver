@@ -112,7 +112,10 @@ class FileSystemRegistry:
         path = self._path(directory, object_id)
         if not path.exists():
             raise FileNotFoundError(f"{label} '{object_id}' does not exist in registry")
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{label} '{object_id}' registry file contains invalid JSON") from exc
         if not isinstance(payload, dict):
             raise ValueError(f"{label} '{object_id}' registry file must contain a JSON object")
         return factory(payload)
@@ -122,9 +125,13 @@ class FileSystemRegistry:
             return []
         items: list[T] = []
         for path in sorted(directory.glob("*.json")):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
-                items.append(factory(payload))
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"registry file {path} contains invalid JSON") from exc
+            if not isinstance(payload, dict):
+                raise ValueError(f"registry file {path} must contain a JSON object")
+            items.append(factory(payload))
         return items
 
     def _delete(self, directory: Path, object_id: str, label: str) -> None:

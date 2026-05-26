@@ -91,6 +91,58 @@ def test_cli_answer_and_approve_flow(capsys, tmp_path) -> None:
     assert payload["skill_id"] == "skill-trace-gh-pr-review-001-human-correction"
 
 
+def test_cli_answer_unknown_question_returns_error(capsys, tmp_path) -> None:
+    main(
+        [
+            "detect",
+            "examples/traces/github_pr_review_failure.json",
+            "--save",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    capsys.readouterr()
+    exit_code = main(
+        [
+            "answer",
+            "trace-gh-pr-review-001-human-correction",
+            "not-a-question",
+            "approve",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "question 'not-a-question' not found" in captured.err
+
+
+def test_cli_answer_unknown_option_returns_error(capsys, tmp_path) -> None:
+    main(
+        [
+            "detect",
+            "examples/traces/github_pr_review_failure.json",
+            "--save",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    capsys.readouterr()
+    exit_code = main(
+        [
+            "answer",
+            "trace-gh-pr-review-001-human-correction",
+            "decision",
+            "not-an-option",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "unknown option 'not-an-option'" in captured.err
+
+
 def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())

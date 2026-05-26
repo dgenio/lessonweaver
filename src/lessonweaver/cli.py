@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -255,13 +256,24 @@ def main(argv: list[str] | None = None) -> int:
         registry = _registry(args.registry_root)
         candidate = registry.load_candidate(args.candidate_id)
         question = next(
-            question
-            for question in LessonInterviewer().build_questions(candidate)
-            if question.id == args.question_id
+            (
+                question
+                for question in LessonInterviewer().build_questions(candidate)
+                if question.id == args.question_id
+            ),
+            None,
         )
+        if question is None:
+            print(f"question '{args.question_id}' not found", file=sys.stderr)
+            return 1
         answer = ReviewAnswer(args.question_id, args.chosen_option_id, args.free_text)
-        registry.save_candidate(apply_review_answer(candidate, question, answer))
-        _print_json(candidate.to_dict())
+        try:
+            updated_candidate = apply_review_answer(candidate, question, answer)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        registry.save_candidate(updated_candidate)
+        _print_json(updated_candidate.to_dict())
         return 0
 
     if args.command == "approve":

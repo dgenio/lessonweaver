@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from .models import (
     LessonCandidate,
     RecommendedActionType,
@@ -10,6 +12,17 @@ from .models import (
     TraceBundle,
     TraceEventType,
 )
+
+_UNSAFE_ID_CHARS_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _candidate_id(trace_id: str, suffix: str) -> str:
+    safe_trace_id = _UNSAFE_ID_CHARS_RE.sub("-", trace_id).strip(".-")
+    while ".." in safe_trace_id:
+        safe_trace_id = safe_trace_id.replace("..", ".")
+    if not safe_trace_id:
+        safe_trace_id = "trace"
+    return f"{safe_trace_id}-{suffix}"
 
 
 class LessonDetector:
@@ -23,7 +36,7 @@ class LessonDetector:
         if lesson_flag is True or (isinstance(lesson_flag, str) and lesson_flag.lower() == "true"):
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-metadata-flag",
+                    id=_candidate_id(trace.trace_id, "metadata-flag"),
                     summary="Candidate lesson flagged explicitly via trace metadata.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=[],
@@ -47,7 +60,7 @@ class LessonDetector:
             event_ids = [event.id for event in human_corrections]
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-human-correction",
+                    id=_candidate_id(trace.trace_id, "human-correction"),
                     summary="Candidate lesson based on observed correction by a human reviewer.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=event_ids,
@@ -74,7 +87,7 @@ class LessonDetector:
         if failed_evals:
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-failed-eval",
+                    id=_candidate_id(trace.trace_id, "failed-eval"),
                     summary="Candidate lesson based on failed evaluation_result signal.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=[failed_evals[0].id],
@@ -110,7 +123,7 @@ class LessonDetector:
             }:
                 candidates.append(
                     LessonCandidate(
-                        id=f"{trace.trace_id}-error-retry-success",
+                        id=_candidate_id(trace.trace_id, "error-retry-success"),
                         summary="Candidate lesson based on error followed by retry then success.",
                         evidence_trace_ids=[trace.trace_id],
                         evidence_event_ids=[events[error_index].id, events[retry_index].id],
@@ -151,7 +164,7 @@ class LessonDetector:
                 if success_after is not None:
                     candidates.append(
                         LessonCandidate(
-                            id=f"{trace.trace_id}-tool-fallback",
+                            id=_candidate_id(trace.trace_id, "tool-fallback"),
                             summary=(
                                 "Candidate lesson based on tool failure followed by "
                                 "successful alternative."
@@ -177,7 +190,7 @@ class LessonDetector:
         if trace.outcome.lower() == "corrected_by_human" and not human_corrections:
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-corrected-outcome",
+                    id=_candidate_id(trace.trace_id, "corrected-outcome"),
                     summary="Candidate lesson based on corrected_by_human final outcome.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=[],

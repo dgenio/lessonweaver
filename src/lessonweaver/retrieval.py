@@ -58,7 +58,19 @@ def _risk_allowed(skill: SkillCard, risk_level: str) -> bool:
 def _scope_value(scope: str) -> str:
     if not scope:
         return ""
-    return Scope(scope).value
+    try:
+        return Scope(scope).value
+    except ValueError:
+        return ""
+
+
+def _risk_value(risk_level: str) -> str:
+    if not risk_level:
+        return ""
+    try:
+        return RiskLevel(risk_level).value
+    except ValueError:
+        return ""
 
 
 class SkillRetriever:
@@ -69,8 +81,8 @@ class SkillRetriever:
         if not query_tokens:
             return []
 
-        scope = _scope_value(query.scope) if query.scope else ""
-        risk_level = RiskLevel(query.risk_level).value if query.risk_level else ""
+        scope = _scope_value(query.scope)
+        risk_level = _risk_value(query.risk_level)
         results: list[RetrievalResult] = []
 
         for skill in skills:

@@ -1,5 +1,6 @@
 from lessonweaver.detection import LessonDetector
 from lessonweaver.models import TraceBundle
+from lessonweaver.registry import FileSystemRegistry
 from lessonweaver.traces import load_trace_bundle
 
 
@@ -196,6 +197,25 @@ def test_detection_metadata_flag_uses_custom_problem() -> None:
     candidates = LessonDetector().detect(trace)
     assert candidates[0].observed_problem == "Custom problem"
     assert candidates[0].proposed_lesson == "Custom lesson"
+
+
+def test_detection_sanitizes_trace_id_for_persistable_candidate_ids(tmp_path) -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "../team/trace\x00one",
+            "source": "unit-test",
+            "task": "Flagged trace",
+            "events": [{"id": "1", "type": "final_answer", "content": "done"}],
+            "outcome": "success",
+            "metadata": {"lesson_candidate": True},
+        }
+    )
+    candidate = LessonDetector().detect(trace)[0]
+    assert candidate.id == "team-trace-one-metadata-flag"
+
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(candidate)
+    assert registry.load_candidate(candidate.id).id == candidate.id
 
 
 def test_detection_corrected_by_human_with_event_does_not_duplicate_outcome_candidate() -> None:
