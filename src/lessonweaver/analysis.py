@@ -56,7 +56,11 @@ def _normalize_name(value: str) -> str:
 
 
 def _tokens(value: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_RE.findall(value)}
+    return set(_token_list(value))
+
+
+def _token_list(value: str) -> list[str]:
+    return [token.lower() for token in _TOKEN_RE.findall(value)]
 
 
 def _applies_tokens(skill: SkillCard) -> set[str]:
@@ -83,14 +87,29 @@ def _instruction_tokens(skill: SkillCard) -> set[str]:
 
 
 def _has_positive_modal(skill: SkillCard) -> bool:
-    text = " ".join(skill.instructions).lower()
-    return any(marker in _tokens(text) for marker in _POSITIVE_MODALS)
+    tokens = _token_list(" ".join(skill.instructions))
+    for index, token in enumerate(tokens):
+        if token == "must" and _next_token(tokens, index) != "not":
+            return True
+        if token == "required" and _previous_token(tokens, index) != "not":
+            return True
+        if token == "always":
+            return True
+    return False
 
 
 def _has_negative_modal(skill: SkillCard) -> bool:
     text = " ".join(skill.instructions).lower()
     tokens = _tokens(text)
     return bool(tokens & _NEGATIVE_MARKERS) or "must not" in text or "do not" in text
+
+
+def _previous_token(tokens: list[str], index: int) -> str:
+    return tokens[index - 1] if index > 0 else ""
+
+
+def _next_token(tokens: list[str], index: int) -> str:
+    return tokens[index + 1] if index + 1 < len(tokens) else ""
 
 
 def _contradicts(left: SkillCard, right: SkillCard) -> bool:

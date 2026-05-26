@@ -60,5 +60,15 @@ def test_contradiction_for_opposed_modal_guidance() -> None:
     assert any(finding.finding_type == "contradiction" for finding in findings)
 
 
+def test_agreeing_negative_guidance_is_not_a_contradiction() -> None:
+    findings = SkillAnalyzer().analyze(
+        [
+            _skill("a", "Do not escalate", ["tier one support"], ["Must not call escalation API"]),
+            _skill("b", "Avoid escalation", ["tier one support"], ["Never call escalation API"]),
+        ]
+    )
+    assert not any(finding.finding_type == "contradiction" for finding in findings)
+
+
 def test_single_skill_has_no_findings() -> None:
     assert SkillAnalyzer().analyze([_skill("a", "A", ["one"], ["Must do one"])]) == []
