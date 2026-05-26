@@ -58,8 +58,20 @@ def test_detection_tool_call_fallback() -> None:
             "source": "unit-test",
             "task": "Tool fallback",
             "events": [
-                {"id": "1", "type": "tool_call", "content": "api_a", "success": False, "status": "failed"},
-                {"id": "2", "type": "tool_call", "content": "api_b", "success": True, "status": "success"},
+                {
+                    "id": "1",
+                    "type": "tool_call",
+                    "content": "api_a",
+                    "success": False,
+                    "status": "failed",
+                },
+                {
+                    "id": "2",
+                    "type": "tool_call",
+                    "content": "api_b",
+                    "success": True,
+                    "status": "success",
+                },
                 {"id": "3", "type": "final_answer", "content": "done"},
             ],
             "outcome": "success",
@@ -77,15 +89,29 @@ def test_detection_tool_call_success_before_failure_not_matched() -> None:
             "source": "unit-test",
             "task": "Order check",
             "events": [
-                {"id": "1", "type": "tool_call", "content": "api_a", "success": True, "status": "success"},
-                {"id": "2", "type": "tool_call", "content": "api_b", "success": False, "status": "failed"},
+                {
+                    "id": "1",
+                    "type": "tool_call",
+                    "content": "api_a",
+                    "success": True,
+                    "status": "success",
+                },
+                {
+                    "id": "2",
+                    "type": "tool_call",
+                    "content": "api_b",
+                    "success": False,
+                    "status": "failed",
+                },
                 {"id": "3", "type": "final_answer", "content": "done"},
             ],
             "outcome": "success",
         }
     )
     candidates = LessonDetector().detect(trace)
-    assert not any("tool failure followed by successful alternative" in c.summary for c in candidates)
+    assert not any(
+        "tool failure followed by successful alternative" in c.summary for c in candidates
+    )
 
 
 def test_detection_corrected_by_human_outcome() -> None:
@@ -134,3 +160,56 @@ def test_detection_error_without_retry_produces_no_retry_candidate() -> None:
     )
     candidates = LessonDetector().detect(trace)
     assert not any("error followed by retry" in c.summary for c in candidates)
+
+
+def test_detection_metadata_flag() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "flagged-1",
+            "source": "unit-test",
+            "task": "Flagged trace",
+            "events": [{"id": "1", "type": "final_answer", "content": "done"}],
+            "outcome": "success",
+            "metadata": {"lesson_candidate": True},
+        }
+    )
+    candidates = LessonDetector().detect(trace)
+    assert candidates[0].id == "flagged-1-metadata-flag"
+    assert candidates[0].observed_problem == "Explicitly flagged trace."
+
+
+def test_detection_metadata_flag_uses_custom_problem() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "flagged-2",
+            "source": "unit-test",
+            "task": "Flagged trace",
+            "events": [{"id": "1", "type": "final_answer", "content": "done"}],
+            "outcome": "success",
+            "metadata": {
+                "lesson_candidate": "true",
+                "lesson_problem": "Custom problem",
+                "lesson_note": "Custom lesson",
+            },
+        }
+    )
+    candidates = LessonDetector().detect(trace)
+    assert candidates[0].observed_problem == "Custom problem"
+    assert candidates[0].proposed_lesson == "Custom lesson"
+
+
+def test_detection_corrected_by_human_with_event_does_not_duplicate_outcome_candidate() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "corrected-dedup",
+            "source": "unit-test",
+            "task": "Correction",
+            "events": [{"id": "1", "type": "human_correction", "content": "fix"}],
+            "outcome": "corrected_by_human",
+        }
+    )
+    candidates = LessonDetector().detect(trace)
+    assert any("observed correction" in candidate.summary for candidate in candidates)
+    assert not any(
+        "corrected_by_human final outcome" in candidate.summary for candidate in candidates
+    )

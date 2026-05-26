@@ -1,0 +1,31 @@
+{
+  "trace_id": "trace-voice-slot-001",
+  "source": "voice_agent",
+  "task": "Book a service appointment from spoken input",
+  "events": [
+    {
+      "id": "v1",
+      "type": "user_message",
+      "content": "Book it for Friday morning at the Lisbon office."
+    },
+    {
+      "id": "v2",
+      "type": "assistant_message",
+      "content": "I booked Friday afternoon in Porto.",
+      "metadata": {"slot_confidence": "low"}
+    },
+    {
+      "id": "v3",
+      "type": "human_correction",
+      "content": "The requested slot was Friday morning in Lisbon.",
+      "metadata": {"corrected_slots": ["time", "location"]}
+    },
+    {
+      "id": "v4",
+      "type": "final_answer",
+      "content": "Appointment updated to Friday morning in Lisbon."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {"channel": "voice"}
+}
