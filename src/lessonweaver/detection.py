@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from .models import (
     LessonCandidate,
     RecommendedActionType,
@@ -11,6 +13,17 @@ from .models import (
     TraceEventType,
 )
 
+_UNSAFE_ID_CHARS_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _candidate_id(trace_id: str, suffix: str) -> str:
+    safe_trace_id = _UNSAFE_ID_CHARS_RE.sub("-", trace_id).strip(".-")
+    while ".." in safe_trace_id:
+        safe_trace_id = safe_trace_id.replace("..", ".")
+    if not safe_trace_id:
+        safe_trace_id = "trace"
+    return f"{safe_trace_id}-{suffix}"
+
 
 class LessonDetector:
     """Scan traces for candidate lessons using deterministic heuristics."""
@@ -19,17 +32,46 @@ class LessonDetector:
         candidates: list[LessonCandidate] = []
         events = trace.events
 
+        lesson_flag = trace.metadata.get("lesson_candidate")
+        if lesson_flag is True or (isinstance(lesson_flag, str) and lesson_flag.lower() == "true"):
+            candidates.append(
+                LessonCandidate(
+                    id=_candidate_id(trace.trace_id, "metadata-flag"),
+                    summary="Candidate lesson flagged explicitly via trace metadata.",
+                    evidence_trace_ids=[trace.trace_id],
+                    evidence_event_ids=[],
+                    observed_problem=str(
+                        trace.metadata.get("lesson_problem", "Explicitly flagged trace.")
+                    ),
+                    proposed_lesson=str(
+                        trace.metadata.get(
+                            "lesson_note", "Review flagged trace for reusable lesson."
+                        )
+                    ),
+                    confidence=0.70,
+                    recommended_action_type=RecommendedActionType.SKILL,
+                    risk_level=RiskLevel.MEDIUM,
+                    scope=Scope.PROJECT,
+                )
+            )
+
         human_corrections = [e for e in events if e.type is TraceEventType.HUMAN_CORRECTION]
         if human_corrections:
             event_ids = [event.id for event in human_corrections]
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-human-correction",
+                    id=_candidate_id(trace.trace_id, "human-correction"),
                     summary="Candidate lesson based on observed correction by a human reviewer.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=event_ids,
-                    observed_problem="Agent required explicit human correction before reaching acceptable behavior.",
-                    proposed_lesson="Possible reusable pattern: incorporate the corrected check earlier in similar tasks.",
+                    observed_problem=(
+                        "Agent required explicit human correction before reaching "
+                        "acceptable behavior."
+                    ),
+                    proposed_lesson=(
+                        "Possible reusable pattern: incorporate the corrected check earlier "
+                        "in similar tasks."
+                    ),
                     confidence=0.62,
                     recommended_action_type=RecommendedActionType.SKILL,
                     risk_level=RiskLevel.MEDIUM,
@@ -45,12 +87,17 @@ class LessonDetector:
         if failed_evals:
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-failed-eval",
+                    id=_candidate_id(trace.trace_id, "failed-eval"),
                     summary="Candidate lesson based on failed evaluation_result signal.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=[failed_evals[0].id],
-                    observed_problem="An evaluation_result event marked output quality/compliance as failed.",
-                    proposed_lesson="Possible reusable pattern: add stronger retrieval/version checks before answering.",
+                    observed_problem=(
+                        "An evaluation_result event marked output quality/compliance as failed."
+                    ),
+                    proposed_lesson=(
+                        "Possible reusable pattern: add stronger retrieval/version checks "
+                        "before answering."
+                    ),
                     confidence=0.58,
                     recommended_action_type=RecommendedActionType.EVAL,
                     risk_level=RiskLevel.HIGH,
@@ -58,7 +105,9 @@ class LessonDetector:
                 )
             )
 
-        error_index = next((idx for idx, event in enumerate(events) if event.type is TraceEventType.ERROR), None)
+        error_index = next(
+            (idx for idx, event in enumerate(events) if event.type is TraceEventType.ERROR), None
+        )
         if error_index is not None:
             retry_index = next(
                 (
@@ -68,15 +117,23 @@ class LessonDetector:
                 ),
                 None,
             )
-            if retry_index is not None and trace.outcome.lower() in {"success", "corrected_by_human"}:
+            if retry_index is not None and trace.outcome.lower() in {
+                "success",
+                "corrected_by_human",
+            }:
                 candidates.append(
                     LessonCandidate(
-                        id=f"{trace.trace_id}-error-retry-success",
+                        id=_candidate_id(trace.trace_id, "error-retry-success"),
                         summary="Candidate lesson based on error followed by retry then success.",
                         evidence_trace_ids=[trace.trace_id],
                         evidence_event_ids=[events[error_index].id, events[retry_index].id],
-                        observed_problem="Task needed retry after an error to reach a successful outcome.",
-                        proposed_lesson="Possible reusable pattern: bake pre-checks to reduce retriable failure mode.",
+                        observed_problem=(
+                            "Task needed retry after an error to reach a successful outcome."
+                        ),
+                        proposed_lesson=(
+                            "Possible reusable pattern: bake pre-checks to reduce retriable "
+                            "failure mode."
+                        ),
                         confidence=0.49,
                         recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
                         risk_level=RiskLevel.LOW,
@@ -87,15 +144,17 @@ class LessonDetector:
         failed_tool_calls = [
             event
             for event in events
-            if event.type is TraceEventType.TOOL_CALL and (event.success is False or event.status == "failed")
+            if event.type is TraceEventType.TOOL_CALL
+            and (event.success is False or event.status == "failed")
         ]
         if failed_tool_calls:
+            # Emit at most one fallback candidate per trace to avoid duplicate guidance.
             for failed_call in failed_tool_calls:
                 failed_index = events.index(failed_call)
                 success_after = next(
                     (
                         event
-                        for event in events[failed_index + 1:]
+                        for event in events[failed_index + 1 :]
                         if event.type is TraceEventType.TOOL_CALL
                         and (event.success is True or event.status == "success")
                         and event.id != failed_call.id
@@ -105,12 +164,21 @@ class LessonDetector:
                 if success_after is not None:
                     candidates.append(
                         LessonCandidate(
-                            id=f"{trace.trace_id}-tool-fallback",
-                            summary="Candidate lesson based on tool failure followed by successful alternative.",
+                            id=_candidate_id(trace.trace_id, "tool-fallback"),
+                            summary=(
+                                "Candidate lesson based on tool failure followed by "
+                                "successful alternative."
+                            ),
                             evidence_trace_ids=[trace.trace_id],
                             evidence_event_ids=[failed_call.id, success_after.id],
-                            observed_problem="A tool call failed before a later successful alternative completed task progress.",
-                            proposed_lesson="Possible reusable pattern: define explicit tool fallback guidance for this task type.",
+                            observed_problem=(
+                                "A tool call failed before a later successful alternative "
+                                "completed task progress."
+                            ),
+                            proposed_lesson=(
+                                "Possible reusable pattern: define explicit tool fallback "
+                                "guidance for this task type."
+                            ),
                             confidence=0.44,
                             recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
                             risk_level=RiskLevel.MEDIUM,
@@ -122,12 +190,18 @@ class LessonDetector:
         if trace.outcome.lower() == "corrected_by_human" and not human_corrections:
             candidates.append(
                 LessonCandidate(
-                    id=f"{trace.trace_id}-corrected-outcome",
+                    id=_candidate_id(trace.trace_id, "corrected-outcome"),
                     summary="Candidate lesson based on corrected_by_human final outcome.",
                     evidence_trace_ids=[trace.trace_id],
                     evidence_event_ids=[],
-                    observed_problem="Final outcome indicates correction was needed even without explicit correction event detail.",
-                    proposed_lesson="Possible reusable pattern: require extra validation before final answer in similar runs.",
+                    observed_problem=(
+                        "Final outcome indicates correction was needed even without explicit "
+                        "correction event detail."
+                    ),
+                    proposed_lesson=(
+                        "Possible reusable pattern: require extra validation before final "
+                        "answer in similar runs."
+                    ),
                     confidence=0.42,
                     recommended_action_type=RecommendedActionType.TEST,
                     risk_level=RiskLevel.MEDIUM,

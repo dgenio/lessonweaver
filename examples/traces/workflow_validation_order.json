@@ -1,0 +1,31 @@
+{
+  "trace_id": "trace-workflow-validation-001",
+  "source": "workflow_agent",
+  "task": "Run a deployment checklist with validation",
+  "events": [
+    {
+      "id": "w1",
+      "type": "user_message",
+      "content": "Prepare the deployment checklist."
+    },
+    {
+      "id": "w2",
+      "type": "workflow_step",
+      "content": "Collected deployment steps before validation.",
+      "metadata": {"step": "collect_steps"}
+    },
+    {
+      "id": "w3",
+      "type": "workflow_step",
+      "content": "Validated checklist after all steps were assembled.",
+      "metadata": {"step": "validate"}
+    },
+    {
+      "id": "w4",
+      "type": "final_answer",
+      "content": "Deployment checklist completed."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"domain": "deployment"}
+}

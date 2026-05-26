@@ -1,0 +1,31 @@
+{
+  "trace_id": "trace-specialist-governance-001",
+  "source": "specialist_agent",
+  "task": "Propose a governed data export workflow",
+  "events": [
+    {
+      "id": "g1",
+      "type": "user_message",
+      "content": "Draft the export workflow."
+    },
+    {
+      "id": "g2",
+      "type": "assistant_message",
+      "content": "Export all records directly to the shared bucket.",
+      "metadata": {"governance_review": "missing"}
+    },
+    {
+      "id": "g3",
+      "type": "human_correction",
+      "content": "Sensitive exports require approval and redaction before sharing.",
+      "metadata": {"required_step": "privacy_review"}
+    },
+    {
+      "id": "g4",
+      "type": "final_answer",
+      "content": "Workflow updated to require approval and redaction before export."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {"domain": "governance"}
+}

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import fields
-from typing import Any
 
 from .models import (
     LessonCandidate,
     LessonStatus,
     RecommendedActionType,
+    ReviewAnswer,
     ReviewOption,
     ReviewQuestion,
     RiskLevel,
@@ -26,28 +26,50 @@ class LessonInterviewer:
                 question="Where should this lesson apply?",
                 options=[
                     ReviewOption("user", "A", "Only this user", {"scope": Scope.USER.value}),
-                    ReviewOption("project", "B", "Only this project", {"scope": Scope.PROJECT.value}),
+                    ReviewOption(
+                        "project", "B", "Only this project", {"scope": Scope.PROJECT.value}
+                    ),
                     ReviewOption("team", "C", "Team repositories", {"scope": Scope.TEAM.value}),
-                    ReviewOption("organization", "D", "Organization-wide", {"scope": Scope.ORGANIZATION.value}),
-                    ReviewOption("global", "E", "All agent environments", {"scope": Scope.GLOBAL.value}),
+                    ReviewOption(
+                        "organization",
+                        "D",
+                        "Organization-wide",
+                        {"scope": Scope.ORGANIZATION.value},
+                    ),
+                    ReviewOption(
+                        "global", "E", "All agent environments", {"scope": Scope.GLOBAL.value}
+                    ),
                     ReviewOption("other", "F", "Other (free text)", {}),
                 ],
                 recommended_option_id=candidate.scope.value,
-                rationale="Evidence currently comes from a single trace, so the detected scope is preserved as recommendation.",
+                rationale=(
+                    "Evidence currently comes from a single trace, so the detected scope is "
+                    "preserved as recommendation."
+                ),
                 allow_free_text=True,
             ),
             ReviewQuestion(
                 id="action_type",
                 question="Which artifact should this lesson become?",
                 options=[
-                    ReviewOption("skill", "A", "Skill card", {"recommended_action_type": RecommendedActionType.SKILL.value}),
+                    ReviewOption(
+                        "skill",
+                        "A",
+                        "Skill card",
+                        {"recommended_action_type": RecommendedActionType.SKILL.value},
+                    ),
                     ReviewOption(
                         "instruction_patch",
                         "B",
                         "Instruction patch",
                         {"recommended_action_type": RecommendedActionType.INSTRUCTION_PATCH.value},
                     ),
-                    ReviewOption("eval", "C", "Eval spec", {"recommended_action_type": RecommendedActionType.EVAL.value}),
+                    ReviewOption(
+                        "eval",
+                        "C",
+                        "Eval spec",
+                        {"recommended_action_type": RecommendedActionType.EVAL.value},
+                    ),
                     ReviewOption(
                         "guardrail",
                         "D",
@@ -72,8 +94,18 @@ class LessonInterviewer:
                         "Documentation update",
                         {"recommended_action_type": RecommendedActionType.DOCUMENTATION.value},
                     ),
-                    ReviewOption("test", "H", "Test / checklist", {"recommended_action_type": RecommendedActionType.TEST.value}),
-                    ReviewOption("reject", "I", "Reject lesson", {"recommended_action_type": RecommendedActionType.REJECT.value}),
+                    ReviewOption(
+                        "test",
+                        "H",
+                        "Test / checklist",
+                        {"recommended_action_type": RecommendedActionType.TEST.value},
+                    ),
+                    ReviewOption(
+                        "reject",
+                        "I",
+                        "Reject lesson",
+                        {"recommended_action_type": RecommendedActionType.REJECT.value},
+                    ),
                     ReviewOption("other", "J", "Other (free text)", {}),
                 ],
                 recommended_option_id=candidate.recommended_action_type.value,
@@ -85,7 +117,9 @@ class LessonInterviewer:
                 question="What is the risk level if this lesson is ignored?",
                 options=[
                     ReviewOption("low", "A", "Low impact", {"risk_level": RiskLevel.LOW.value}),
-                    ReviewOption("medium", "B", "Moderate impact", {"risk_level": RiskLevel.MEDIUM.value}),
+                    ReviewOption(
+                        "medium", "B", "Moderate impact", {"risk_level": RiskLevel.MEDIUM.value}
+                    ),
                     ReviewOption("high", "C", "High impact", {"risk_level": RiskLevel.HIGH.value}),
                     ReviewOption("other", "D", "Other (free text)", {}),
                 ],
@@ -99,7 +133,12 @@ class LessonInterviewer:
                 options=[
                     ReviewOption("always", "A", "Always for similar tasks", {}),
                     ReviewOption("high_risk", "B", "Only high-risk or user-visible tasks", {}),
-                    ReviewOption("specific_tools", "C", "Only when specific tools/data sources are used", {}),
+                    ReviewOption(
+                        "specific_tools",
+                        "C",
+                        "Only when specific tools/data sources are used",
+                        {"_applies_when_hint": "specific_tools"},
+                    ),
                     ReviewOption("other", "D", "Other (free text)", {}),
                 ],
                 recommended_option_id="high_risk",
@@ -112,33 +151,65 @@ class LessonInterviewer:
                 options=[
                     ReviewOption("none", "A", "No known exclusions", {}),
                     ReviewOption("different_domain", "B", "Do not apply in unrelated domains", {}),
-                    ReviewOption("conflicting_policy", "C", "Do not apply when policy conflicts", {}),
+                    ReviewOption(
+                        "conflicting_policy", "C", "Do not apply when policy conflicts", {}
+                    ),
                     ReviewOption("other", "D", "Other (free text)", {}),
                 ],
                 recommended_option_id="different_domain",
-                rationale="Most lessons are context-specific and should include explicit non-applicability bounds.",
+                rationale=(
+                    "Most lessons are context-specific and should include explicit "
+                    "non-applicability bounds."
+                ),
                 allow_free_text=True,
             ),
             ReviewQuestion(
                 id="decision",
                 question="What is the review decision?",
                 options=[
-                    ReviewOption("approve", "A", "Approve lesson", {"status": LessonStatus.APPROVED.value}),
-                    ReviewOption("needs_review", "B", "Needs more review", {"status": LessonStatus.NEEDS_REVIEW.value}),
-                    ReviewOption("reject", "C", "Reject lesson", {"status": LessonStatus.REJECTED.value}),
+                    ReviewOption(
+                        "approve", "A", "Approve lesson", {"status": LessonStatus.APPROVED.value}
+                    ),
+                    ReviewOption(
+                        "needs_review",
+                        "B",
+                        "Needs more review",
+                        {"status": LessonStatus.NEEDS_REVIEW.value},
+                    ),
+                    ReviewOption(
+                        "reject", "C", "Reject lesson", {"status": LessonStatus.REJECTED.value}
+                    ),
                     ReviewOption("other", "D", "Other (free text)", {}),
                 ],
                 recommended_option_id="needs_review",
-                rationale="A candidate should typically receive additional review before activation.",
+                rationale=(
+                    "A candidate should typically receive additional review before activation."
+                ),
                 allow_free_text=True,
             ),
         ]
 
 
-def apply_review_answer(candidate: LessonCandidate, option: ReviewOption) -> LessonCandidate:
-    """Apply an option effect map onto candidate fields when keys are valid."""
+def apply_review_answer(
+    candidate: LessonCandidate,
+    question: ReviewQuestion,
+    answer: ReviewAnswer,
+) -> LessonCandidate:
+    """Apply a structured review answer and preserve free text/history."""
+    if answer.question_id != question.id:
+        raise ValueError(
+            f"answer question_id '{answer.question_id}' does not match question '{question.id}'"
+        )
+
+    option = next((item for item in question.options if item.id == answer.chosen_option_id), None)
+    if option is None:
+        raise ValueError(f"unknown option '{answer.chosen_option_id}' for question '{question.id}'")
+
     allowed_fields = {field.name for field in fields(candidate)}
     for key, value in option.effect.items():
+        if key.startswith("_"):
+            candidate.metadata[key] = value
+            continue
         if key not in allowed_fields:
             continue
         if key == "scope":
@@ -151,4 +222,11 @@ def apply_review_answer(candidate: LessonCandidate, option: ReviewOption) -> Les
             setattr(candidate, key, LessonStatus(str(value)))
         else:
             setattr(candidate, key, value)
+
+    if answer.free_text:
+        candidate.metadata[f"review_note_{question.id}"] = answer.free_text
+    history = list(candidate.metadata.get("review_history", []))
+    history.append(answer.to_dict())
+    candidate.metadata["review_history"] = history
+
     return candidate
