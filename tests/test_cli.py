@@ -242,6 +242,16 @@ def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
     assert "# Guardrail: Inspect diffs before PR review" in capsys.readouterr().out
 
 
+def test_cli_export_lesson_workflow(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(action_type=RecommendedActionType.WORKFLOW_CHANGE))
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "workflow", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert "# Workflow recommendation: Inspect diffs before PR review" in capsys.readouterr().out
+
+
 def test_cli_export_lesson_rejects_unapproved_candidate(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(_candidate(status=LessonStatus.CANDIDATE))

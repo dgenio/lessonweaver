@@ -197,7 +197,7 @@ def export_copilot_path_instruction(
     """
     lines = [
         "---",
-        f'applyTo: "{applies_to_glob}"',
+        f"applyTo: {json.dumps(applies_to_glob)}",
         "---",
         "",
         f"# {_text(skill.name, redactor)}",

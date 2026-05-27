@@ -216,6 +216,11 @@ def test_export_copilot_path_instruction_default_glob_and_suppression() -> None:
     assert "## When not to apply" not in rendered
 
 
+def test_export_copilot_path_instruction_escapes_unsafe_glob() -> None:
+    rendered = export_copilot_path_instruction(_make_skill(), 'src/"weird"/**')
+    assert 'applyTo: "src/\\"weird\\"/**"' in rendered
+
+
 def test_export_claude_skill_md_snapshot() -> None:
     rendered = export_claude_skill_md(_make_skill())
     assert rendered == (
