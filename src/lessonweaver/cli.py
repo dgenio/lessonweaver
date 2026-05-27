@@ -47,6 +47,7 @@ from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry
 from .retrieval import RetrievalQuery, SkillRetriever
 from .traces import load_trace_bundle
+from .validation import ValidationSuite, run_validation_suite
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:
@@ -276,6 +277,17 @@ def main(argv: list[str] | None = None) -> int:
         "--inclusion-level", choices=[item.value for item in InclusionLevel], default="summary"
     )
 
+    validate_parser = subparsers.add_parser(
+        "validate-skill",
+        help="Validate that a skill retrieves correctly for a validation suite",
+    )
+    validate_parser.add_argument("suite")
+    validate_parser.add_argument(
+        "--skills-dir",
+        help="Directory of skill JSON files to validate against (default: registry)",
+    )
+    validate_parser.add_argument("--registry-root")
+
     promote_parser = subparsers.add_parser(
         "promote-skill", help="Promote a skill through the governed lifecycle"
     )
@@ -463,6 +475,19 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
         return 0
+
+    if args.command == "validate-skill":
+        suite = ValidationSuite.from_dict(_read_json(args.suite))
+        if args.skills_dir:
+            skills = [
+                SkillCard.from_dict(_read_json(path))
+                for path in sorted(Path(args.skills_dir).glob("*.json"))
+            ]
+        else:
+            skills = _registry(args.registry_root).list_skills()
+        result = run_validation_suite(suite, skills)
+        _print_json(result.to_dict())
+        return 0 if result.failed == 0 else 1
 
     if args.command == "promote-skill":
         registry = _registry(args.registry_root)

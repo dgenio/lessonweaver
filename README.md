@@ -96,6 +96,7 @@ print(context.snippet)
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
 - `lessonweaver load "<task>"`
+- `lessonweaver validate-skill <suite.json> [--skills-dir DIR]`
 - `lessonweaver promote-skill <skill-id> <target-status>`
 
 ## Supported outputs and integrations
