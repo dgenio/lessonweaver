@@ -72,8 +72,9 @@ Do **not** create a skill if any of these are true:
 
 - **Detection is conservative.** `LessonDetector` emits few, high-signal
   candidates and prefers false negatives over noise.
-- **Review is mandatory.** The `action_type` and `decision` review questions
-  (`LessonInterviewer`) force an explicit choice among the output types above,
-  including `reject`.
+- **Review is a required workflow step.** The `action_type` and `decision`
+  review questions (`LessonInterviewer`) prompt an explicit choice among the
+  output types above, including `reject`. The workflow expects these to be
+  answered before `approve`; the CLI does not yet enforce it.
 - **Linting discourages absolutes.** `SkillLinter` warns on unqualified
   "always"/"never" language and requires explicit `does_not_apply_when` bounds.

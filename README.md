@@ -18,8 +18,10 @@ skill activation without review.
 - **Trace:** The run is recorded, including the `human_correction` event.
 - **lessonweaver:** Detects a conservative candidate, a human reviews it via
   multiple-choice questions, and approves it into a reviewed skill.
-- **After:** The reviewed lesson is exported into `AGENTS.md` / Copilot / Claude
-  instructions, so future sessions start with "inspect the changed files first."
+- **After:** The reviewed lesson is exported as a Markdown/runtime snippet and
+  pasted into `AGENTS.md` / Copilot / Claude instructions, so future sessions
+  start with "inspect the changed files first." (A dedicated `AGENTS.md` exporter
+  is planned, [#48](https://github.com/dgenio/lessonweaver/issues/48).)
 
 ## What it is / what it is not
 
@@ -112,7 +114,9 @@ print(context.snippet)
 ## Governance and safety
 
 - Detection is conservative; false negatives are preferred over noisy guidance.
-- Human review is required before a lesson becomes an approved skill.
+- Human review is the expected governance step before a lesson becomes an
+  approved skill; the workflow requires it, though the `approve` command does not
+  yet enforce that review questions were answered.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
 - `SimpleRedactor` is a best-effort safety net before export, not a compliance

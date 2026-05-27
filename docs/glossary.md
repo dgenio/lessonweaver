@@ -107,6 +107,7 @@ between these.
 
 ## Registry
 
-- **Registry** — Storage for candidates, lessons, skills, and artifacts. Classes:
-  `LessonRegistry` (in-memory) and `FileSystemRegistry` (JSON files under
-  `~/.lessonweaver/registry` by default) (`registry.py`).
+- **Registry** — Storage for lessonweaver objects. Classes (`registry.py`):
+  `LessonRegistry` (in-memory; holds candidates and skills only) and
+  `FileSystemRegistry` (JSON files under `~/.lessonweaver/registry` by default;
+  persists candidates, skills, operational lessons, and artifacts).
