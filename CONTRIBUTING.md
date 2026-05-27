@@ -54,8 +54,6 @@ Self-contained, low-risk starting points (open at the time of writing):
 - **Examples:** add a trace such as `tool_api_fallback.json`
   ([#32](https://github.com/dgenio/lessonweaver/issues/32)); usefulness report
   example ([#73](https://github.com/dgenio/lessonweaver/issues/73)).
-- **Exporters:** AGENTS.md fragment exporter
-  ([#48](https://github.com/dgenio/lessonweaver/issues/48)).
 - **Templates:** issue/PR templates
   ([#34](https://github.com/dgenio/lessonweaver/issues/34),
   [#70](https://github.com/dgenio/lessonweaver/issues/70)).

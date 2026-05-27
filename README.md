@@ -20,8 +20,7 @@ skill activation without review.
   multiple-choice questions, and approves it into a reviewed skill.
 - **After:** The reviewed lesson is exported as a Markdown/runtime snippet and
   pasted into `AGENTS.md` / Copilot / Claude instructions, so future sessions
-  start with "inspect the changed files first." (A dedicated `AGENTS.md` exporter
-  is planned, [#48](https://github.com/dgenio/lessonweaver/issues/48).)
+  start with "inspect the changed files first."
 
 ## What it is / what it is not
 
@@ -91,7 +90,8 @@ print(context.snippet)
 - `lessonweaver interview <candidate-id-or-json>`
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...]`
 - `lessonweaver approve <candidate-id> [--approved-by ...]`
-- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|claude|runtime [--redact]`
+- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact]`
+- `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact]`
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
@@ -104,11 +104,12 @@ print(context.snippet)
 | --- | --- |
 | Markdown skill cards | Supported |
 | JSON skill cards | Supported |
-| GitHub Copilot instruction fragments | Supported |
-| Claude-style skill fragments | Supported |
+| GitHub Copilot instruction fragments | Supported (`copilot`, `copilot-repo`, `copilot-path`) |
+| Claude Code skill / rule / CLAUDE.md exports | Supported (`claude`, `claude-skill`, `claude-rule`, `claude-md`) |
 | Generic runtime prompt snippets | Supported |
-| Codex directory export | Enum reserved ([#19](https://github.com/dgenio/lessonweaver/issues/19)) |
-| AGENTS.md fragment export | Planned ([#48](https://github.com/dgenio/lessonweaver/issues/48)) |
+| Codex skill directory export | Supported (`codex`) |
+| AGENTS.md fragment export | Supported (`agents-md`) |
+| Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Planned adapters (#20, #21, #22) |
 
 ## Governance and safety
