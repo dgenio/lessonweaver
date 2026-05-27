@@ -262,14 +262,16 @@ def export_codex_skill_directory(
 
     Returns a mapping of file name to file content (a SKILL.md with YAML
     frontmatter plus a metadata.json sidecar). The caller decides where to write
-    the files; this function does not touch disk.
+    the files; this function does not touch disk. Frontmatter scalars are
+    JSON-encoded so names/descriptions containing ``:``, ``#``, quotes, or
+    newlines stay valid YAML.
     """
     description = _text(skill.description, redactor)
     name = _text(skill.name, redactor)
     skill_md_lines = [
         "---",
-        f"name: {name}",
-        f"description: {description}",
+        f"name: {json.dumps(name)}",
+        f"description: {json.dumps(description)}",
         "---",
         "",
         f"# {name}",
@@ -297,7 +299,12 @@ def export_codex_skill_directory(
 
 
 def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | None = None) -> str:
-    """Render an approved eval-recommendation candidate as a Markdown eval spec."""
+    """Render a candidate as a Markdown eval spec.
+
+    The CLI ``export-lesson`` enforces that the candidate is approved with a
+    matching action type before calling this; invoked directly it renders
+    whatever candidate it is given.
+    """
     lines = [
         f"# Eval: {_text(candidate.summary, redactor)}",
         "",
@@ -321,7 +328,12 @@ def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | N
 def export_guardrail_rule_markdown(
     candidate: LessonCandidate, redactor: Redactor | None = None
 ) -> str:
-    """Render an approved guardrail-recommendation candidate as a Markdown guardrail."""
+    """Render a candidate as a Markdown guardrail.
+
+    The CLI ``export-lesson`` enforces that the candidate is approved with a
+    matching action type before calling this; invoked directly it renders
+    whatever candidate it is given.
+    """
     lines = [
         f"# Guardrail: {_text(candidate.summary, redactor)}",
         "",
@@ -345,7 +357,12 @@ def export_guardrail_rule_markdown(
 def export_workflow_recommendation_markdown(
     candidate: LessonCandidate, redactor: Redactor | None = None
 ) -> str:
-    """Render an approved workflow-change candidate as a Markdown recommendation."""
+    """Render a candidate as a Markdown workflow recommendation.
+
+    The CLI ``export-lesson`` enforces that the candidate is approved with a
+    matching action type before calling this; invoked directly it renders
+    whatever candidate it is given.
+    """
     lines = [
         f"# Workflow recommendation: {_text(candidate.summary, redactor)}",
         "",

@@ -5,6 +5,7 @@ import json
 from lessonweaver.cli import main
 from lessonweaver.models import (
     LessonCandidate,
+    LessonStatus,
     RecommendedActionType,
     RiskLevel,
     Scope,
@@ -150,7 +151,11 @@ def test_cli_answer_unknown_option_returns_error(capsys, tmp_path) -> None:
     assert "unknown option 'not-an-option'" in captured.err
 
 
-def _candidate(candidate_id: str = "cand-1") -> LessonCandidate:
+def _candidate(
+    candidate_id: str = "cand-1",
+    action_type: RecommendedActionType = RecommendedActionType.EVAL,
+    status: LessonStatus = LessonStatus.APPROVED,
+) -> LessonCandidate:
     return LessonCandidate(
         id=candidate_id,
         summary="Inspect diffs before PR review",
@@ -159,9 +164,10 @@ def _candidate(candidate_id: str = "cand-1") -> LessonCandidate:
         observed_problem="Agent approved a PR without inspecting the diff.",
         proposed_lesson="Inspect changed files before drawing review conclusions.",
         confidence=0.62,
-        recommended_action_type=RecommendedActionType.EVAL,
+        recommended_action_type=action_type,
         risk_level=RiskLevel.MEDIUM,
         scope=Scope.PROJECT,
+        status=status,
     )
 
 
@@ -228,12 +234,32 @@ def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
 
 def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate())
+    registry.save_candidate(_candidate(action_type=RecommendedActionType.GUARDRAIL))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )
     assert exit_code == 0
     assert "# Guardrail: Inspect diffs before PR review" in capsys.readouterr().out
+
+
+def test_cli_export_lesson_rejects_unapproved_candidate(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(status=LessonStatus.CANDIDATE))
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 1
+    assert "not approved" in capsys.readouterr().err
+
+
+def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(action_type=RecommendedActionType.EVAL))
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 1
+    assert "cannot export as 'guardrail'" in capsys.readouterr().err
 
 
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:

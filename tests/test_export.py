@@ -50,7 +50,9 @@ def _make_skill() -> SkillCard:
     )
 
 
-def _make_candidate() -> LessonCandidate:
+def _make_candidate(
+    action_type: RecommendedActionType = RecommendedActionType.EVAL,
+) -> LessonCandidate:
     return LessonCandidate(
         id="cand-1",
         summary="Inspect diffs before PR review",
@@ -59,9 +61,10 @@ def _make_candidate() -> LessonCandidate:
         observed_problem="Agent approved a PR without inspecting the diff.",
         proposed_lesson="Inspect changed files before drawing review conclusions.",
         confidence=0.62,
-        recommended_action_type=RecommendedActionType.EVAL,
+        recommended_action_type=action_type,
         risk_level=RiskLevel.MEDIUM,
         scope=Scope.PROJECT,
+        status=LessonStatus.APPROVED,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -277,7 +280,7 @@ def test_export_codex_skill_directory() -> None:
     directory = export_codex_skill_directory(_make_skill())
     assert set(directory) == {"SKILL.md", "metadata.json"}
     assert directory["SKILL.md"].startswith(
-        "---\nname: PR Diff First\ndescription: Inspect diff before review.\n---\n"
+        '---\nname: "PR Diff First"\ndescription: "Inspect diff before review."\n---\n'
     )
     assert "## Instructions\n- Inspect changed files first" in directory["SKILL.md"]
     metadata = json.loads(directory["metadata.json"])
@@ -296,7 +299,7 @@ def test_export_eval_spec_markdown() -> None:
 
 
 def test_export_guardrail_rule_markdown() -> None:
-    rendered = export_guardrail_rule_markdown(_make_candidate())
+    rendered = export_guardrail_rule_markdown(_make_candidate(RecommendedActionType.GUARDRAIL))
     assert rendered.startswith("# Guardrail: Inspect diffs before PR review\n")
     assert "## Trigger condition\nAgent approved a PR without inspecting the diff." in rendered
     assert "## Blocked behavior" in rendered
@@ -304,14 +307,16 @@ def test_export_guardrail_rule_markdown() -> None:
 
 
 def test_export_workflow_recommendation_markdown() -> None:
-    rendered = export_workflow_recommendation_markdown(_make_candidate())
+    rendered = export_workflow_recommendation_markdown(
+        _make_candidate(RecommendedActionType.WORKFLOW_CHANGE)
+    )
     assert rendered.startswith("# Workflow recommendation: Inspect diffs before PR review\n")
     assert "## Recommended workflow change\n" in rendered
     assert "- trace: trace-gh-pr-review-001" in rendered
 
 
 def test_export_lesson_redactor_integration() -> None:
-    candidate = _make_candidate()
+    candidate = _make_candidate(RecommendedActionType.GUARDRAIL)
     candidate.observed_problem = "Leaked admin@example.com during review."
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered

@@ -37,6 +37,7 @@ from .models import (
     LessonCandidate,
     LessonStatus,
     OperationalLesson,
+    RecommendedActionType,
     ReviewAnswer,
     SensitivityLevel,
     SkillCard,
@@ -357,6 +358,26 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export-lesson":
         candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        if candidate.status is not LessonStatus.APPROVED:
+            print(
+                f"candidate '{candidate.id}' is not approved "
+                f"(status: {candidate.status.value}); approve it before exporting",
+                file=sys.stderr,
+            )
+            return 1
+        expected_action = {
+            "eval": RecommendedActionType.EVAL,
+            "guardrail": RecommendedActionType.GUARDRAIL,
+            "workflow": RecommendedActionType.WORKFLOW_CHANGE,
+        }[args.format]
+        if candidate.recommended_action_type is not expected_action:
+            print(
+                f"candidate '{candidate.id}' has action type "
+                f"'{candidate.recommended_action_type.value}'; cannot export as "
+                f"'{args.format}' (expected '{expected_action.value}')",
+                file=sys.stderr,
+            )
+            return 1
         redactor = SimpleRedactor() if args.redact else None
         if args.format == "eval":
             print(export_eval_spec_markdown(candidate, redactor=redactor))
