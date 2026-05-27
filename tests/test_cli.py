@@ -3,7 +3,14 @@
 import json
 
 from lessonweaver.cli import main
-from lessonweaver.models import RiskLevel, Scope, SkillCard, SkillStatus
+from lessonweaver.models import (
+    LessonCandidate,
+    RecommendedActionType,
+    RiskLevel,
+    Scope,
+    SkillCard,
+    SkillStatus,
+)
 from lessonweaver.registry import FileSystemRegistry
 
 
@@ -143,12 +150,90 @@ def test_cli_answer_unknown_option_returns_error(capsys, tmp_path) -> None:
     assert "unknown option 'not-an-option'" in captured.err
 
 
+def _candidate(candidate_id: str = "cand-1") -> LessonCandidate:
+    return LessonCandidate(
+        id=candidate_id,
+        summary="Inspect diffs before PR review",
+        evidence_trace_ids=["trace-1"],
+        evidence_event_ids=["e1"],
+        observed_problem="Agent approved a PR without inspecting the diff.",
+        proposed_lesson="Inspect changed files before drawing review conclusions.",
+        confidence=0.62,
+        recommended_action_type=RecommendedActionType.EVAL,
+        risk_level=RiskLevel.MEDIUM,
+        scope=Scope.PROJECT,
+    )
+
+
 def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
     assert exit_code == 0
     assert "# PR Diff First" in capsys.readouterr().out
+
+
+def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "agents-md", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "<!-- lessonweaver skill_id=skill-1" in out
+    assert "### PR Diff First" in out
+
+
+def test_cli_export_skill_copilot_path_applies_to(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        [
+            "export-skill",
+            "skill-1",
+            "--format",
+            "copilot-path",
+            "--applies-to",
+            "src/**/*.py",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 0
+    assert 'applyTo: "src/**/*.py"' in capsys.readouterr().out
+
+
+def test_cli_export_skill_codex_is_json_directory(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "codex", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    directory = json.loads(capsys.readouterr().out)
+    assert set(directory) == {"SKILL.md", "metadata.json"}
+    assert json.loads(directory["metadata.json"])["id"] == "skill-1"
+
+
+def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate())
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert "# Eval: Inspect diffs before PR review" in capsys.readouterr().out
+
+
+def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate())
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert "# Guardrail: Inspect diffs before PR review" in capsys.readouterr().out
 
 
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:

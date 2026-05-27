@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Protocol
 
-from .models import OperationalLesson, SkillCard
+from .models import LessonCandidate, OperationalLesson, SkillCard
 
 
 class Redactor(Protocol):
@@ -140,3 +140,227 @@ def export_runtime_prompt_snippet(skill: SkillCard, redactor: Redactor | None = 
         f"Do not apply when: {'; '.join(_list(skill.does_not_apply_when, redactor))}\n"
         f"Required behaviors: {'; '.join(_list(skill.instructions, redactor))}"
     )
+
+
+def export_agents_md_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as an AGENTS.md-compatible fragment.
+
+    Review the fragment before appending it to AGENTS.md; it is intentionally
+    compact and must not be auto-appended or contain raw trace evidence. The
+    leading HTML comment lets future tooling find lessonweaver-managed sections.
+    """
+    lines = [
+        f"<!-- lessonweaver skill_id={skill.id} confidence={skill.confidence:.2f} -->",
+        f"### {_text(skill.name, redactor)}",
+        "",
+        f"**When to apply:** {'; '.join(_list(skill.applies_when, redactor))}",
+    ]
+    if skill.does_not_apply_when:
+        lines.append(
+            f"**Do not apply when:** {'; '.join(_list(skill.does_not_apply_when, redactor))}"
+        )
+    lines.append("")
+    lines.extend(f"- {item}" for item in _list(skill.instructions, redactor))
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as a repository-wide GitHub Copilot instruction block.
+
+    Append the output to .github/copilot-instructions.md after review. The HTML
+    comment header carries the skill id and version for future deduplication.
+    """
+    lines = [
+        f"<!-- lessonweaver skill_id={skill.id} version={_text(skill.version, redactor)} -->",
+        f"## {_text(skill.name, redactor)}",
+        "",
+        _text(skill.description, redactor),
+        "",
+        f"**Apply when:** {'; '.join(_list(skill.applies_when, redactor))}",
+    ]
+    if skill.does_not_apply_when:
+        lines.append(
+            f"**Do not apply when:** {'; '.join(_list(skill.does_not_apply_when, redactor))}"
+        )
+    lines.extend(["", "**Instructions:**"])
+    lines.extend(f"- {item}" for item in _list(skill.instructions, redactor))
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_copilot_path_instruction(
+    skill: SkillCard, applies_to_glob: str = "**", redactor: Redactor | None = None
+) -> str:
+    """Render a SkillCard as a path-specific Copilot instructions file.
+
+    Intended for .github/instructions/{skill.id}.instructions.md. The applyTo
+    frontmatter scopes the instructions to matching file paths.
+    """
+    lines = [
+        "---",
+        f'applyTo: "{applies_to_glob}"',
+        "---",
+        "",
+        f"# {_text(skill.name, redactor)}",
+        "",
+        _text(skill.description, redactor),
+    ]
+    _section(lines, "When to apply", _list(skill.applies_when, redactor))
+    _section(lines, "When not to apply", _list(skill.does_not_apply_when, redactor))
+    _section(lines, "Required behaviors", _list(skill.instructions, redactor))
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as a Claude Code SKILL.md document.
+
+    Claude Code formats may evolve; treat the output as reviewed project guidance,
+    not a guaranteed integration. Empty sections are suppressed.
+    """
+    lines = [
+        f"# {_text(skill.name, redactor)}",
+        "",
+        _text(skill.description, redactor),
+    ]
+    _section(lines, "When to use", _list(skill.applies_when, redactor))
+    _section(lines, "When NOT to use", _list(skill.does_not_apply_when, redactor))
+    _section(lines, "Instructions", _list(skill.instructions, redactor))
+    _section(lines, "Anti-patterns", _list(skill.anti_patterns, redactor))
+    metadata = [
+        f"Confidence: {skill.confidence:.2f}",
+        f"Risk: {skill.risk_level.value}",
+    ]
+    if skill.evidence_trace_ids:
+        metadata.append(f"Evidence: {', '.join(_list(skill.evidence_trace_ids, redactor))}")
+    _section(lines, "Metadata", metadata)
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_claude_rule_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as a concise rule fragment for .claude/rules/."""
+    return (
+        f"# Rule: {_text(skill.name, redactor)}\n\n"
+        f"**Applies when:** {'; '.join(_list(skill.applies_when, redactor))}\n\n"
+        f"**Do:** {'; '.join(_list(skill.instructions, redactor))}\n\n"
+        f"**Avoid:** {'; '.join(_list(skill.anti_patterns, redactor))}"
+    )
+
+
+def export_claude_md_snippet(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as a short, appendable CLAUDE.md block."""
+    return (
+        f"## Operational guidance: {_text(skill.name, redactor)}\n\n"
+        f"{_text(skill.description, redactor)}\n\n"
+        f"When: {'; '.join(_list(skill.applies_when, redactor))}. "
+        f"Required: {'; '.join(_list(skill.instructions, redactor))}."
+    )
+
+
+def export_codex_skill_directory(
+    skill: SkillCard, redactor: Redactor | None = None
+) -> dict[str, str]:
+    """Render a SkillCard as a Codex-compatible skill directory.
+
+    Returns a mapping of file name to file content (a SKILL.md with YAML
+    frontmatter plus a metadata.json sidecar). The caller decides where to write
+    the files; this function does not touch disk.
+    """
+    description = _text(skill.description, redactor)
+    name = _text(skill.name, redactor)
+    skill_md_lines = [
+        "---",
+        f"name: {name}",
+        f"description: {description}",
+        "---",
+        "",
+        f"# {name}",
+        "",
+        description,
+    ]
+    _section(skill_md_lines, "When to use", _list(skill.applies_when, redactor))
+    _section(skill_md_lines, "When not to use", _list(skill.does_not_apply_when, redactor))
+    _section(skill_md_lines, "Instructions", _list(skill.instructions, redactor))
+    _section(skill_md_lines, "Anti-patterns", _list(skill.anti_patterns, redactor))
+    skill_md = "\n".join(skill_md_lines).strip() + "\n"
+
+    metadata = {
+        "id": skill.id,
+        "name": name,
+        "version": _text(skill.version, redactor),
+        "description": description,
+        "risk_level": skill.risk_level.value,
+        "scope": skill.scope.value,
+        "confidence": skill.confidence,
+        "evidence_trace_ids": _list(skill.evidence_trace_ids, redactor),
+    }
+    metadata_json = json.dumps(metadata, indent=2, sort_keys=True)
+    return {"SKILL.md": skill_md, "metadata.json": metadata_json}
+
+
+def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | None = None) -> str:
+    """Render an approved eval-recommendation candidate as a Markdown eval spec."""
+    lines = [
+        f"# Eval: {_text(candidate.summary, redactor)}",
+        "",
+        "## Description",
+        _text(candidate.observed_problem, redactor),
+        "",
+        "## Test condition",
+        _text(candidate.proposed_lesson, redactor),
+        "",
+        "## Expected behavior",
+        "The agent satisfies the lesson above without requiring human correction.",
+    ]
+    _section(
+        lines,
+        "Evidence",
+        [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_guardrail_rule_markdown(
+    candidate: LessonCandidate, redactor: Redactor | None = None
+) -> str:
+    """Render an approved guardrail-recommendation candidate as a Markdown guardrail."""
+    lines = [
+        f"# Guardrail: {_text(candidate.summary, redactor)}",
+        "",
+        "## Trigger condition",
+        _text(candidate.observed_problem, redactor),
+        "",
+        "## Blocked behavior",
+        "Completing the task without applying the corrective check below.",
+        "",
+        "## Rationale",
+        _text(candidate.proposed_lesson, redactor),
+    ]
+    _section(
+        lines,
+        "Evidence",
+        [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
+def export_workflow_recommendation_markdown(
+    candidate: LessonCandidate, redactor: Redactor | None = None
+) -> str:
+    """Render an approved workflow-change candidate as a Markdown recommendation."""
+    lines = [
+        f"# Workflow recommendation: {_text(candidate.summary, redactor)}",
+        "",
+        "## Problem observed",
+        _text(candidate.observed_problem, redactor),
+        "",
+        "## Recommended workflow change",
+        _text(candidate.proposed_lesson, redactor),
+        "",
+        "## Rationale",
+        "Derived from reviewed trace evidence; prefer a deterministic fix where possible.",
+    ]
+    _section(
+        lines,
+        "Evidence",
+        [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
+    )
+    return "\n".join(lines).strip() + "\n"

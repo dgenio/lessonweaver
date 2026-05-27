@@ -14,11 +14,21 @@ from .analysis import SkillAnalyzer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .export import (
+    export_agents_md_fragment,
+    export_claude_md_snippet,
+    export_claude_rule_fragment,
     export_claude_skill_fragment,
+    export_claude_skill_md,
+    export_codex_skill_directory,
     export_copilot_instruction_fragment,
+    export_copilot_path_instruction,
+    export_copilot_repo_instruction,
+    export_eval_spec_markdown,
+    export_guardrail_rule_markdown,
     export_runtime_prompt_snippet,
     export_skillcard_json,
     export_skillcard_markdown,
+    export_workflow_recommendation_markdown,
 )
 from .governance import promote_skill
 from .interview import LessonInterviewer, apply_review_answer
@@ -129,7 +139,7 @@ def _lesson_from_candidate(
     )
 
 
-def _export_skill(skill: SkillCard, fmt: str, redact: bool) -> str:
+def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "**") -> str:
     redactor = SimpleRedactor() if redact else None
     if fmt == "markdown":
         return export_skillcard_markdown(skill, redactor=redactor)
@@ -137,8 +147,23 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool) -> str:
         return export_skillcard_json(skill, redactor=redactor)
     if fmt in {"copilot", "copilot_instruction"}:
         return export_copilot_instruction_fragment(skill, redactor=redactor)
+    if fmt == "copilot-repo":
+        return export_copilot_repo_instruction(skill, redactor=redactor)
+    if fmt == "copilot-path":
+        return export_copilot_path_instruction(skill, applies_to, redactor=redactor)
     if fmt in {"claude", "claude_skill"}:
         return export_claude_skill_fragment(skill, redactor=redactor)
+    if fmt == "claude-skill":
+        return export_claude_skill_md(skill, redactor=redactor)
+    if fmt == "claude-rule":
+        return export_claude_rule_fragment(skill, redactor=redactor)
+    if fmt == "claude-md":
+        return export_claude_md_snippet(skill, redactor=redactor)
+    if fmt == "agents-md":
+        return export_agents_md_fragment(skill, redactor=redactor)
+    if fmt == "codex":
+        directory = export_codex_skill_directory(skill, redactor=redactor)
+        return json.dumps(directory, indent=2, sort_keys=True)
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
@@ -189,14 +214,37 @@ def main(argv: list[str] | None = None) -> int:
             "json",
             "copilot",
             "copilot_instruction",
+            "copilot-repo",
+            "copilot-path",
             "claude",
             "claude_skill",
+            "claude-skill",
+            "claude-rule",
+            "claude-md",
+            "agents-md",
+            "codex",
             "runtime",
         ],
         default="markdown",
     )
+    export_parser.add_argument(
+        "--applies-to",
+        default="**",
+        help="Glob for the copilot-path applyTo frontmatter (default: **)",
+    )
     export_parser.add_argument("--registry-root")
     export_parser.add_argument("--redact", action="store_true")
+
+    export_lesson_parser = subparsers.add_parser(
+        "export-lesson",
+        help="Export an approved candidate as an eval, guardrail, or workflow artifact",
+    )
+    export_lesson_parser.add_argument("candidate")
+    export_lesson_parser.add_argument(
+        "--format", choices=["eval", "guardrail", "workflow"], required=True
+    )
+    export_lesson_parser.add_argument("--registry-root")
+    export_lesson_parser.add_argument("--redact", action="store_true")
 
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
     lint_parser.add_argument("skill")
@@ -304,7 +352,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export-skill":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
-        print(_export_skill(skill, args.format, args.redact))
+        print(_export_skill(skill, args.format, args.redact, args.applies_to))
+        return 0
+
+    if args.command == "export-lesson":
+        candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        redactor = SimpleRedactor() if args.redact else None
+        if args.format == "eval":
+            print(export_eval_spec_markdown(candidate, redactor=redactor))
+        elif args.format == "guardrail":
+            print(export_guardrail_rule_markdown(candidate, redactor=redactor))
+        else:
+            print(export_workflow_recommendation_markdown(candidate, redactor=redactor))
         return 0
 
     if args.command == "lint":

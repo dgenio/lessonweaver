@@ -2,12 +2,23 @@ import json
 from datetime import datetime, timezone
 
 from lessonweaver.export import (
+    export_agents_md_fragment,
+    export_claude_md_snippet,
+    export_claude_rule_fragment,
+    export_claude_skill_md,
+    export_codex_skill_directory,
     export_copilot_instruction_fragment,
+    export_copilot_path_instruction,
+    export_copilot_repo_instruction,
+    export_eval_spec_markdown,
+    export_guardrail_rule_markdown,
     export_operational_lesson_markdown,
     export_skillcard_json,
     export_skillcard_markdown,
+    export_workflow_recommendation_markdown,
 )
 from lessonweaver.models import (
+    LessonCandidate,
     LessonStatus,
     OperationalLesson,
     RecommendedActionType,
@@ -34,6 +45,23 @@ def _make_skill() -> SkillCard:
         risk_level=RiskLevel.MEDIUM,
         scope=Scope.PROJECT,
         version="0.1.0",
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+
+def _make_candidate() -> LessonCandidate:
+    return LessonCandidate(
+        id="cand-1",
+        summary="Inspect diffs before PR review",
+        evidence_trace_ids=["trace-gh-pr-review-001"],
+        evidence_event_ids=["e1"],
+        observed_problem="Agent approved a PR without inspecting the diff.",
+        proposed_lesson="Inspect changed files before drawing review conclusions.",
+        confidence=0.62,
+        recommended_action_type=RecommendedActionType.EVAL,
+        risk_level=RiskLevel.MEDIUM,
+        scope=Scope.PROJECT,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -130,4 +158,161 @@ def test_export_redactor_integration() -> None:
     rendered = export_skillcard_markdown(skill, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
     assert "api_key" not in rendered
+    assert "[REDACTED]" in rendered
+
+
+def test_export_agents_md_fragment_snapshot() -> None:
+    rendered = export_agents_md_fragment(_make_skill())
+    assert rendered == (
+        "<!-- lessonweaver skill_id=skill-1 confidence=0.80 -->\n"
+        "### PR Diff First\n"
+        "\n"
+        "**When to apply:** Reviewing PRs\n"
+        "**Do not apply when:** No code changes\n"
+        "\n"
+        "- Inspect changed files first\n"
+    )
+
+
+def test_export_agents_md_fragment_suppresses_empty_negative() -> None:
+    skill = _make_skill()
+    skill.does_not_apply_when = []
+    rendered = export_agents_md_fragment(skill)
+    assert "Do not apply when" not in rendered
+
+
+def test_export_copilot_repo_instruction_snapshot() -> None:
+    rendered = export_copilot_repo_instruction(_make_skill())
+    assert rendered == (
+        "<!-- lessonweaver skill_id=skill-1 version=0.1.0 -->\n"
+        "## PR Diff First\n"
+        "\n"
+        "Inspect diff before review.\n"
+        "\n"
+        "**Apply when:** Reviewing PRs\n"
+        "**Do not apply when:** No code changes\n"
+        "\n"
+        "**Instructions:**\n"
+        "- Inspect changed files first\n"
+    )
+
+
+def test_export_copilot_path_instruction_glob_in_frontmatter() -> None:
+    rendered = export_copilot_path_instruction(_make_skill(), "**/*.py")
+    assert rendered.startswith('---\napplyTo: "**/*.py"\n---\n')
+    assert "## When to apply" in rendered
+    assert "## When not to apply" in rendered
+    assert "## Required behaviors" in rendered
+
+
+def test_export_copilot_path_instruction_default_glob_and_suppression() -> None:
+    skill = _make_skill()
+    skill.does_not_apply_when = []
+    rendered = export_copilot_path_instruction(skill)
+    assert 'applyTo: "**"' in rendered
+    assert "## When not to apply" not in rendered
+
+
+def test_export_claude_skill_md_snapshot() -> None:
+    rendered = export_claude_skill_md(_make_skill())
+    assert rendered == (
+        "# PR Diff First\n"
+        "\n"
+        "Inspect diff before review.\n"
+        "\n"
+        "## When to use\n"
+        "- Reviewing PRs\n"
+        "\n"
+        "## When NOT to use\n"
+        "- No code changes\n"
+        "\n"
+        "## Instructions\n"
+        "- Inspect changed files first\n"
+        "\n"
+        "## Anti-patterns\n"
+        "- Approve from title only\n"
+        "\n"
+        "## Metadata\n"
+        "- Confidence: 0.80\n"
+        "- Risk: medium\n"
+        "- Evidence: trace-gh-pr-review-001\n"
+    )
+
+
+def test_export_claude_skill_md_suppresses_empty_sections() -> None:
+    skill = _make_skill()
+    skill.anti_patterns = []
+    skill.evidence_trace_ids = []
+    rendered = export_claude_skill_md(skill)
+    assert "## Anti-patterns" not in rendered
+    assert "Evidence:" not in rendered
+    assert "## Metadata" in rendered
+
+
+def test_export_claude_rule_fragment() -> None:
+    rendered = export_claude_rule_fragment(_make_skill())
+    assert rendered == (
+        "# Rule: PR Diff First\n"
+        "\n"
+        "**Applies when:** Reviewing PRs\n"
+        "\n"
+        "**Do:** Inspect changed files first\n"
+        "\n"
+        "**Avoid:** Approve from title only"
+    )
+
+
+def test_export_claude_md_snippet() -> None:
+    rendered = export_claude_md_snippet(_make_skill())
+    assert rendered == (
+        "## Operational guidance: PR Diff First\n"
+        "\n"
+        "Inspect diff before review.\n"
+        "\n"
+        "When: Reviewing PRs. Required: Inspect changed files first."
+    )
+
+
+def test_export_codex_skill_directory() -> None:
+    directory = export_codex_skill_directory(_make_skill())
+    assert set(directory) == {"SKILL.md", "metadata.json"}
+    assert directory["SKILL.md"].startswith(
+        "---\nname: PR Diff First\ndescription: Inspect diff before review.\n---\n"
+    )
+    assert "## Instructions\n- Inspect changed files first" in directory["SKILL.md"]
+    metadata = json.loads(directory["metadata.json"])
+    assert metadata["id"] == "skill-1"
+    assert metadata["version"] == "0.1.0"
+    assert metadata["risk_level"] == "medium"
+    assert metadata["confidence"] == 0.8
+    assert metadata["evidence_trace_ids"] == ["trace-gh-pr-review-001"]
+
+
+def test_export_eval_spec_markdown() -> None:
+    rendered = export_eval_spec_markdown(_make_candidate())
+    assert rendered.startswith("# Eval: Inspect diffs before PR review\n")
+    assert "## Test condition\nInspect changed files before drawing review conclusions." in rendered
+    assert "- trace: trace-gh-pr-review-001" in rendered
+
+
+def test_export_guardrail_rule_markdown() -> None:
+    rendered = export_guardrail_rule_markdown(_make_candidate())
+    assert rendered.startswith("# Guardrail: Inspect diffs before PR review\n")
+    assert "## Trigger condition\nAgent approved a PR without inspecting the diff." in rendered
+    assert "## Blocked behavior" in rendered
+    assert "- trace: trace-gh-pr-review-001" in rendered
+
+
+def test_export_workflow_recommendation_markdown() -> None:
+    rendered = export_workflow_recommendation_markdown(_make_candidate())
+    assert rendered.startswith("# Workflow recommendation: Inspect diffs before PR review\n")
+    assert "## Recommended workflow change\n" in rendered
+    assert "- trace: trace-gh-pr-review-001" in rendered
+
+
+def test_export_lesson_redactor_integration() -> None:
+    candidate = _make_candidate()
+    candidate.observed_problem = "Leaked admin@example.com during review."
+    rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
+    assert "admin@example.com" not in rendered
     assert "[REDACTED]" in rendered

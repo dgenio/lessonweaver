@@ -37,41 +37,51 @@ recipe below exports that skill into a different surface.
 
 ```bash
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format markdown --redact --registry-root /tmp/lw
+  --format agents-md --redact --registry-root /tmp/lw
 ```
 
+- The output is a compact `###`-titled fragment (with an HTML comment carrying
+  the skill id) suitable for inclusion in `AGENTS.md`.
 - Put generated content under a clearly marked section (for example
   `## Reviewed operational lessons`) so it stays separate from hand-written
   project rules.
 - **Review before use:** read the fragment, confirm it contains no raw trace
   evidence, then paste it into `AGENTS.md` and commit it like any other change.
 
-> A dedicated `agents-md` export format is planned
-> ([#48](https://github.com/dgenio/lessonweaver/issues/48)). Until then, use
-> `markdown` or `runtime`.
-
 ## 2. GitHub Copilot instruction workflow
 
 ```bash
+# Compact bullet fragment
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
   --format copilot --redact --registry-root /tmp/lw
+
+# Repository-wide block for .github/copilot-instructions.md
+lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
+  --format copilot-repo --redact --registry-root /tmp/lw
+
+# Path-specific file for .github/instructions/<id>.instructions.md
+lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
+  --format copilot-path --applies-to "src/**/*.py" --redact --registry-root /tmp/lw
 ```
 
-- The output is a compact bullet fragment (skill, use-when, avoid-when, do).
-- **Review before use:** append it to `.github/copilot-instructions.md`
-  manually. Do not auto-append; do not add raw evidence.
+- **Review before use:** append the output to the relevant Copilot instruction
+  file manually. Do not auto-append; do not add raw evidence. See
+  [docs/integrations/github-copilot.md](../integrations/github-copilot.md).
 
 ## 3. Claude Code / Claude-style skill workflow
 
 ```bash
+# Full SKILL.md (claude-rule and claude-md produce shorter fragments)
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format claude --redact --registry-root /tmp/lw
+  --format claude-skill --redact --registry-root /tmp/lw
 ```
 
-- The output is a `##`-titled skill fragment with description, when-to-apply,
-  and instructions.
+- `claude-skill` emits a full SKILL.md; `claude-rule` targets `.claude/rules/`
+  and `claude-md` targets `CLAUDE.md`. The legacy `claude` format still emits the
+  original short fragment.
 - **Review before use:** use it as reviewed project guidance. Claude Code
-  formats may evolve; treat the export as a starting point.
+  formats may evolve; treat the export as a starting point. See
+  [docs/integrations/claude-code.md](../integrations/claude-code.md).
 
 ## 4. Manual fallback workflow
 
@@ -99,8 +109,11 @@ Before any exported fragment is loaded into an agent, confirm:
 
 ## Notes
 
-- Available export formats today: `markdown`, `json`, `copilot`,
-  `copilot_instruction`, `claude`, `claude_skill`, `runtime`.
+- Skill export formats: `markdown`, `json`, `copilot`, `copilot_instruction`,
+  `copilot-repo`, `copilot-path`, `claude`, `claude_skill`, `claude-skill`,
+  `claude-rule`, `claude-md`, `agents-md`, `codex`, `runtime`.
+- Non-skill candidates (eval / guardrail / workflow recommendations) export via
+  `lessonweaver export-lesson <candidate> --format eval|guardrail|workflow`.
 - Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
 - See the [glossary](../glossary.md) and [architecture](../architecture.md) for
   the underlying model, and [when not to create a skill](../when-not-to-create-a-skill.md)
