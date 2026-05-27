@@ -193,6 +193,7 @@ def test_export_copilot_repo_instruction_snapshot() -> None:
         "Inspect diff before review.\n"
         "\n"
         "**Apply when:** Reviewing PRs\n"
+        "\n"
         "**Do not apply when:** No code changes\n"
         "\n"
         "**Instructions:**\n"

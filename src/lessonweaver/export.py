@@ -179,8 +179,11 @@ def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None 
         f"**Apply when:** {'; '.join(_list(skill.applies_when, redactor))}",
     ]
     if skill.does_not_apply_when:
-        lines.append(
-            f"**Do not apply when:** {'; '.join(_list(skill.does_not_apply_when, redactor))}"
+        lines.extend(
+            [
+                "",
+                f"**Do not apply when:** {'; '.join(_list(skill.does_not_apply_when, redactor))}",
+            ]
         )
     lines.extend(["", "**Instructions:**"])
     lines.extend(f"- {item}" for item in _list(skill.instructions, redactor))

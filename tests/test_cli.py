@@ -191,6 +191,50 @@ def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
     assert "### PR Diff First" in out
 
 
+def test_cli_export_skill_copilot_repo(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "copilot-repo", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "<!-- lessonweaver skill_id=skill-1 version=" in out
+    assert "## PR Diff First" in out
+
+
+def test_cli_export_skill_claude_skill(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "claude-skill", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "# PR Diff First" in out
+    assert "## When to use" in out
+
+
+def test_cli_export_skill_claude_rule(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "claude-rule", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert "# Rule: PR Diff First" in capsys.readouterr().out
+
+
+def test_cli_export_skill_claude_md(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        ["export-skill", "skill-1", "--format", "claude-md", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert "## Operational guidance: PR Diff First" in capsys.readouterr().out
+
+
 def test_cli_export_skill_copilot_path_applies_to(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
