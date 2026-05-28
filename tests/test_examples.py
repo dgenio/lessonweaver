@@ -82,6 +82,27 @@ def test_coding_agent_validation_suite_passes_fully() -> None:
     assert result.recall == 1.0
 
 
+def test_coding_agent_validation_suite_passes_via_cli(capsys: pytest.CaptureFixture[str]) -> None:
+    # Exercises the documented `validate-skill --skills-dir <example dir>` path
+    # from the worked-example README. The directory also holds candidate.json and
+    # validation_suite.json, so the CLI must skip non-skill JSON rather than crash.
+    from lessonweaver.cli import main
+
+    exit_code = main(
+        [
+            "validate-skill",
+            str(CODING_AGENT / "validation_suite.json"),
+            "--skills-dir",
+            str(CODING_AGENT),
+        ]
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert report["passed"] == 4
+    assert report["precision"] == 1.0
+    assert report["recall"] == 1.0
+
+
 def test_coding_agent_candidate_matches_detector_output() -> None:
     # candidate.json must stay in sync with what the detector produces for its
     # source trace (ignoring only the wall-clock timestamps).

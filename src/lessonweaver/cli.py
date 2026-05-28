@@ -80,6 +80,24 @@ def _load_skill_ref(skill_ref: str, registry: FileSystemRegistry) -> SkillCard:
     return registry.load_skill(skill_ref)
 
 
+def _load_skill_cards_from_dir(skills_dir: str) -> list[SkillCard]:
+    """Load every SkillCard JSON in a directory.
+
+    Non-SkillCard JSON files (e.g. a candidate or validation-suite fixture that
+    lives alongside a skill in a worked-example folder) are skipped rather than
+    parsed, so pointing ``--skills-dir`` at such a folder does not crash. A
+    SkillCard is identified by the required ``name`` key; files that look like a
+    skill but fail to parse still raise, surfacing genuinely malformed skills.
+    """
+    skills: list[SkillCard] = []
+    for path in sorted(Path(skills_dir).glob("*.json")):
+        data = _read_json(path)
+        if "name" not in data:
+            continue
+        skills.append(SkillCard.from_dict(data))
+    return skills
+
+
 def _skill_from_candidate(
     candidate: LessonCandidate,
     *,
@@ -418,10 +436,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "analyze-skills":
-        skills = [
-            SkillCard.from_dict(_read_json(path))
-            for path in sorted(Path(args.skills_dir).glob("*.json"))
-        ]
+        skills = _load_skill_cards_from_dir(args.skills_dir)
         analysis_findings = SkillAnalyzer().analyze(skills)
         for analysis_finding in analysis_findings:
             print(
@@ -483,10 +498,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate-skill":
         suite = ValidationSuite.from_dict(_read_json(args.suite))
         if args.skills_dir:
-            skills = [
-                SkillCard.from_dict(_read_json(path))
-                for path in sorted(Path(args.skills_dir).glob("*.json"))
-            ]
+            skills = _load_skill_cards_from_dir(args.skills_dir)
         else:
             skills = _registry(args.registry_root).list_skills()
         if not any(skill.id == suite.skill_id for skill in skills):
