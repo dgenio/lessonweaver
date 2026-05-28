@@ -329,6 +329,25 @@ def test_cli_validate_skill_fails_with_exit_code_one(capsys, tmp_path) -> None:
     assert payload["false_negatives"] == 1
 
 
+def test_cli_validate_skill_warns_when_suite_skill_id_missing(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    suite = {
+        "suite_id": "suite-1",
+        "skill_id": "unknown-skill",
+        "examples": [
+            {"example_id": "pos", "task": "Review this pull request", "should_load": True},
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    exit_code = main(["validate-skill", str(suite_path), "--registry-root", str(tmp_path)])
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "warning: suite skill_id 'unknown-skill' not found" in captured.err
+    assert "expected_skill_id override" in captured.err
+
+
 def test_cli_promote_skill(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill(status=SkillStatus.DRAFT))

@@ -287,7 +287,10 @@ def main(argv: list[str] | None = None) -> int:
         "--skills-dir",
         help="Directory of skill JSON files to validate against (default: registry)",
     )
-    validate_skills_source.add_argument("--registry-root")
+    validate_skills_source.add_argument(
+        "--registry-root",
+        help="Registry root containing the skills/ directory (default: ~/.lessonweaver/registry)",
+    )
 
     promote_parser = subparsers.add_parser(
         "promote-skill", help="Promote a skill through the governed lifecycle"
@@ -486,6 +489,13 @@ def main(argv: list[str] | None = None) -> int:
             ]
         else:
             skills = _registry(args.registry_root).list_skills()
+        if not any(skill.id == suite.skill_id for skill in skills):
+            print(
+                f"warning: suite skill_id '{suite.skill_id}' not found among "
+                f"{len(skills)} loaded skill(s); positive examples without an "
+                f"expected_skill_id override will be false negatives",
+                file=sys.stderr,
+            )
         result = run_validation_suite(suite, skills)
         _print_json(result.to_dict())
         return 0 if result.failed == 0 else 1

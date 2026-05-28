@@ -183,6 +183,7 @@ def test_precision_and_recall_with_mixed_outcomes() -> None:
     assert result.false_positives == 0
     assert result.precision == 1.0  # 1 / (1 + 0)
     assert result.recall == 0.5  # 1 / (1 + 1)
+    assert result.failed == result.false_positives + result.false_negatives
 
 
 def test_eval_result_to_dict_includes_metrics() -> None:
