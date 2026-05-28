@@ -1,0 +1,45 @@
+{
+  "trace_id": "trace-pr-review-missing-test-001",
+  "source": "github_coding_agent",
+  "task": "Review pull request for test coverage",
+  "events": [
+    {
+      "id": "m1",
+      "type": "user_message",
+      "content": "Review this pull request.",
+      "metadata": {"pr_number": 128}
+    },
+    {
+      "id": "m2",
+      "type": "assistant_message",
+      "content": "Approved; the description says tests were added.",
+      "metadata": {"evidence": "description_only"}
+    },
+    {
+      "id": "m3",
+      "type": "human_correction",
+      "content": "You approved without checking that the changed files include tests; coverage is missing.",
+      "metadata": {"required_step": "verify_test_coverage"}
+    },
+    {
+      "id": "m4",
+      "type": "tool_call",
+      "content": "get_pr_diff",
+      "status": "success",
+      "success": true,
+      "metadata": {"files_changed": 4}
+    },
+    {
+      "id": "m5",
+      "type": "assistant_message",
+      "content": "Changed files contain no new tests; requesting test coverage before approval."
+    },
+    {
+      "id": "m6",
+      "type": "final_answer",
+      "content": "Review updated to require tests for the changed code."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {"repository": "dgenio/example-repo"}
+}

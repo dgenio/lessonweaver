@@ -1,0 +1,32 @@
+{
+  "suite_id": "suite-pr-review-diff-discipline",
+  "skill_id": "skill-pr-review-diff-discipline",
+  "examples": [
+    {
+      "example_id": "pos-test-coverage",
+      "task": "Review a PR for test coverage",
+      "should_load": true,
+      "notes": "On-topic: PR review for tests must retrieve the skill."
+    },
+    {
+      "example_id": "pos-code-review",
+      "task": "Perform code review on a Python module",
+      "should_load": true,
+      "notes": "On-topic: code review must retrieve the skill."
+    },
+    {
+      "example_id": "neg-readme",
+      "task": "Update the README documentation",
+      "should_load": false,
+      "notes": "Off-topic: documentation edit must not retrieve the skill."
+    },
+    {
+      "example_id": "neg-triage",
+      "task": "Triage a GitHub issue",
+      "should_load": false,
+      "notes": "Off-topic: issue triage must not retrieve the skill."
+    }
+  ],
+  "created_at": "2026-05-27T00:00:00+00:00",
+  "notes": "Retrieval-correctness suite for the PR diff-first review discipline skill."
+}

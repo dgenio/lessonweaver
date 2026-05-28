@@ -65,6 +65,8 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
 
 Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
 For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md).
+For a complete worked example with traces, an approved skill, and a validation
+suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
 
 ## Runtime loading
 
@@ -112,7 +114,7 @@ print(context.snippet)
 | Codex skill directory export | Supported (`codex`) |
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
-| LlamaIndex, OpenAI Agents SDK, Pipecat | Planned adapters (#20, #21, #22) |
+| LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
 ## Governance and safety
 
@@ -156,6 +158,8 @@ Grouped by adoption path (tracking issues):
 - [Ecosystem positioning](docs/ecosystem.md) — integration boundaries
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
+- [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
+- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
 - [Interoperability](docs/interoperability.md)
 - [Trace format](docs/trace-format.md)
 - [Repository readiness](docs/repository-readiness.md)

@@ -1,0 +1,19 @@
+{
+  "trace_id": "trace-usefulness-refund-1",
+  "source": "customer_chatbot",
+  "task": "Answer refund policy questions about returns",
+  "events": [
+    {
+      "id": "u1",
+      "type": "user_message",
+      "content": "What is your refund policy for returns?"
+    },
+    {
+      "id": "u2",
+      "type": "final_answer",
+      "content": "Refunds follow the current refund policy version."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"channel": "web_chat"}
+}
