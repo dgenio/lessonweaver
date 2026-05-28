@@ -1,0 +1,40 @@
+{
+  "trace_id": "trace-tool-api-fallback-001",
+  "source": "github_coding_agent",
+  "task": "Fetch the list of open issues to triage",
+  "events": [
+    {
+      "id": "t1",
+      "type": "user_message",
+      "content": "Fetch the open issues so we can triage them."
+    },
+    {
+      "id": "t2",
+      "type": "tool_call",
+      "content": "get_repo_issues",
+      "status": "failed",
+      "success": false,
+      "metadata": {"http_status": 429, "note": "rate limited"}
+    },
+    {
+      "id": "t3",
+      "type": "tool_call",
+      "content": "get_cached_issues",
+      "status": "success",
+      "success": true,
+      "metadata": {"source": "local_cache", "age_minutes": 12}
+    },
+    {
+      "id": "t4",
+      "type": "assistant_message",
+      "content": "Returned the issue list from a recent cached snapshot."
+    },
+    {
+      "id": "t5",
+      "type": "final_answer",
+      "content": "Triage list produced from cached data after the live API was rate limited."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"repository": "example/repo"}
+}

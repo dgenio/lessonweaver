@@ -1,0 +1,33 @@
+{
+  "trace_id": "trace-pr-review-correct-001",
+  "source": "github_coding_agent",
+  "task": "Review a well-tested pull request",
+  "events": [
+    {
+      "id": "c1",
+      "type": "user_message",
+      "content": "Review this well-tested pull request.",
+      "metadata": {"pr_number": 131}
+    },
+    {
+      "id": "c2",
+      "type": "tool_call",
+      "content": "get_pr_diff",
+      "status": "success",
+      "success": true,
+      "metadata": {"files_changed": 3}
+    },
+    {
+      "id": "c3",
+      "type": "assistant_message",
+      "content": "Inspected the changed files; tests are present and adequate for the change."
+    },
+    {
+      "id": "c4",
+      "type": "final_answer",
+      "content": "Approved with minor non-blocking notes."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"repository": "dgenio/example-repo"}
+}

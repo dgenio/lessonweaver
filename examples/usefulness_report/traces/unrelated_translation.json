@@ -1,0 +1,19 @@
+{
+  "trace_id": "trace-usefulness-unrelated-1",
+  "source": "customer_chatbot",
+  "task": "Translate greeting into French",
+  "events": [
+    {
+      "id": "u1",
+      "type": "user_message",
+      "content": "How do you say hello in French?"
+    },
+    {
+      "id": "u2",
+      "type": "final_answer",
+      "content": "Bonjour."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"channel": "web_chat"}
+}

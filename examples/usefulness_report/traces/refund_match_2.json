@@ -1,0 +1,19 @@
+{
+  "trace_id": "trace-usefulness-refund-2",
+  "source": "customer_chatbot",
+  "task": "Answer refund policy questions about late returns",
+  "events": [
+    {
+      "id": "u1",
+      "type": "user_message",
+      "content": "Can I get a refund 40 days after purchase?"
+    },
+    {
+      "id": "u2",
+      "type": "final_answer",
+      "content": "That depends on the current refund policy version."
+    }
+  ],
+  "outcome": "success",
+  "metadata": {"channel": "web_chat"}
+}

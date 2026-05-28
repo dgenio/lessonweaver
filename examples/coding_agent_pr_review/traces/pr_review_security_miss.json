@@ -1,0 +1,39 @@
+{
+  "trace_id": "trace-pr-review-security-miss-001",
+  "source": "github_coding_agent",
+  "task": "Review pull request for security issues",
+  "events": [
+    {
+      "id": "s1",
+      "type": "user_message",
+      "content": "Review this pull request for security issues.",
+      "metadata": {"pr_number": 137}
+    },
+    {
+      "id": "s2",
+      "type": "assistant_message",
+      "content": "No issues found based on the summary.",
+      "metadata": {"evidence": "summary_only"}
+    },
+    {
+      "id": "s3",
+      "type": "evaluation_result",
+      "status": "failed",
+      "content": "Missed an SQL injection risk in the changed query builder.",
+      "metadata": {"check": "security_review"}
+    },
+    {
+      "id": "s4",
+      "type": "human_correction",
+      "content": "You missed an SQL injection risk in the changed query builder; inspect the diff.",
+      "metadata": {"required_step": "inspect_diff"}
+    },
+    {
+      "id": "s5",
+      "type": "final_answer",
+      "content": "Flagged SQL injection; recommend parameterized queries."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {"repository": "dgenio/example-repo"}
+}

@@ -1,0 +1,24 @@
+{
+  "approved_at": null,
+  "approved_by": null,
+  "confidence": 0.62,
+  "created_at": "2026-05-27T00:00:00+00:00",
+  "evidence_event_ids": [
+    "m3"
+  ],
+  "evidence_trace_ids": [
+    "trace-pr-review-missing-test-001"
+  ],
+  "expires_at": null,
+  "id": "trace-pr-review-missing-test-001-human-correction",
+  "metadata": {},
+  "observed_problem": "Agent required explicit human correction before reaching acceptable behavior.",
+  "owner": null,
+  "proposed_lesson": "Possible reusable pattern: incorporate the corrected check earlier in similar tasks.",
+  "recommended_action_type": "skill",
+  "risk_level": "medium",
+  "scope": "project",
+  "status": "candidate",
+  "summary": "Candidate lesson based on observed correction by a human reviewer.",
+  "updated_at": "2026-05-27T00:00:00+00:00"
+}
