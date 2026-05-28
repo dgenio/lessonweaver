@@ -291,6 +291,44 @@ def test_cli_retrieve(capsys, tmp_path) -> None:
     assert results[0]["skill_id"] == "skill-1"
 
 
+def test_cli_validate_skill_passes(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    suite = {
+        "suite_id": "suite-1",
+        "skill_id": "skill-1",
+        "examples": [
+            {"example_id": "pos", "task": "Review this pull request", "should_load": True},
+            {"example_id": "neg", "task": "Generate a SQL migration", "should_load": False},
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    exit_code = main(["validate-skill", str(suite_path), "--registry-root", str(tmp_path)])
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["pass_rate"] == 1.0
+    assert payload["passed"] == 2
+
+
+def test_cli_validate_skill_fails_with_exit_code_one(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    suite = {
+        "suite_id": "suite-1",
+        "skill_id": "skill-1",
+        "examples": [
+            {"example_id": "fn", "task": "Summarize meeting notes", "should_load": True},
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    exit_code = main(["validate-skill", str(suite_path), "--registry-root", str(tmp_path)])
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["false_negatives"] == 1
+
+
 def test_cli_promote_skill(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill(status=SkillStatus.DRAFT))

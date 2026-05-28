@@ -48,6 +48,13 @@ from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry, LessonRegistry
 from .retrieval import RetrievalQuery, RetrievalResult, SkillRetriever
 from .traces import load_trace_bundle, validate_trace_dict
+from .validation import (
+    SkillEvalResult,
+    ValidationExample,
+    ValidationResult,
+    ValidationSuite,
+    run_validation_suite,
+)
 
 __all__ = [
     "AnalysisFinding",
@@ -77,6 +84,7 @@ __all__ = [
     "SkillAnalyzer",
     "SkillCard",
     "SkillCompiler",
+    "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
     "SkillRetriever",
@@ -84,6 +92,9 @@ __all__ = [
     "TraceBundle",
     "TraceEvent",
     "TraceEventType",
+    "ValidationExample",
+    "ValidationResult",
+    "ValidationSuite",
     "apply_review_answer",
     "can_promote_skill",
     "export_agents_md_fragment",
@@ -104,5 +115,6 @@ __all__ = [
     "export_workflow_recommendation_markdown",
     "load_trace_bundle",
     "promote_skill",
+    "run_validation_suite",
     "validate_trace_dict",
 ]

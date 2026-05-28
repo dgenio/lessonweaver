@@ -96,6 +96,8 @@ print(context.snippet)
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
 - `lessonweaver load "<task>"`
+- `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
+  - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status>`
 
 ## Supported outputs and integrations
