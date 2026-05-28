@@ -282,11 +282,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate that a skill retrieves correctly for a validation suite",
     )
     validate_parser.add_argument("suite")
-    validate_parser.add_argument(
+    validate_skills_source = validate_parser.add_mutually_exclusive_group()
+    validate_skills_source.add_argument(
         "--skills-dir",
         help="Directory of skill JSON files to validate against (default: registry)",
     )
-    validate_parser.add_argument("--registry-root")
+    validate_skills_source.add_argument("--registry-root")
 
     promote_parser = subparsers.add_parser(
         "promote-skill", help="Promote a skill through the governed lifecycle"

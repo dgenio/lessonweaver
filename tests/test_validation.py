@@ -132,6 +132,26 @@ def test_false_positive_when_negative_example_still_matches_skill() -> None:
     assert result.precision == 0.0  # 0 / (0 + 1)
 
 
+def test_expected_skill_id_overrides_suite_default() -> None:
+    # When an example sets ``expected_skill_id``, the runner must check that
+    # skill's retrieval, not the suite's default skill_id. This exercises the
+    # override branch of ``target_skill_id = example.expected_skill_id or
+    # suite.skill_id``, which the rest of the tests leave untouched.
+    policy_skill = _skill("policy", "Policy Check", ["answering policy questions"])
+    suite = _suite(
+        ValidationExample(
+            "ex",
+            "Answering policy questions",
+            should_load=True,
+            expected_skill_id="policy",
+        ),
+    )
+    result = run_validation_suite(suite, [_pr_skill(), policy_skill])
+    assert result.true_positives == 1
+    assert result.results[0].skill_id == "policy"
+    assert result.results[0].classification == "true_positive"
+
+
 def test_non_active_skill_is_evaluated_by_validation_runner() -> None:
     # Validation is a pre-activation correctness check; non-active skills must
     # still be retrieved by run_validation_suite, otherwise every positive
