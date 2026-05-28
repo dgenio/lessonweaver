@@ -163,7 +163,9 @@ def run_validation_suite(
 
     Delegates entirely to ``SkillRetriever``; no model calls. An example passes
     when the skill's presence in the retrieval results matches
-    ``example.should_load``.
+    ``example.should_load``. Lifecycle status is intentionally ignored
+    (``include_non_active=True``) so pre-activation skills can still be
+    evaluated; production retrieval semantics remain ACTIVE-only.
     """
 
     retriever = retriever or SkillRetriever()
