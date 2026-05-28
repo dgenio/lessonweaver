@@ -182,6 +182,7 @@ def run_validation_suite(
             agent_type=example.agent_type,
             scope=example.scope,
             max_results=max(len(skills), 1),
+            include_non_active=True,
         )
         retrieved = retriever.retrieve(skills, query)
         match = next((result for result in retrieved if result.skill.id == target_skill_id), None)

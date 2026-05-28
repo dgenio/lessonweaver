@@ -117,6 +117,41 @@ def test_false_negative_when_expected_skill_missing_from_registry() -> None:
     assert result.results[0].classification == "false_negative"
 
 
+def test_false_positive_when_negative_example_still_matches_skill() -> None:
+    # A negative example (should_load=False) whose task still lexically matches
+    # the target skill must be classified as a false positive — the branch
+    # _classify uses for FP, and the denominator precision depends on.
+    result = run_validation_suite(
+        _suite(ValidationExample("fp", "Review this pull request", should_load=False)),
+        [_pr_skill()],
+    )
+    assert result.false_positives == 1
+    assert result.results[0].classification == "false_positive"
+    assert result.results[0].actual is True
+    assert result.results[0].passed is False
+    assert result.precision == 0.0  # 0 / (0 + 1)
+
+
+def test_non_active_skill_is_evaluated_by_validation_runner() -> None:
+    # Validation is a pre-activation correctness check; non-active skills must
+    # still be retrieved by run_validation_suite, otherwise every positive
+    # example for a freshly approved/experimental skill would be a false
+    # negative regardless of lexical match.
+    experimental_skill = _skill(
+        PR_SKILL,
+        "PR Diff First",
+        ["reviewing pull requests"],
+        status=SkillStatus.EXPERIMENTAL,
+    )
+    result = run_validation_suite(
+        _suite(ValidationExample("pos", "Review this pull request", should_load=True)),
+        [experimental_skill],
+    )
+    assert result.true_positives == 1
+    assert result.results[0].classification == "true_positive"
+    assert result.results[0].actual is True
+
+
 def test_precision_and_recall_with_mixed_outcomes() -> None:
     suite = _suite(
         ValidationExample("tp", "Review this pull request", should_load=True),  # match -> TP
