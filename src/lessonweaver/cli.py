@@ -492,8 +492,8 @@ def main(argv: list[str] | None = None) -> int:
         if not any(skill.id == suite.skill_id for skill in skills):
             print(
                 f"warning: suite skill_id '{suite.skill_id}' not found among "
-                f"{len(skills)} loaded skill(s); positive examples will be "
-                f"false negatives",
+                f"{len(skills)} loaded skill(s); positive examples without an "
+                f"expected_skill_id override will be false negatives",
                 file=sys.stderr,
             )
         result = run_validation_suite(suite, skills)
