@@ -10,6 +10,21 @@ def test_detection_from_human_correction() -> None:
     assert any("observed correction" in candidate.summary for candidate in candidates)
 
 
+def test_detection_populates_evidence_fields_distinct_from_confidence() -> None:
+    trace = load_trace_bundle("examples/traces/github_pr_review_failure.json")
+    candidates = LessonDetector().detect(trace)
+    assert candidates
+    correction = next(c for c in candidates if "observed correction" in c.summary)
+    # A human correction is direct evidence: strength is higher than confidence
+    # and the two scores are intentionally not the same value.
+    assert correction.evidence_strength == 0.7
+    assert correction.confidence == 0.62
+    assert correction.evidence_strength != correction.confidence
+    # Every detected candidate must carry a non-empty rationale.
+    assert all(candidate.evidence_summary for candidate in candidates)
+    assert all(0.0 <= candidate.evidence_strength <= 1.0 for candidate in candidates)
+
+
 def test_detection_boring_success_trace_produces_no_candidate() -> None:
     trace = TraceBundle.from_dict(
         {

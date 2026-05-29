@@ -30,6 +30,7 @@ from .models import (
     ExportFormat,
     LessonCandidate,
     LessonStatus,
+    LoadingPolicy,
     OperationalLesson,
     RecommendedActionType,
     ReviewAnswer,
@@ -40,12 +41,15 @@ from .models import (
     SensitivityLevel,
     SkillCard,
     SkillStatus,
+    SkillUsageEvent,
+    StaleSkillReport,
     TraceBundle,
     TraceEvent,
     TraceEventType,
 )
 from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry, LessonRegistry
+from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, RetrievalResult, SkillRetriever
 from .traces import load_trace_bundle, validate_trace_dict
 from .validation import (
@@ -70,6 +74,7 @@ __all__ = [
     "LessonStatus",
     "LintFinding",
     "LintSeverity",
+    "LoadingPolicy",
     "OperationalLesson",
     "RecommendedActionType",
     "RetrievalQuery",
@@ -87,8 +92,11 @@ __all__ = [
     "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
+    "SkillReporter",
     "SkillRetriever",
     "SkillStatus",
+    "SkillUsageEvent",
+    "StaleSkillReport",
     "TraceBundle",
     "TraceEvent",
     "TraceEventType",
