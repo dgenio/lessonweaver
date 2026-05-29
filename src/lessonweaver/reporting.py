@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
 
-from .models import SkillStatus, StaleSkillReport
+from .models import SkillStatus, SkillUsageEvent, StaleSkillReport
 from .registry import FileSystemRegistry
 
 _LOW_CONFIDENCE_THRESHOLD = 0.3
@@ -30,8 +31,17 @@ class SkillReporter:
         """
         moment = now or datetime.now(timezone.utc)
         reports: list[StaleSkillReport] = []
+
+        # Load the usage log once and group it by skill id in memory. Calling
+        # ``registry.list_skill_usage`` per skill would re-scan and re-parse the
+        # entire usage directory for every skill (O(skills * events) reads),
+        # which degrades as the usage log accumulates over time.
+        usage_by_skill: dict[str, list[SkillUsageEvent]] = defaultdict(list)
+        for event in registry.list_usage_events():
+            usage_by_skill[event.skill_id].append(event)
+
         for skill in registry.list_skills():
-            usage = registry.list_skill_usage(skill.id)
+            usage = usage_by_skill.get(skill.id, [])
             last_used_at = max((event.loaded_at for event in usage), default=None)
 
             if skill.expires_at is not None and skill.expires_at <= moment:
