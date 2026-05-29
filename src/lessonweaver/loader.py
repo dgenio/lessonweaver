@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
+from .models import LoadingPolicy
 from .registry import FileSystemRegistry
 from .retrieval import RetrievalQuery, SkillRetriever
 
@@ -15,10 +16,12 @@ class SkillLoader:
         registry: FileSystemRegistry | None = None,
         retriever: SkillRetriever | None = None,
         compiler: SkillCompiler | None = None,
+        policy: LoadingPolicy | None = None,
     ) -> None:
         self.registry = registry or FileSystemRegistry()
         self.retriever = retriever or SkillRetriever()
         self.compiler = compiler or SkillCompiler()
+        self.policy = policy
 
     def load_for_task(
         self,
@@ -39,7 +42,10 @@ class SkillLoader:
             risk_level=risk_level,
             max_results=max_skills,
         )
-        results = self.retriever.retrieve(self.registry.list_skills(), query)
+        skills = self.registry.list_skills()
+        if self.policy is not None:
+            skills = self.policy.filter(skills)
+        results = self.retriever.retrieve(skills, query)
         return self.compiler.compile(
             results,
             budget_chars=budget_chars,

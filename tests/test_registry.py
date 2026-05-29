@@ -11,6 +11,7 @@ from lessonweaver.models import (
     RiskLevel,
     Scope,
     SkillCard,
+    SkillUsageEvent,
 )
 from lessonweaver.registry import FileSystemRegistry, LessonRegistry
 
@@ -148,3 +149,32 @@ def test_filesystem_registry_list_rejects_invalid_json(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="contains invalid JSON"):
         registry.list_skills()
+
+
+def _usage_event(event_id: str, skill_id: str = "skill-1") -> SkillUsageEvent:
+    return SkillUsageEvent(
+        id=event_id,
+        skill_id=skill_id,
+        skill_version="0.1.0",
+        task_context="testing reuse",
+    )
+
+
+def test_filesystem_registry_usage_event_round_trip(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    event = _usage_event("usage-1")
+    registry.save_usage_event(event)
+    assert registry.load_usage_event("usage-1").to_dict() == event.to_dict()
+    assert registry.list_usage_events()[0].id == "usage-1"
+
+
+def test_filesystem_registry_list_skill_usage_filters_by_skill_id(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_usage_event(_usage_event("usage-1", skill_id="skill-1"))
+    registry.save_usage_event(_usage_event("usage-2", skill_id="skill-1"))
+    registry.save_usage_event(_usage_event("usage-3", skill_id="skill-2"))
+
+    for_skill_1 = registry.list_skill_usage("skill-1")
+    assert {event.id for event in for_skill_1} == {"usage-1", "usage-2"}
+    assert registry.list_skill_usage("skill-2")[0].id == "usage-3"
+    assert registry.list_skill_usage("unknown") == []

@@ -8,7 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeVar
 
-from .models import ExportArtifact, LessonCandidate, OperationalLesson, SkillCard
+from .models import (
+    ExportArtifact,
+    LessonCandidate,
+    OperationalLesson,
+    SkillCard,
+    SkillUsageEvent,
+)
 
 T = TypeVar("T")
 
@@ -44,6 +50,7 @@ class FileSystemRegistry:
         self.skills_dir = self.root / "skills"
         self.lessons_dir = self.root / "lessons"
         self.artifacts_dir = self.root / "artifacts"
+        self.usage_dir = self.root / "usage"
 
     def save_candidate(self, candidate: LessonCandidate) -> None:
         self._save(self.candidates_dir, candidate.id, candidate.to_dict())
@@ -92,6 +99,22 @@ class FileSystemRegistry:
 
     def delete_artifact(self, artifact_id: str) -> None:
         self._delete(self.artifacts_dir, artifact_id, "artifact")
+
+    def save_usage_event(self, event: SkillUsageEvent) -> None:
+        self._save(self.usage_dir, event.id, event.to_dict())
+
+    def load_usage_event(self, event_id: str) -> SkillUsageEvent:
+        return self._load(self.usage_dir, event_id, SkillUsageEvent.from_dict, "usage event")
+
+    def list_usage_events(self) -> list[SkillUsageEvent]:
+        return self._list(self.usage_dir, SkillUsageEvent.from_dict)
+
+    def list_skill_usage(self, skill_id: str) -> list[SkillUsageEvent]:
+        """Return all recorded usage events for a single skill."""
+        return [event for event in self.list_usage_events() if event.skill_id == skill_id]
+
+    def delete_usage_event(self, event_id: str) -> None:
+        self._delete(self.usage_dir, event_id, "usage event")
 
     def _path(self, directory: Path, object_id: str) -> Path:
         _validate_id(object_id)

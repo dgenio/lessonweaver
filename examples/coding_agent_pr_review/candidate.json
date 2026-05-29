@@ -6,6 +6,8 @@
   "evidence_event_ids": [
     "m3"
   ],
+  "evidence_strength": 0.7,
+  "evidence_summary": "A human correction event is direct, first-hand evidence that the agent's behavior needed fixing before it was acceptable.",
   "evidence_trace_ids": [
     "trace-pr-review-missing-test-001"
   ],

@@ -49,6 +49,11 @@ class LessonDetector:
                         )
                     ),
                     confidence=0.70,
+                    evidence_strength=0.6,
+                    evidence_summary=(
+                        "Explicit trace metadata flag is a human-provided signal, but it is "
+                        "not derived from observed failure events in the trace."
+                    ),
                     recommended_action_type=RecommendedActionType.SKILL,
                     risk_level=RiskLevel.MEDIUM,
                     scope=Scope.PROJECT,
@@ -73,6 +78,11 @@ class LessonDetector:
                         "in similar tasks."
                     ),
                     confidence=0.62,
+                    evidence_strength=0.7,
+                    evidence_summary=(
+                        "A human correction event is direct, first-hand evidence that the "
+                        "agent's behavior needed fixing before it was acceptable."
+                    ),
                     recommended_action_type=RecommendedActionType.SKILL,
                     risk_level=RiskLevel.MEDIUM,
                     scope=Scope.PROJECT,
@@ -99,6 +109,11 @@ class LessonDetector:
                         "before answering."
                     ),
                     confidence=0.58,
+                    evidence_strength=0.65,
+                    evidence_summary=(
+                        "A failed evaluation_result is a graded signal of a real problem, "
+                        "though it may not pinpoint the root cause on its own."
+                    ),
                     recommended_action_type=RecommendedActionType.EVAL,
                     risk_level=RiskLevel.HIGH,
                     scope=Scope.PROJECT,
@@ -135,6 +150,11 @@ class LessonDetector:
                             "failure mode."
                         ),
                         confidence=0.49,
+                        evidence_strength=0.4,
+                        evidence_summary=(
+                            "Error followed by retry then success is indirect evidence; the "
+                            "recovery may be incidental rather than a reusable pattern."
+                        ),
                         recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
                         risk_level=RiskLevel.LOW,
                         scope=Scope.PROJECT,
@@ -180,6 +200,11 @@ class LessonDetector:
                                 "guidance for this task type."
                             ),
                             confidence=0.44,
+                            evidence_strength=0.35,
+                            evidence_summary=(
+                                "A later successful tool call after a failure is weak evidence "
+                                "of a reusable fallback rule; the alternative may be situational."
+                            ),
                             recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
                             risk_level=RiskLevel.MEDIUM,
                             scope=Scope.PROJECT,
@@ -203,6 +228,11 @@ class LessonDetector:
                         "answer in similar runs."
                     ),
                     confidence=0.42,
+                    evidence_strength=0.3,
+                    evidence_summary=(
+                        "Only the final outcome flag indicates a correction was needed; no "
+                        "explicit correction event provides supporting detail."
+                    ),
                     recommended_action_type=RecommendedActionType.TEST,
                     risk_level=RiskLevel.MEDIUM,
                     scope=Scope.PROJECT,

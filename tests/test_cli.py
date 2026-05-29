@@ -355,3 +355,44 @@ def test_cli_promote_skill(capsys, tmp_path) -> None:
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "approved"
+
+
+def test_cli_log_usage_records_event(capsys, tmp_path) -> None:
+    exit_code = main(
+        [
+            "log-usage",
+            "skill-1",
+            "Reviewing a pull request",
+            "--skill-version",
+            "0.2.0",
+            "--outcome",
+            "resolved",
+            "--positive",
+            "--id",
+            "usage-1",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["id"] == "usage-1"
+    assert payload["outcome_positive"] is True
+
+    registry = FileSystemRegistry(tmp_path)
+    stored = registry.list_skill_usage("skill-1")
+    assert len(stored) == 1
+    assert stored[0].task_context == "Reviewing a pull request"
+
+
+def test_cli_report_stale_outputs_json(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.DEPRECATED))
+    exit_code = main(
+        ["report-stale", "--registry-root", str(tmp_path), "--now", "2026-05-26T12:00:00Z"]
+    )
+    assert exit_code == 0
+    reports = json.loads(capsys.readouterr().out)
+    reasons = {report["reason"] for report in reports}
+    assert "deprecated" in reasons
+    assert "never_used" in reasons

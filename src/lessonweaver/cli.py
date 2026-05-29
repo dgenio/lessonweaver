@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,9 +43,11 @@ from .models import (
     SensitivityLevel,
     SkillCard,
     SkillStatus,
+    SkillUsageEvent,
 )
 from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry
+from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, SkillRetriever
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
@@ -317,6 +320,33 @@ def main(argv: list[str] | None = None) -> int:
     promote_parser.add_argument("target", choices=[item.value for item in SkillStatus])
     promote_parser.add_argument("--registry-root")
 
+    usage_parser = subparsers.add_parser(
+        "log-usage", help="Record that a skill was loaded into an agent context"
+    )
+    usage_parser.add_argument("skill_id")
+    usage_parser.add_argument("task_context")
+    usage_parser.add_argument("--skill-version", default="")
+    usage_parser.add_argument("--outcome")
+    outcome_group = usage_parser.add_mutually_exclusive_group()
+    outcome_group.add_argument(
+        "--positive", dest="outcome_positive", action="store_const", const=True, default=None
+    )
+    outcome_group.add_argument(
+        "--negative", dest="outcome_positive", action="store_const", const=False
+    )
+    usage_parser.add_argument("--notes")
+    usage_parser.add_argument("--id", dest="event_id")
+    usage_parser.add_argument("--registry-root")
+
+    report_parser = subparsers.add_parser(
+        "report-stale",
+        help="Report expired, deprecated, low-confidence, or never-used skills",
+    )
+    report_parser.add_argument("--registry-root")
+    report_parser.add_argument(
+        "--now", help="ISO 8601 timestamp to evaluate expiry against (default: current time)"
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "detect":
@@ -518,6 +548,32 @@ def main(argv: list[str] | None = None) -> int:
         promoted = promote_skill(skill, SkillStatus(args.target))
         registry.save_skill(promoted)
         _print_json(promoted.to_dict())
+        return 0
+
+    if args.command == "log-usage":
+        registry = _registry(args.registry_root)
+        event = SkillUsageEvent(
+            id=args.event_id or f"usage-{uuid.uuid4().hex}",
+            skill_id=args.skill_id,
+            skill_version=args.skill_version,
+            task_context=args.task_context,
+            outcome=args.outcome,
+            outcome_positive=args.outcome_positive,
+            notes=args.notes,
+        )
+        registry.save_usage_event(event)
+        _print_json(event.to_dict())
+        return 0
+
+    if args.command == "report-stale":
+        registry = _registry(args.registry_root)
+        report_now: datetime | None = None
+        if args.now:
+            report_now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+            if report_now.tzinfo is None:
+                report_now = report_now.replace(tzinfo=timezone.utc)
+        reports = SkillReporter().report_stale(registry, now=report_now)
+        _print_json([report.to_dict() for report in reports])
         return 0
 
     return 1
