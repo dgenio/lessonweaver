@@ -22,7 +22,7 @@ from .export import (
     export_workflow_recommendation_markdown,
 )
 from .governance import can_promote_skill, promote_skill
-from .interview import LessonInterviewer, apply_review_answer
+from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintFinding, LintSeverity, SkillLinter
 from .loader import SkillLoader
 from .models import (
@@ -36,6 +36,7 @@ from .models import (
     ReviewAnswer,
     ReviewOption,
     ReviewQuestion,
+    ReviewSession,
     RiskLevel,
     Scope,
     SensitivityLevel,
@@ -82,6 +83,7 @@ __all__ = [
     "ReviewAnswer",
     "ReviewOption",
     "ReviewQuestion",
+    "ReviewSession",
     "RiskLevel",
     "Scope",
     "SensitivityLevel",
@@ -121,8 +123,10 @@ __all__ = [
     "export_skillcard_json",
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
+    "load_session",
     "load_trace_bundle",
     "promote_skill",
     "run_validation_suite",
+    "save_session",
     "validate_trace_dict",
 ]

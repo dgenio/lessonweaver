@@ -267,6 +267,7 @@ class ReviewOption:
     label: str
     description: str
     effect: dict[str, Any] = field(default_factory=dict)
+    follow_up_question_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReviewOption:
@@ -275,6 +276,7 @@ class ReviewOption:
             label=str(data["label"]),
             description=str(data.get("description", "")),
             effect=dict(data.get("effect", {})),
+            follow_up_question_ids=list(data.get("follow_up_question_ids", [])),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -328,6 +330,51 @@ class ReviewAnswer:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(slots=True)
+class ReviewSession:
+    """Persisted progress of a guided MCQ review so it can be paused and resumed.
+
+    ``started_at`` and ``updated_at`` are ISO 8601 strings. ``current_question_index``
+    is a simple position marker into the review (typically the number of answers
+    recorded); the next questions to ask are derived from ``answers`` so adaptive
+    follow-ups stay deterministic on resume.
+    """
+
+    session_id: str
+    candidate_id: str
+    started_at: str
+    updated_at: str
+    answers: list[ReviewAnswer] = field(default_factory=list)
+    current_question_index: int = 0
+    completed: bool = False
+    notes: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ReviewSession:
+        return cls(
+            session_id=str(data["session_id"]),
+            candidate_id=str(data["candidate_id"]),
+            started_at=str(data["started_at"]),
+            updated_at=str(data["updated_at"]),
+            answers=[ReviewAnswer.from_dict(item) for item in data.get("answers", [])],
+            current_question_index=int(data.get("current_question_index", 0)),
+            completed=bool(data.get("completed", False)),
+            notes=str(data.get("notes", "")),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "candidate_id": self.candidate_id,
+            "started_at": self.started_at,
+            "updated_at": self.updated_at,
+            "answers": [answer.to_dict() for answer in self.answers],
+            "current_question_index": self.current_question_index,
+            "completed": self.completed,
+            "notes": self.notes,
+        }
 
 
 @dataclass(slots=True)

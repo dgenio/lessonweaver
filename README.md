@@ -88,12 +88,27 @@ print(context.snippet)
 
 ## Commands
 
-- `lessonweaver detect <trace.json> [--save]`
-- `lessonweaver interview <candidate-id-or-json>`
-- `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...]`
-- `lessonweaver approve <candidate-id> [--approved-by ...]`
-- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact]`
-- `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact]`
+- `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
+- `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
+- `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
+- `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
+- `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
+- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
+
+Shared output flags: `--output FILE` writes the result to a file instead of stdout;
+`--json` wraps `export-skill`/`export-lesson` output in a `{"format": ..., "content": ...}`
+envelope for scripting; `--dry-run` previews a command without writing any file or
+registry entry (it prints a `[dry-run] would write to: ...` notice when `--output` is set).
+The review interview is adaptive: marking a lesson `high` risk or `workflow_change`
+queues a follow-up question, and a `reject` decision skips the remaining scoping
+questions. Save progress with `interview --session FILE` (a registry-backed candidate
+is required so it can be reloaded), record answers into that session with
+`answer --session FILE`, and continue later with `resume-interview`, which lists the
+remaining adaptive questions from the answers recorded so far.
+
+Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
+an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
