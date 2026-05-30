@@ -272,6 +272,7 @@ class LessonInterviewer:
         existing static behavior is preserved.
         """
         answered = {answer.question_id for answer in answers}
+        answer_by_question = {answer.question_id: answer for answer in answers}
         base = self.build_questions(candidate)
         follow_ups = self.build_follow_up_questions(candidate)
         rejected = any(
@@ -280,28 +281,32 @@ class LessonInterviewer:
         )
 
         plan: list[ReviewQuestion] = []
+        planned_ids: set[str] = set()
+
+        def add_with_follow_ups(question: ReviewQuestion) -> None:
+            if question.id in planned_ids:
+                return
+            plan.append(question)
+            planned_ids.add(question.id)
+            answer = answer_by_question.get(question.id)
+            if answer is None:
+                return
+            option = next(
+                (item for item in question.options if item.id == answer.chosen_option_id), None
+            )
+            if option is None:
+                return
+            # Insert each triggered follow-up immediately after its triggering
+            # question so the adaptive flow follows the order the reviewer answered in.
+            for follow_up_id in option.follow_up_question_ids:
+                follow_up = follow_ups.get(follow_up_id)
+                if follow_up is not None:
+                    add_with_follow_ups(follow_up)
+
         for question in base:
             if rejected and question.id in _SKIP_ON_REJECT and question.id not in answered:
                 continue
-            plan.append(question)
-
-        questions_by_id = {question.id: question for question in base}
-        questions_by_id.update(follow_ups)
-        planned_ids = {question.id for question in plan}
-        for answer in answers:
-            source = questions_by_id.get(answer.question_id)
-            if source is None:
-                continue
-            option = next(
-                (item for item in source.options if item.id == answer.chosen_option_id), None
-            )
-            if option is None:
-                continue
-            for follow_up_id in option.follow_up_question_ids:
-                follow_up = follow_ups.get(follow_up_id)
-                if follow_up is not None and follow_up.id not in planned_ids:
-                    plan.append(follow_up)
-                    planned_ids.add(follow_up.id)
+            add_with_follow_ups(question)
 
         return [question for question in plan if question.id not in answered]
 

@@ -416,9 +416,13 @@ def test_cli_detect_output_writes_file_and_silences_stdout(capsys, tmp_path) -> 
 
 
 def test_cli_detect_missing_file_returns_one(capsys, tmp_path) -> None:
-    exit_code = main(["detect", str(tmp_path / "does-not-exist.json")])
+    missing = tmp_path / "does-not-exist.json"
+    exit_code = main(["detect", str(missing)])
     assert exit_code == 1
-    assert "file not found" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "file not found" in err
+    assert str(missing) in err
+    assert "Errno" not in err
 
 
 def test_cli_detect_invalid_json_returns_two(capsys, tmp_path) -> None:
@@ -426,7 +430,9 @@ def test_cli_detect_invalid_json_returns_two(capsys, tmp_path) -> None:
     bad.write_text("{not valid json", encoding="utf-8")
     exit_code = main(["detect", str(bad)])
     assert exit_code == 2
-    assert "invalid JSON" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "invalid JSON" in err
+    assert "line" in err and "column" in err
 
 
 def test_cli_export_skill_output_writes_file(capsys, tmp_path) -> None:

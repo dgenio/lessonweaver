@@ -414,10 +414,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return _run(args)
     except FileNotFoundError as exc:
-        print(f"Error: file not found: {exc}", file=sys.stderr)
+        # Prefer the clean path from the OS error; registry lookups raise this
+        # without a filename, so fall back to their explanatory message.
+        location = exc.filename or str(exc)
+        print(f"Error: file not found: {location}", file=sys.stderr)
         return 1
     except json.JSONDecodeError as exc:
-        print(f"Error: invalid JSON: {exc}", file=sys.stderr)
+        print(
+            f"Error: invalid JSON: {exc.msg} (line {exc.lineno} column {exc.colno})",
+            file=sys.stderr,
+        )
         return 2
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)

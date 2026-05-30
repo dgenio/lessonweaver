@@ -136,7 +136,11 @@ def test_next_questions_high_risk_queues_approval_follow_up() -> None:
     interviewer = LessonInterviewer()
     candidate = _candidate("nq3")
     remaining = interviewer.next_questions(candidate, [ReviewAnswer("risk_level", "high")])
-    assert any(q.id == "approval_requirement" for q in remaining)
+    ids = [q.id for q in remaining]
+    assert "approval_requirement" in ids
+    # The follow-up slots in right after its trigger (risk_level), not at the end.
+    assert ids.index("approval_requirement") < ids.index("applicability")
+    assert ids.index("approval_requirement") < ids.index("decision")
 
 
 def test_next_questions_workflow_change_queues_determinism_follow_up() -> None:
@@ -145,7 +149,9 @@ def test_next_questions_workflow_change_queues_determinism_follow_up() -> None:
     remaining = interviewer.next_questions(
         candidate, [ReviewAnswer("action_type", "workflow_change")]
     )
-    assert any(q.id == "workflow_determinism" for q in remaining)
+    ids = [q.id for q in remaining]
+    assert "workflow_determinism" in ids
+    assert ids.index("workflow_determinism") < ids.index("risk_level")
 
 
 def test_follow_up_answer_is_stored_in_metadata() -> None:
