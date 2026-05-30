@@ -98,6 +98,15 @@ def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> Les
     return registry.load_candidate(candidate_ref)
 
 
+def _find_review_question(candidate: LessonCandidate, question_id: str):
+    """Find a review question by id across both base and adaptive follow-up questions."""
+    interviewer = LessonInterviewer()
+    for question in interviewer.build_questions(candidate):
+        if question.id == question_id:
+            return question
+    return interviewer.build_follow_up_questions(candidate).get(question_id)
+
+
 def _load_skill_ref(skill_ref: str, registry: FileSystemRegistry) -> SkillCard:
     path = Path(skill_ref)
     if path.exists():
@@ -238,7 +247,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     interview_parser = subparsers.add_parser(
-        "interview", help="Generate review questions for a candidate"
+        "interview",
+        parents=[dry_run_parent],
+        help="Generate review questions for a candidate",
     )
     interview_parser.add_argument("candidate")
     interview_parser.add_argument("--registry-root")
@@ -262,6 +273,9 @@ def main(argv: list[str] | None = None) -> int:
     answer_parser.add_argument("chosen_option_id")
     answer_parser.add_argument("--free-text", default="")
     answer_parser.add_argument("--registry-root")
+    answer_parser.add_argument(
+        "--session", help="Record this answer into a resumable review session at this path"
+    )
 
     approve_parser = subparsers.add_parser(
         "approve",
@@ -450,17 +464,32 @@ def _run(args: argparse.Namespace) -> int:
         return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "interview":
-        candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        registry = _registry(args.registry_root)
+        candidate = _load_candidate_ref(args.candidate, registry)
         questions = LessonInterviewer().build_questions(candidate)
         if args.session:
-            created = _now_iso()
-            session = ReviewSession(
-                session_id=f"session-{uuid.uuid4().hex}",
-                candidate_id=candidate.id,
-                started_at=created,
-                updated_at=created,
-            )
-            save_session(session, args.session)
+            # resume-interview reloads the candidate from the registry by id, so a
+            # session is only resumable when its candidate is registry-backed.
+            try:
+                registry.load_candidate(candidate.id)
+            except (FileNotFoundError, ValueError):
+                print(
+                    f"Error: interview --session requires a registry-backed candidate; "
+                    f"'{candidate.id}' is not in the registry. Run `detect --save` first.",
+                    file=sys.stderr,
+                )
+                return 1
+            if args.dry_run:
+                print(f"[dry-run] would write session to: {args.session}")
+            else:
+                created = _now_iso()
+                session = ReviewSession(
+                    session_id=f"session-{uuid.uuid4().hex}",
+                    candidate_id=candidate.id,
+                    started_at=created,
+                    updated_at=created,
+                )
+                save_session(session, args.session)
         _print_json([question.to_dict() for question in questions])
         return 0
 
@@ -473,9 +502,18 @@ def _run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        candidate = _registry(args.registry_root).load_candidate(session.candidate_id)
+        try:
+            candidate = _registry(args.registry_root).load_candidate(session.candidate_id)
+        except (FileNotFoundError, ValueError):
+            print(
+                f"Error: session '{session.session_id}' references candidate "
+                f"'{session.candidate_id}', which is not in the registry; cannot resume.",
+                file=sys.stderr,
+            )
+            return 1
         remaining = LessonInterviewer().next_questions(candidate, session.answers)
         if not args.dry_run:
+            session.current_question_index = len(session.answers)
             session.updated_at = _now_iso()
             save_session(session, args.session_path)
         _print_json(
@@ -492,14 +530,26 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "answer":
         registry = _registry(args.registry_root)
         candidate = registry.load_candidate(args.candidate_id)
-        question = next(
-            (
-                question
-                for question in LessonInterviewer().build_questions(candidate)
-                if question.id == args.question_id
-            ),
-            None,
-        )
+        # Validate the target session up front so a bad session never leaves a
+        # half-applied answer behind in the registry.
+        review_session: ReviewSession | None = None
+        if args.session:
+            review_session = load_session(args.session)
+            if review_session.completed:
+                print(
+                    f"Error: review session '{review_session.session_id}' is already completed "
+                    f"and cannot record new answers",
+                    file=sys.stderr,
+                )
+                return 1
+            if review_session.candidate_id != candidate.id:
+                print(
+                    f"Error: session '{review_session.session_id}' is for candidate "
+                    f"'{review_session.candidate_id}', not '{candidate.id}'",
+                    file=sys.stderr,
+                )
+                return 1
+        question = _find_review_question(candidate, args.question_id)
         if question is None:
             print(f"question '{args.question_id}' not found", file=sys.stderr)
             return 1
@@ -510,6 +560,11 @@ def _run(args: argparse.Namespace) -> int:
             print(str(exc), file=sys.stderr)
             return 1
         registry.save_candidate(updated_candidate)
+        if review_session is not None:
+            review_session.answers.append(answer)
+            review_session.current_question_index = len(review_session.answers)
+            review_session.updated_at = _now_iso()
+            save_session(review_session, args.session)
         _print_json(updated_candidate.to_dict())
         return 0
 

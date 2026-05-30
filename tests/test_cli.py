@@ -542,3 +542,146 @@ def test_cli_interview_session_create_resume_and_completed_guard(capsys, tmp_pat
     exit_code = main(["resume-interview", str(session_path), "--registry-root", str(tmp_path)])
     assert exit_code == 1
     assert "already completed" in capsys.readouterr().err
+
+
+_TRACE = "examples/traces/github_pr_review_failure.json"
+_CID = "trace-gh-pr-review-001-human-correction"
+
+
+def test_cli_answer_records_into_session(capsys, tmp_path) -> None:
+    from lessonweaver.interview import load_session
+
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    session_path = tmp_path / "session.json"
+    main(["interview", _CID, "--registry-root", str(tmp_path), "--session", str(session_path)])
+    capsys.readouterr()
+
+    exit_code = main(
+        [
+            "answer",
+            _CID,
+            "risk_level",
+            "high",
+            "--registry-root",
+            str(tmp_path),
+            "--session",
+            str(session_path),
+        ]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+
+    session = load_session(session_path)
+    assert len(session.answers) == 1
+    assert session.answers[0].question_id == "risk_level"
+    assert session.current_question_index == 1
+
+    main(["resume-interview", str(session_path), "--registry-root", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+    remaining_ids = {question["id"] for question in payload["remaining_questions"]}
+    assert "risk_level" not in remaining_ids  # already answered
+    assert "approval_requirement" in remaining_ids  # high-risk follow-up queued
+    assert payload["current_question_index"] == 1
+
+
+def test_cli_answer_rejects_completed_session(capsys, tmp_path) -> None:
+    from lessonweaver.interview import load_session, save_session
+
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    session_path = tmp_path / "session.json"
+    main(["interview", _CID, "--registry-root", str(tmp_path), "--session", str(session_path)])
+    capsys.readouterr()
+    session = load_session(session_path)
+    session.completed = True
+    save_session(session, session_path)
+
+    exit_code = main(
+        [
+            "answer",
+            _CID,
+            "risk_level",
+            "high",
+            "--registry-root",
+            str(tmp_path),
+            "--session",
+            str(session_path),
+        ]
+    )
+    assert exit_code == 1
+    assert "already completed" in capsys.readouterr().err
+
+
+def test_cli_interview_session_dry_run_does_not_write(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    session_path = tmp_path / "session.json"
+    exit_code = main(
+        [
+            "interview",
+            _CID,
+            "--registry-root",
+            str(tmp_path),
+            "--session",
+            str(session_path),
+            "--dry-run",
+        ]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert not session_path.exists()
+    assert f"[dry-run] would write session to: {session_path}" in out
+
+
+def test_cli_interview_session_requires_registry_backed_candidate(capsys, tmp_path) -> None:
+    candidate = LessonCandidate(
+        id="loose-cand",
+        summary="Loose candidate not saved to a registry...",
+        evidence_trace_ids=["trace-1"],
+        evidence_event_ids=["event-1"],
+        observed_problem="Agent missed key step.",
+        proposed_lesson="Check diff first.",
+        confidence=0.6,
+        recommended_action_type=RecommendedActionType.SKILL,
+        risk_level=RiskLevel.LOW,
+        scope=Scope.PROJECT,
+    )
+    cand_path = tmp_path / "candidate.json"
+    cand_path.write_text(json.dumps(candidate.to_dict()), encoding="utf-8")
+    session_path = tmp_path / "session.json"
+    exit_code = main(
+        [
+            "interview",
+            str(cand_path),
+            "--registry-root",
+            str(tmp_path / "registry"),
+            "--session",
+            str(session_path),
+        ]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "registry-backed candidate" in err
+    assert not session_path.exists()
+
+
+def test_cli_resume_missing_candidate_errors_clearly(capsys, tmp_path) -> None:
+    from lessonweaver.interview import save_session
+    from lessonweaver.models import ReviewSession
+
+    session = ReviewSession(
+        session_id="s9",
+        candidate_id="ghost",
+        started_at="2026-05-30T10:00:00+00:00",
+        updated_at="2026-05-30T10:00:00+00:00",
+    )
+    session_path = tmp_path / "session.json"
+    save_session(session, session_path)
+    exit_code = main(
+        ["resume-interview", str(session_path), "--registry-root", str(tmp_path / "registry")]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "not in the registry" in err
+    assert "ghost" in err

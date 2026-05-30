@@ -338,6 +338,25 @@ class LessonInterviewer:
             lines.append("## Fields changed")
             lines.append("- No candidate fields changed during review.")
 
+        # Follow-up options record their effect under ``_``-prefixed metadata keys
+        # (e.g. ``_approval_required``), so surface those deltas explicitly — the
+        # plain field diff above intentionally skips ``metadata``.
+        effect_changes: list[str] = []
+        meta_before = candidate_before.metadata
+        meta_after = candidate_after.metadata
+        for key in sorted(meta_after):
+            if not key.startswith("_"):
+                continue
+            if meta_before.get(key) != meta_after.get(key):
+                effect_changes.append(
+                    f"- {key}: {_format_value(meta_before.get(key))} -> "
+                    f"{_format_value(meta_after.get(key))}"
+                )
+        if effect_changes:
+            lines.append("")
+            lines.append("## Follow-up effects")
+            lines.extend(effect_changes)
+
         notes = [(answer.question_id, answer.free_text) for answer in answers if answer.free_text]
         if notes:
             lines.append("")

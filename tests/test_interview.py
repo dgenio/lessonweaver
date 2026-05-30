@@ -213,3 +213,13 @@ def test_save_session_writes_valid_json(tmp_path) -> None:
     assert loaded["session_id"] == "session-2"
     assert loaded["answers"] == []
     assert loaded["completed"] is False
+
+
+def test_build_session_summary_reports_follow_up_effects() -> None:
+    interviewer = LessonInterviewer()
+    before = _candidate("eff1")
+    after = _candidate("eff1")
+    after.metadata["_approval_required"] = "explicit"
+    summary = interviewer.build_session_summary(before, after, [])
+    assert "## Follow-up effects" in summary
+    assert "_approval_required: None -> explicit" in summary
