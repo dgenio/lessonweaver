@@ -32,7 +32,7 @@ from .export import (
     export_workflow_recommendation_markdown,
 )
 from .governance import promote_skill
-from .interview import LessonInterviewer, apply_review_answer
+from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
 from .models import (
     LessonCandidate,
@@ -40,6 +40,7 @@ from .models import (
     OperationalLesson,
     RecommendedActionType,
     ReviewAnswer,
+    ReviewSession,
     SensitivityLevel,
     SkillCard,
     SkillStatus,
@@ -63,6 +64,27 @@ def _read_json(path: str | Path) -> dict[str, Any]:
 
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _emit_text(content: str, *, output: str | None, dry_run: bool) -> int:
+    """Print ``content`` to stdout, or write it to ``output`` honoring ``--dry-run``.
+
+    With ``--output`` set under ``--dry-run`` nothing is written; a notice is
+    printed instead. Without ``--output`` the content always goes to stdout.
+    """
+    if output is not None:
+        if dry_run:
+            print(f"[dry-run] would write to: {output}")
+        else:
+            payload = content if content.endswith("\n") else content + "\n"
+            Path(output).write_text(payload, encoding="utf-8")
+    else:
+        print(content)
+    return 0
 
 
 def _registry(root: str | None) -> FileSystemRegistry:
@@ -192,10 +214,22 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
+
+    dry_run_parent = argparse.ArgumentParser(add_help=False)
+    dry_run_parent.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the command without writing files or registry entries",
+    )
+    output_parent = argparse.ArgumentParser(add_help=False)
+    output_parent.add_argument("--output", help="Write output to this file instead of stdout")
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     detect_parser = subparsers.add_parser(
-        "detect", help="Detect lesson candidates from a trace JSON"
+        "detect",
+        parents=[dry_run_parent, output_parent],
+        help="Detect lesson candidates from a trace JSON",
     )
     detect_parser.add_argument("trace_path")
     detect_parser.add_argument("--registry-root")
@@ -208,6 +242,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     interview_parser.add_argument("candidate")
     interview_parser.add_argument("--registry-root")
+    interview_parser.add_argument(
+        "--session", help="Write a new resumable review session to this path"
+    )
+
+    resume_parser = subparsers.add_parser(
+        "resume-interview",
+        parents=[dry_run_parent],
+        help="Resume a saved review session and list the remaining questions",
+    )
+    resume_parser.add_argument("session_path")
+    resume_parser.add_argument("--registry-root")
 
     answer_parser = subparsers.add_parser(
         "answer", help="Apply one MCQ review answer to a candidate"
@@ -219,7 +264,9 @@ def main(argv: list[str] | None = None) -> int:
     answer_parser.add_argument("--registry-root")
 
     approve_parser = subparsers.add_parser(
-        "approve", help="Approve a candidate into a lesson and skill"
+        "approve",
+        parents=[dry_run_parent],
+        help="Approve a candidate into a lesson and skill",
     )
     approve_parser.add_argument("candidate_id")
     approve_parser.add_argument("--registry-root")
@@ -228,8 +275,17 @@ def main(argv: list[str] | None = None) -> int:
     approve_parser.add_argument("--lesson-id")
     approve_parser.add_argument("--skill-id")
 
-    export_parser = subparsers.add_parser("export-skill", help="Export a SkillCard")
+    export_parser = subparsers.add_parser(
+        "export-skill",
+        parents=[dry_run_parent, output_parent],
+        help="Export a SkillCard",
+    )
     export_parser.add_argument("skill")
+    export_parser.add_argument(
+        "--json",
+        action="store_true",
+        help='Wrap output in a {"format": ..., "content": ...} JSON envelope',
+    )
     export_parser.add_argument(
         "--format",
         choices=[
@@ -260,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
 
     export_lesson_parser = subparsers.add_parser(
         "export-lesson",
+        parents=[dry_run_parent, output_parent],
         help="Export an approved candidate as an eval, guardrail, or workflow artifact",
     )
     export_lesson_parser.add_argument("candidate")
@@ -268,6 +325,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_lesson_parser.add_argument("--registry-root")
     export_lesson_parser.add_argument("--redact", action="store_true")
+    export_lesson_parser.add_argument(
+        "--json",
+        action="store_true",
+        help='Wrap output in a {"format": ..., "content": ...} JSON envelope',
+    )
 
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
     lint_parser.add_argument("skill")
@@ -349,20 +411,76 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    try:
+        return _run(args)
+    except FileNotFoundError as exc:
+        print(f"Error: file not found: {exc}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as exc:
+        print(f"Error: invalid JSON: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+
+def _run(args: argparse.Namespace) -> int:
     if args.command == "detect":
         bundle = load_trace_bundle(args.trace_path)
         candidates = LessonDetector().detect(bundle)
         if args.save:
-            registry = _registry(args.registry_root)
-            for candidate in candidates:
-                registry.save_candidate(candidate)
-        _print_json([candidate.to_dict() for candidate in candidates])
-        return 0
+            if args.dry_run:
+                print(
+                    f"[dry-run] would save {len(candidates)} candidate(s) to the registry",
+                    file=sys.stderr,
+                )
+            else:
+                registry = _registry(args.registry_root)
+                for candidate in candidates:
+                    registry.save_candidate(candidate)
+        content = json.dumps(
+            [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
+        )
+        return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "interview":
         candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
         questions = LessonInterviewer().build_questions(candidate)
+        if args.session:
+            created = _now_iso()
+            session = ReviewSession(
+                session_id=f"session-{uuid.uuid4().hex}",
+                candidate_id=candidate.id,
+                started_at=created,
+                updated_at=created,
+            )
+            save_session(session, args.session)
         _print_json([question.to_dict() for question in questions])
+        return 0
+
+    if args.command == "resume-interview":
+        session = load_session(args.session_path)
+        if session.completed:
+            print(
+                f"Error: review session '{session.session_id}' is already completed "
+                f"and cannot be resumed",
+                file=sys.stderr,
+            )
+            return 1
+        candidate = _registry(args.registry_root).load_candidate(session.candidate_id)
+        remaining = LessonInterviewer().next_questions(candidate, session.answers)
+        if not args.dry_run:
+            session.updated_at = _now_iso()
+            save_session(session, args.session_path)
+        _print_json(
+            {
+                "session_id": session.session_id,
+                "candidate_id": session.candidate_id,
+                "current_question_index": session.current_question_index,
+                "completed": session.completed,
+                "remaining_questions": [question.to_dict() for question in remaining],
+            }
+        )
         return 0
 
     if args.command == "answer":
@@ -407,9 +525,10 @@ def main(argv: list[str] | None = None) -> int:
         skill = _skill_from_candidate(
             approved, skill_id=skill_id, name=title, approved_by=args.approved_by
         )
-        registry.save_candidate(approved)
-        registry.save_lesson(lesson)
-        registry.save_skill(skill)
+        if not args.dry_run:
+            registry.save_candidate(approved)
+            registry.save_lesson(lesson)
+            registry.save_skill(skill)
         _print_json(
             {"candidate_id": approved.id, "lesson_id": lesson.lesson_id, "skill_id": skill.id}
         )
@@ -417,8 +536,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "export-skill":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
-        print(_export_skill(skill, args.format, args.redact, args.applies_to))
-        return 0
+        content = _export_skill(skill, args.format, args.redact, args.applies_to)
+        if args.json:
+            content = json.dumps(
+                {"format": args.format, "content": content}, indent=2, sort_keys=True
+            )
+        return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "export-lesson":
         candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
@@ -444,12 +567,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         redactor = SimpleRedactor() if args.redact else None
         if args.format == "eval":
-            print(export_eval_spec_markdown(candidate, redactor=redactor))
+            content = export_eval_spec_markdown(candidate, redactor=redactor)
         elif args.format == "guardrail":
-            print(export_guardrail_rule_markdown(candidate, redactor=redactor))
+            content = export_guardrail_rule_markdown(candidate, redactor=redactor)
         else:
-            print(export_workflow_recommendation_markdown(candidate, redactor=redactor))
-        return 0
+            content = export_workflow_recommendation_markdown(candidate, redactor=redactor)
+        if args.json:
+            content = json.dumps(
+                {"format": args.format, "content": content}, indent=2, sort_keys=True
+            )
+        return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "lint":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
