@@ -1,0 +1,17 @@
+%% lessonweaver lifecycle — trace to runtime, with governance gates.
+%% Rendered inline in README.md and docs. Edit here and keep them in sync.
+flowchart LR
+    Run[Agent run] --> Trace[Execution trace]
+    Trace --> Detect[Detect candidate]
+    Detect --> Review{Human review}
+    Review -- reject --> Drop[Discarded]
+    Review -- approve --> Lesson[Approved lesson]
+    Lesson --> Skill[Skill card]
+    Skill --> Promote{Governed promotion}
+    Promote -- lint passes --> Active[Active skill]
+    Active --> Export[Export: AGENTS.md / Claude / Copilot / runtime]
+    Export --> Load[Loaded into agent context]
+    Load --> Run
+
+    classDef gate fill:#fde68a,stroke:#b45309,color:#1f2937;
+    class Review,Promote gate;

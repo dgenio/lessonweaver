@@ -1,0 +1,61 @@
+name: Bug report
+description: Report incorrect or unexpected behavior in lessonweaver.
+labels: ["type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please keep this focused and actionable.
+        Do not paste real credentials or personal data in traces or logs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: A clear description of the bug and its impact.
+      placeholder: Running `lessonweaver detect ...` produced no candidate, but a human correction event was present.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands or code. A minimal trace shape helps.
+      placeholder: |
+        1. lessonweaver detect trace.json
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Affected command or API
+      description: Which CLI subcommand or public function is involved?
+      placeholder: detect / SkillLoader.load_for_task / ...
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: lessonweaver version, Python version, and OS.
+      placeholder: |
+        lessonweaver: 0.2.0
+        Python: 3.11
+        OS: macOS 14
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy / sensitivity note
+      description: Confirm that any pasted trace content is synthetic or redacted.
+      placeholder: Trace content above is synthetic / has been redacted.
+    validations:
+      required: false

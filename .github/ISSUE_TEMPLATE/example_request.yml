@@ -1,0 +1,42 @@
+name: Example request
+description: Request a new worked example, trace, or integration sample.
+labels: ["type: docs", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Examples live under `examples/` and are covered by drift tests. Keep
+        traces synthetic and minimal. See [examples/README.md](../../examples/README.md).
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      description: The agent failure or workflow the example should demonstrate.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Example kind
+      options:
+        - Synthetic trace
+        - Approved skill + validation suite
+        - Runtime loader / integration sample
+        - Cookbook recipe (docs)
+    validations:
+      required: true
+  - type: input
+    id: signal
+    attributes:
+      label: Detection signal (if a trace)
+      description: Which detection signal should fire (or explicitly none)?
+      placeholder: human_correction / tool fallback / failed evaluation / none (boring case)
+    validations:
+      required: false
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: What a reader should learn or be able to reproduce.
+    validations:
+      required: true

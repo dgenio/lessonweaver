@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/dgenio/lessonweaver/tree/main/docs
+    about: Architecture, glossary, comparisons, cookbooks, and integration guides.
+  - name: Security report
+    url: https://github.com/dgenio/lessonweaver/security/advisories/new
+    about: Report a vulnerability privately (do not open a public issue).

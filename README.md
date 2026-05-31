@@ -1,5 +1,10 @@
 # lessonweaver
 
+[![CI](https://github.com/dgenio/lessonweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/dgenio/lessonweaver/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/lessonweaver.svg)](https://pypi.org/project/lessonweaver/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+
 **Turn agent execution traces into reviewed, governed instructions that prevent
 repeated operational mistakes.**
 
@@ -34,14 +39,49 @@ skill activation without review.
 lessonweaver **complements** observability, evals, and memory — see
 [comparisons](docs/comparisons.md) and [ecosystem](docs/ecosystem.md).
 
+## How it works
+
+A trace becomes governed guidance only after a human review gate and a governed
+promotion gate (shaded). Nothing activates automatically.
+
+```mermaid
+flowchart LR
+    Run[Agent run] --> Trace[Execution trace]
+    Trace --> Detect[Detect candidate]
+    Detect --> Review{Human review}
+    Review -- reject --> Drop[Discarded]
+    Review -- approve --> Lesson[Approved lesson]
+    Lesson --> Skill[Skill card]
+    Skill --> Promote{Governed promotion}
+    Promote -- lint passes --> Active[Active skill]
+    Active --> Export[Export: AGENTS.md / Claude / Copilot / runtime]
+    Export --> Load[Loaded into agent context]
+    Load --> Run
+
+    classDef gate fill:#fde68a,stroke:#b45309,color:#1f2937;
+    class Review,Promote gate;
+```
+
+The Mermaid source is kept in
+[`docs/assets/lessonweaver-lifecycle.mmd`](docs/assets/lessonweaver-lifecycle.mmd).
+See [docs/architecture.md](docs/architecture.md) for the module-level data flow.
+
 ## Quickstart
 
-lessonweaver is not yet on PyPI (planned,
-[#64](https://github.com/dgenio/lessonweaver/issues/64)). Install from source:
+Install the latest release from PyPI:
 
 ```bash
-pip install -e ".[dev]"
+pip install lessonweaver
+lessonweaver --help
+```
 
+> The first PyPI release is being prepared
+> ([#64](https://github.com/dgenio/lessonweaver/issues/64)); until it lands,
+> use the contributor install (`pip install -e ".[dev]"`, see
+> [Contributing](#contributing)). The release process is documented in
+> [docs/release.md](docs/release.md).
+
+```bash
 # 1. Detect candidates from a trace and save them to a temporary registry
 lessonweaver detect examples/traces/github_pr_review_failure.json \
   --save --registry-root /tmp/lw
@@ -165,6 +205,40 @@ Grouped by adoption path (tracking issues):
 - **Closed-loop effectiveness measurement:** [#61](https://github.com/dgenio/lessonweaver/issues/61)
 - **Policy-gated lesson promotion:** [#62](https://github.com/dgenio/lessonweaver/issues/62)
 
+## Part of the Weaver Stack
+
+lessonweaver is the **learning loop** of the Weaver Stack — the part that closes
+the loop. Sibling tools *produce* evidence (agent-kernel ActionTraces,
+ChainWeaver flow failures, vibeguard findings), lessonweaver turns that evidence
+into reviewed, governed guidance, and that guidance feeds *back* into agents
+(for example, contextweaver can load exported skill cards, or you paste them
+into `AGENTS.md`).
+
+```mermaid
+flowchart LR
+    subgraph Producers[Siblings produce evidence]
+        AK[agent-kernel<br/>ActionTraces]
+        CW[ChainWeaver<br/>flow failures]
+        VG[vibeguard<br/>findings]
+    end
+    Producers -->|traces / findings| LW[lessonweaver<br/>detect to review to export]
+    LW -->|reviewed skill cards| Consumers
+    subgraph Consumers[Guidance feeds agents]
+        CX[contextweaver<br/>skill-card loader]
+        AM[AGENTS.md / Claude / Copilot]
+    end
+    Consumers --> Better[Better agents]
+    Better -.->|next run| Producers
+
+    classDef hub fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937;
+    class LW hub;
+```
+
+lessonweaver **works standalone** — it consumes any trace in the documented
+[trace format](docs/trace-format.md) and takes **no hard runtime dependency** on
+any sibling. The Mermaid source is in
+[`docs/assets/lessonweaver-closed-loop.mmd`](docs/assets/lessonweaver-closed-loop.mmd).
+
 ## Documentation
 
 - [Architecture](docs/architecture.md) — modules, data flow, lifecycle
@@ -184,7 +258,10 @@ Grouped by adoption path (tracking issues):
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for principles, local development, and
-good first issues.
+good first issues. By participating you agree to the
+[Code of Conduct](CODE_OF_CONDUCT.md). Notable changes are tracked in the
+[changelog](CHANGELOG.md), and security reports follow the
+[security policy](SECURITY.md).
 
 ```bash
 pip install -e ".[dev]"

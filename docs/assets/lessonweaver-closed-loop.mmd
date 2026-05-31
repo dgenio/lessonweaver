@@ -1,0 +1,21 @@
+%% The Weaver Stack closed loop. lessonweaver is the learning loop:
+%% siblings produce traces/findings, lessonweaver turns them into governed
+%% guidance, and that guidance feeds back into agents.
+%% Rendered inline in README.md ("Part of the Weaver Stack").
+flowchart LR
+    subgraph Producers[Siblings produce evidence]
+        AK[agent-kernel<br/>ActionTraces]
+        CW[ChainWeaver<br/>flow failures]
+        VG[vibeguard<br/>findings]
+    end
+    Producers -->|traces / findings| LW[lessonweaver<br/>detect to review to export]
+    LW -->|reviewed skill cards| Consumers
+    subgraph Consumers[Guidance feeds agents]
+        CX[contextweaver<br/>skill-card loader]
+        AM[AGENTS.md / Claude / Copilot]
+    end
+    Consumers --> Better[Better agents]
+    Better -.->|next run| Producers
+
+    classDef hub fill:#bfdbfe,stroke:#1d4ed8,color:#1f2937;
+    class LW hub;
