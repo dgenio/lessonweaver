@@ -25,8 +25,10 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
    mypy src/lessonweaver/
    pytest
    ```
-4. **Build the distribution and verify it:**
+4. **Build the distribution and verify it.** Clean `dist/` first so stale
+   artifacts from a previous version can't be checked or uploaded:
    ```bash
+   rm -rf dist/
    python -m build
    twine check dist/*
    ```

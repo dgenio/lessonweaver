@@ -58,6 +58,11 @@ changelog; their dates are the dates of the corresponding work landing on
 - Markdown, JSON, and runtime-snippet skill exporters.
 - Command-line interface wiring the modules together.
 
+<!--
+Comparison/release links are intentionally omitted until version tags exist.
+Once the first release is tagged (see docs/release.md), add reference links here, e.g.:
 [Unreleased]: https://github.com/dgenio/lessonweaver/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
+-->
+
