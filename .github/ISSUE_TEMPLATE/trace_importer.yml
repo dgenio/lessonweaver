@@ -1,0 +1,51 @@
+name: Trace importer request
+description: Request support for importing a new trace/telemetry format.
+labels: ["type: feature", "area: traces", "area: adapters"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Importers map an external format into lessonweaver's trace schema. They
+        must stay dependency-light and free of framework lock-in. See
+        [docs/interoperability.md](../../docs/interoperability.md) and
+        [docs/trace-format.md](../../docs/trace-format.md).
+  - type: input
+    id: source-format
+    attributes:
+      label: Source format
+      description: The system or format you want to import from.
+      placeholder: OpenTelemetry spans, LangSmith run, Claude Code hooks, Pipecat post-call JSON, ...
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample payload shape
+      description: A small, synthetic, redacted example of the source payload.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Proposed mapping
+      description: How source fields map to `TraceBundle` / `TraceEvent` (task, source, event types, outcome).
+    validations:
+      required: true
+  - type: textarea
+    id: redaction
+    attributes:
+      label: Redaction considerations
+      description: What sensitive content can appear in this format, and how should it be handled before mining?
+    validations:
+      required: true
+  - type: dropdown
+    id: dependencies
+    attributes:
+      label: Does parsing this format require a third-party library?
+      options:
+        - "No"
+        - "Optional (extras only)"
+        - "Yes (please justify)"
+    validations:
+      required: true

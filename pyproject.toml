@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,17 +8,35 @@ version = "0.3.0"
 description = "Turn agent traces into reviewed, reusable operational lessons."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "lessonweaver contributors" }]
+keywords = [
+  "agents",
+  "ai",
+  "traces",
+  "skills",
+  "governance",
+  "agents.md",
+  "observability",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
   "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/dgenio/lessonweaver"
+Repository = "https://github.com/dgenio/lessonweaver"
+Issues = "https://github.com/dgenio/lessonweaver/issues"
+Changelog = "https://github.com/dgenio/lessonweaver/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -26,7 +44,7 @@ dev = [
   "ruff>=0.8",
   "mypy>=1.13",
   "build>=1.0",
-  "twine>=4.0",
+  "twine>=6.1",
 ]
 
 [project.scripts]

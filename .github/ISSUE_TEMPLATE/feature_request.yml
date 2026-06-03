@@ -1,0 +1,54 @@
+name: Feature request
+description: Propose a new capability or improvement.
+labels: ["type: feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep proposals scoped. lessonweaver is a small, deterministic library
+        with no LLM calls in the core and no framework lock-in.
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What problem are you trying to solve, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should lessonweaver do? Describe the smallest useful version.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What happens today, and why is it insufficient?
+    validations:
+      required: false
+  - type: input
+    id: surface
+    attributes:
+      label: Affected command or API
+      description: Which CLI subcommand, module, or public function would change?
+    validations:
+      required: false
+  - type: dropdown
+    id: dependencies
+    attributes:
+      label: Does this require a new runtime dependency?
+      options:
+        - "No"
+        - "Yes (please justify below)"
+        - "Optional (extras only)"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other designs you weighed.
+    validations:
+      required: false
