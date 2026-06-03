@@ -6,11 +6,13 @@ sensitive content.
 
 ## Supported versions
 
-Until a `1.0.0` release, only the latest published version receives fixes.
+lessonweaver has not yet been published to PyPI; `0.2.x` is the current
+(pre-release) development line. Until a `1.0.0` release, only the latest version
+receives fixes.
 
 | Version | Supported |
 | --- | --- |
-| 0.2.x | :white_check_mark: |
+| 0.2.x (current) | :white_check_mark: |
 | < 0.2 | :x: |
 
 ## Reporting a vulnerability
