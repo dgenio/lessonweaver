@@ -17,7 +17,9 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
    in `pyproject.toml`.
 2. **Update the changelog.** Move the `[Unreleased]` notes in
    [`CHANGELOG.md`](../CHANGELOG.md) into a new version section with today's
-   date, and update the comparison links at the bottom.
+   date. For the first tagged release, uncomment the comparison/release link
+   template at the bottom of the changelog and fill it in; on later releases,
+   update those links.
 3. **Run the full local check** (the same checks CI runs):
    ```bash
    ruff check src/ tests/
