@@ -22,6 +22,13 @@ from .export import (
     export_workflow_recommendation_markdown,
 )
 from .governance import can_promote_skill, promote_skill
+from .importers import (
+    FAILURE_CASE_PROVENANCE_KEY,
+    DictTraceImporter,
+    FailureCaseImporter,
+    TraceImporter,
+    candidates_from_failure_case,
+)
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintFinding, LintSeverity, SkillLinter
 from .loader import SkillLoader
@@ -52,6 +59,7 @@ from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry, LessonRegistry
 from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, RetrievalResult, SkillRetriever
+from .sanitization import SanitizationRule, TraceSanitizer
 from .traces import load_trace_bundle, validate_trace_dict
 from .validation import (
     SkillEvalResult,
@@ -62,10 +70,13 @@ from .validation import (
 )
 
 __all__ = [
+    "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "CompiledContext",
+    "DictTraceImporter",
     "ExportArtifact",
     "ExportFormat",
+    "FailureCaseImporter",
     "FileSystemRegistry",
     "InclusionLevel",
     "LessonCandidate",
@@ -81,6 +92,7 @@ __all__ = [
     "RetrievalQuery",
     "RetrievalResult",
     "ReviewAnswer",
+    "SanitizationRule",
     "ReviewOption",
     "ReviewQuestion",
     "ReviewSession",
@@ -102,11 +114,14 @@ __all__ = [
     "TraceBundle",
     "TraceEvent",
     "TraceEventType",
+    "TraceImporter",
+    "TraceSanitizer",
     "ValidationExample",
     "ValidationResult",
     "ValidationSuite",
     "apply_review_answer",
     "can_promote_skill",
+    "candidates_from_failure_case",
     "export_agents_md_fragment",
     "export_claude_md_snippet",
     "export_claude_rule_fragment",
