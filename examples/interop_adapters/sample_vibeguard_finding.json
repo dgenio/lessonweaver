@@ -1,0 +1,9 @@
+{
+  "tool": "vibeguard",
+  "finding_id": "VG-SECRET-01",
+  "severity": "high",
+  "path": "src/config.py",
+  "message": "Hardcoded secret detected in config loader before merge.",
+  "task": "Review agent-generated change before merge",
+  "remediation": "Replaced the hardcoded secret with an environment variable lookup."
+}

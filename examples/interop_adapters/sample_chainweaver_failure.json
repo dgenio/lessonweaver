@@ -1,0 +1,12 @@
+{
+  "kind": "chainweaver.flow_failure",
+  "flow_id": "cw-checkout-001",
+  "flow": "checkout_pipeline",
+  "steps": [
+    {"id": "s1", "name": "validate_cart", "status": "ok"},
+    {"id": "s2", "name": "charge_card", "status": "failed", "error": "Charged before the cart was validated against inventory."},
+    {"id": "s3", "name": "send_receipt", "status": "skipped"}
+  ],
+  "recovery": {"summary": "Re-ordered the flow to validate inventory before charging the card."},
+  "outcome": "corrected_by_human"
+}
