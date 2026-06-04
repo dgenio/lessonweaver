@@ -28,6 +28,16 @@ def test_default_rules_redact_email_bearer_and_key() -> None:
     )
 
 
+def test_private_key_redacts_full_block() -> None:
+    text = (
+        "key:\n-----BEGIN RSA PRIVATE KEY-----\n"
+        "MIIBOgIBAAJBAKj34GkxFhD90vcNLYL\nq9p2x6Z3\n"
+        "-----END RSA PRIVATE KEY-----\nok"
+    )
+    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
+    assert out == "key:\n[REDACTED by private_key]\nok"
+
+
 def test_sanitize_returns_new_bundle_and_leaves_input_unchanged() -> None:
     original = _bundle("ping me at a.user@example.com")
     sanitized = TraceSanitizer().sanitize(original)

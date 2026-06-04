@@ -115,7 +115,7 @@ class FailureCaseImporter:
 
         failure_id = str(source.get("failure_id") or source.get("id") or "").strip()
         if not failure_id:
-            raise ValueError("Failure case artifact missing a non-empty 'failure_id'.")
+            raise ValueError("Failure case artifact missing a non-empty 'failure_id' (or 'id').")
 
         failure = source.get("failure")
         if not isinstance(failure, dict):
@@ -184,5 +184,7 @@ def candidates_from_failure_case(
     provenance = bundle.metadata.get(FAILURE_CASE_PROVENANCE_KEY)
     if provenance is not None:
         for candidate in candidates:
-            candidate.metadata[FAILURE_CASE_PROVENANCE_KEY] = provenance
+            # Copy per candidate so mutating one candidate's provenance never
+            # leaks into the others or back into the bundle metadata.
+            candidate.metadata[FAILURE_CASE_PROVENANCE_KEY] = dict(provenance)
     return candidates

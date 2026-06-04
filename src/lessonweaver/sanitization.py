@@ -60,7 +60,14 @@ class TraceSanitizer:
             ),
             SanitizationRule(
                 name="private_key",
-                pattern=r"-----BEGIN .{1,30} PRIVATE KEY-----",
+                # Redact the whole PEM block (header + base64 body + footer) when
+                # both markers are present; fall back to a lone header otherwise.
+                # ``(?s)`` lets ``.`` span the newlines of a multi-line key body.
+                pattern=(
+                    r"(?s)-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----"
+                    r".*?-----END [A-Z0-9 ]{0,40}PRIVATE KEY-----"
+                    r"|-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----"
+                ),
                 replacement="[REDACTED by private_key]",
             ),
         ]
