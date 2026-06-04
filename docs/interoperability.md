@@ -52,7 +52,9 @@ lesson.
   review remains required. See
   [when not to create a skill](when-not-to-create-a-skill.md).
 
-A generic `TraceImporter` protocol that formalizes these mappings is planned
-([#52](https://github.com/dgenio/lessonweaver/issues/52)). Until then, a small
-JSON-to-trace mapping function is all that is needed. See
+A generic `TraceImporter` protocol formalizes these mappings; see
+[adapters](adapters.md) for the contract and the built-in importers. Concrete,
+dependency-free adapters for sibling tools (vibeguard, agent-kernel, ChainWeaver)
+live in [`examples/interop_adapters/`](../examples/interop_adapters/). A small
+JSON-to-trace mapping function is still all that a one-off needs. See
 [ecosystem](ecosystem.md) for related tool boundaries.

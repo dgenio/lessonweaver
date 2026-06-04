@@ -20,11 +20,22 @@ changelog; their dates are the dates of the corresponding work landing on
   request template under `.github/`.
 - `docs/release.md` release checklist and a "Part of the Weaver Stack"
   README section with a closed-loop diagram.
+- `TraceImporter` protocol with `DictTraceImporter` and a `docs/adapters.md`
+  normalization contract (#52).
+- `TraceSanitizer` pre-mining sanitization and a `detect --sanitize` flag (#46).
+- `FailureCaseImporter`, `candidates_from_failure_case`, and an
+  `import-failure-case` CLI command for replayable failure artifacts (#82),
+  with an example under `examples/failure_cases/`.
+- Sibling interop adapters (vibeguard, agent-kernel, ChainWeaver) under
+  `examples/interop_adapters/` (#91).
+- `docs/design/opentelemetry-import.md` design sketch for future OTel import
+  (#27).
 
 ### Changed
 
 - README quickstart distinguishes the user install (`pip install lessonweaver`)
   from the contributor install (`pip install -e ".[dev]"`).
+- `load_trace_bundle` now delegates to `DictTraceImporter` (behavior unchanged).
 
 ## [0.2.0] - 2026-05-30
 
