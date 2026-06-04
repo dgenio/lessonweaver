@@ -685,3 +685,51 @@ def test_cli_resume_missing_candidate_errors_clearly(capsys, tmp_path) -> None:
     err = capsys.readouterr().err
     assert "not in the registry" in err
     assert "ghost" in err
+
+
+def test_cli_detect_sanitize_runs_and_preserves_detection(capsys, tmp_path) -> None:
+    # A trace whose human-correction content carries an email; --sanitize must
+    # scrub content without breaking detection (one human-correction candidate).
+    trace = {
+        "trace_id": "trace-sanitize-1",
+        "source": "unit-test",
+        "task": "Handle a customer request",
+        "events": [
+            {"id": "e1", "type": "user_message", "content": "reach me at a.user@example.com"},
+            {"id": "e2", "type": "human_correction", "content": "Stop echoing a.user@example.com"},
+        ],
+        "outcome": "corrected_by_human",
+    }
+    path = tmp_path / "trace.json"
+    path.write_text(json.dumps(trace), encoding="utf-8")
+    exit_code = main(["detect", str(path), "--sanitize"])
+    assert exit_code == 0
+    candidates = json.loads(capsys.readouterr().out)
+    assert [c["id"] for c in candidates] == ["trace-sanitize-1-human-correction"]
+
+
+def test_cli_import_failure_case_produces_candidates_with_provenance(capsys) -> None:
+    exit_code = main(["import-failure-case", "examples/failure_cases/replayable_eval_failure.json"])
+    assert exit_code == 0
+    candidates = json.loads(capsys.readouterr().out)
+    assert len(candidates) == 2
+    for candidate in candidates:
+        provenance = candidate["metadata"]["failure_case"]
+        assert provenance["failure_id"] == "fc-eval-as-evidence-001"
+        assert provenance["reproducible"] is True
+
+
+def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> None:
+    main(
+        [
+            "import-failure-case",
+            "examples/failure_cases/replayable_eval_failure.json",
+            "--save",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    capsys.readouterr()
+    registry = FileSystemRegistry(str(tmp_path))
+    stored = registry.load_candidate("fc-eval-as-evidence-001-human-correction")
+    assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"

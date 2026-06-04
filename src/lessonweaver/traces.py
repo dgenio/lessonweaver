@@ -54,13 +54,17 @@ def validate_trace_dict(data: dict[str, Any]) -> list[str]:
 
 
 def load_trace_bundle(path: str | Path) -> TraceBundle:
-    """Load and validate a trace bundle from a JSON file path."""
+    """Load and validate a trace bundle from a JSON file path.
+
+    Delegates the validate-and-build step to :class:`DictTraceImporter`, making
+    the canonical loader a thin wrapper over the :class:`TraceImporter` protocol
+    (issue #52). The import is function-local to avoid a module import cycle, as
+    ``importers`` reuses :func:`validate_trace_dict` from this module.
+    """
+    from .importers import DictTraceImporter
+
     with Path(path).open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         raise ValueError("Invalid trace bundle:\n- top-level JSON value must be an object")
-    errors = validate_trace_dict(payload)
-    if errors:
-        message = "\n".join(f"- {error}" for error in errors)
-        raise ValueError(f"Invalid trace bundle:\n{message}")
-    return TraceBundle.from_dict(payload)
+    return DictTraceImporter().import_trace(payload)

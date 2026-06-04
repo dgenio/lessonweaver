@@ -250,6 +250,7 @@ any sibling. The Mermaid source is in
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
 - [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
 - [Interoperability](docs/interoperability.md)
+- [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)
 - [Repository readiness](docs/repository-readiness.md)
 - [Examples](examples/README.md)

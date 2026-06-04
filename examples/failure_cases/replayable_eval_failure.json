@@ -1,0 +1,18 @@
+{
+  "schema": "weaver-spec/failure-case@1",
+  "failure_id": "fc-eval-as-evidence-001",
+  "task": "Decide whether a change is safe to deploy",
+  "source": "fuzz-replay",
+  "replay": {
+    "ref": "replays/fc-eval-as-evidence-001.json",
+    "reproducible": true
+  },
+  "failure": {
+    "summary": "Treated a high-risk evaluation artifact as deployment evidence.",
+    "detail": "The agent read an eval artifact whose support state was 'high-risk' and cited it as proof the change was safe to deploy, skipping a fresh check.",
+    "severity": "high"
+  },
+  "correction": {
+    "summary": "Required a fresh, low-risk verification before treating any artifact as deployment evidence."
+  }
+}

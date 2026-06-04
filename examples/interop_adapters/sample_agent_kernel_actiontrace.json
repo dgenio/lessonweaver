@@ -1,0 +1,12 @@
+{
+  "kind": "agent_kernel.ActionTrace",
+  "trace_id": "ak-deploy-001",
+  "goal": "Apply a database migration during deploy",
+  "actions": [
+    {"id": "a1", "type": "tool_call", "status": "ok", "output": "Connected to the database."},
+    {"id": "a2", "type": "tool_call", "status": "error", "output": "Migration failed: lock timeout."},
+    {"id": "a3", "type": "retry", "status": "ok", "output": "Retried with a longer lock timeout."},
+    {"id": "a4", "type": "tool_call", "status": "ok", "output": "Migration applied successfully."}
+  ],
+  "result": "success"
+}

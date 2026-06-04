@@ -32,6 +32,7 @@ from .export import (
     export_workflow_recommendation_markdown,
 )
 from .governance import promote_skill
+from .importers import candidates_from_failure_case
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
 from .models import (
@@ -50,6 +51,7 @@ from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry
 from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, SkillRetriever
+from .sanitization import TraceSanitizer
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
 
@@ -89,6 +91,28 @@ def _emit_text(content: str, *, output: str | None, dry_run: bool) -> int:
 
 def _registry(root: str | None) -> FileSystemRegistry:
     return FileSystemRegistry(root)
+
+
+def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace) -> int:
+    """Optionally save candidates to the registry, then emit them as JSON.
+
+    Shared by the ``detect`` and ``import-failure-case`` commands so both honor
+    ``--save``, ``--dry-run``, and ``--output`` identically.
+    """
+    if args.save:
+        if args.dry_run:
+            print(
+                f"[dry-run] would save {len(candidates)} candidate(s) to the registry",
+                file=sys.stderr,
+            )
+        else:
+            registry = _registry(args.registry_root)
+            for candidate in candidates:
+                registry.save_candidate(candidate)
+    content = json.dumps(
+        [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
+    )
+    return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
 
 def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> LessonCandidate:
@@ -243,6 +267,22 @@ def main(argv: list[str] | None = None) -> int:
     detect_parser.add_argument("trace_path")
     detect_parser.add_argument("--registry-root")
     detect_parser.add_argument(
+        "--save", action="store_true", help="Save candidates to the registry"
+    )
+    detect_parser.add_argument(
+        "--sanitize",
+        action="store_true",
+        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+    )
+
+    failure_case_parser = subparsers.add_parser(
+        "import-failure-case",
+        parents=[dry_run_parent, output_parent],
+        help="Detect lesson candidates from a replayable failure case artifact",
+    )
+    failure_case_parser.add_argument("artifact_path")
+    failure_case_parser.add_argument("--registry-root")
+    failure_case_parser.add_argument(
         "--save", action="store_true", help="Save candidates to the registry"
     )
 
@@ -447,21 +487,15 @@ def main(argv: list[str] | None = None) -> int:
 def _run(args: argparse.Namespace) -> int:
     if args.command == "detect":
         bundle = load_trace_bundle(args.trace_path)
+        if args.sanitize:
+            bundle = TraceSanitizer().sanitize(bundle)
         candidates = LessonDetector().detect(bundle)
-        if args.save:
-            if args.dry_run:
-                print(
-                    f"[dry-run] would save {len(candidates)} candidate(s) to the registry",
-                    file=sys.stderr,
-                )
-            else:
-                registry = _registry(args.registry_root)
-                for candidate in candidates:
-                    registry.save_candidate(candidate)
-        content = json.dumps(
-            [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
-        )
-        return _emit_text(content, output=args.output, dry_run=args.dry_run)
+        return _emit_candidates(candidates, args)
+
+    if args.command == "import-failure-case":
+        artifact = _read_json(args.artifact_path)
+        candidates = candidates_from_failure_case(artifact)
+        return _emit_candidates(candidates, args)
 
     if args.command == "interview":
         registry = _registry(args.registry_root)
