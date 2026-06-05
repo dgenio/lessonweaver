@@ -39,8 +39,17 @@ changelog; their dates are the dates of the corresponding work landing on
   precision/recall/F1 against a labeled corpus, an `eval-detection` CLI command
   with `--min-precision` / `--min-recall` CI gates, and a baseline corpus under
   `examples/detection_corpus/` (#86).
+- Closed-loop keystone example under `examples/closed_loop_contextweaver/`: a
+  coding-agent failure → reviewed skill card → loaded back into agent context,
+  plus the skill-card interchange-format notes for contextweaver ingestion (#92).
+- `docs/assets/demo.sh`, a reproducible ~60-second closed-loop terminal demo, and
+  `docs/awesome-list-submissions.md` listing copy (#88).
 
 ### Changed
+
+- README hero now leads with the skills / `AGENTS.md` framing and the
+  human-review-gate differentiator, with the recognizable export surfaces up
+  front (#85).
 
 - README quickstart distinguishes the user install (`pip install lessonweaver`)
   from the contributor install (`pip install -e ".[dev]"`).
