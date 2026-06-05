@@ -5,15 +5,20 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-**Turn agent execution traces into reviewed, governed instructions that prevent
-repeated operational mistakes.**
+**Turn your agent's real failures into reviewed `AGENTS.md`, Claude, and Copilot
+skills — deterministically, with a human in the loop.**
 
-AI agents repeat avoidable mistakes: skipping evidence checks, using stale
-context, validating too late, or missing governance constraints. lessonweaver is
-a small, **deterministic** loop that finds those patterns in execution traces,
-puts a **human review gate** in front of them, and exports approved guidance back
-into agent context. No LLM calls in the core, no automatic self-training, no
-skill activation without review.
+lessonweaver mines your agent's execution traces for the mistakes it keeps
+repeating, puts a **human review gate** in front of every candidate, and exports
+the approved ones as the instruction formats teams already use: `AGENTS.md`
+fragments, Claude skills / rules / `CLAUDE.md`, GitHub Copilot instructions,
+Codex skill directories, and generic runtime snippets.
+
+The human-review gate is the point. Unlike letting a model rewrite its own
+instructions, every skill here is reviewed, governed, and auditable — no context
+poisoning, no automatic self-training, no skill activation without review. The
+core is **deterministic** with no LLM calls. See
+[when *not* to create a skill](docs/when-not-to-create-a-skill.md).
 
 ## Before / after
 
@@ -107,6 +112,16 @@ Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
 For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md).
 For a complete worked example with traces, an approved skill, and a validation
 suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
+
+### Flagship demo: the closed loop
+
+The [`examples/closed_loop_contextweaver/`](examples/closed_loop_contextweaver/)
+keystone shows the whole loop end to end: a coding-agent failure → `detect` →
+human `approve` → `export-skill` as a skill card → that card **loaded back into an
+agent's context** so the next run starts already knowing not to repeat the
+mistake. Reproduce the 60-second terminal demo with
+[`docs/assets/demo.sh`](docs/assets/demo.sh). *(A recorded GIF/asciinema cast of
+this flow is tracked as a follow-up.)*
 
 ## Runtime loading
 
