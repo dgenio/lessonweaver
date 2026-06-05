@@ -1,0 +1,122 @@
+{
+  "corpus_id": "detection-quality-v1",
+  "cases": [
+    {
+      "case_id": "human-correction-pr-review",
+      "should_detect": true,
+      "pattern": "human_correction",
+      "trace_path": "../traces/github_pr_review_failure.json",
+      "notes": "A reviewer corrected the agent; a human-correction signal should be detected."
+    },
+    {
+      "case_id": "failed-eval-chatbot",
+      "should_detect": true,
+      "pattern": "failed_evaluation",
+      "trace_path": "../traces/external_chatbot_policy_failure.json",
+      "notes": "A failed evaluation_result is a graded failure signal that should be detected."
+    },
+    {
+      "case_id": "workflow-step-before-failure",
+      "should_detect": true,
+      "pattern": "workflow_step",
+      "trace_path": "../traces/workflow_validation_failure.json",
+      "notes": "A workflow step preceding an error should surface a workflow-change candidate."
+    },
+    {
+      "case_id": "error-retry-success",
+      "should_detect": true,
+      "pattern": "error_retry",
+      "notes": "An error recovered by a retry is an indirect but real signal.",
+      "trace": {
+        "trace_id": "corpus-error-retry-1",
+        "source": "detection-corpus",
+        "task": "Fetch a record with a transient failure",
+        "events": [
+          {"id": "1", "type": "user_message", "content": "Fetch the record."},
+          {"id": "2", "type": "error", "content": "Connection timed out."},
+          {"id": "3", "type": "retry", "content": "Retrying the fetch."},
+          {"id": "4", "type": "final_answer", "content": "Record fetched."}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "tool-fallback",
+      "should_detect": true,
+      "pattern": "tool_fallback",
+      "notes": "A failed tool call followed by a successful alternative.",
+      "trace": {
+        "trace_id": "corpus-tool-fallback-1",
+        "source": "detection-corpus",
+        "task": "Look up an address via an external API",
+        "events": [
+          {"id": "1", "type": "tool_call", "content": "primary_geocoder", "success": false, "status": "failed"},
+          {"id": "2", "type": "tool_call", "content": "backup_geocoder", "success": true, "status": "success"},
+          {"id": "3", "type": "final_answer", "content": "Address resolved."}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "recurring-unflagged-version-miss",
+      "should_detect": true,
+      "pattern": "recurring_unflagged",
+      "notes": "KNOWN GAP: a recurring mistake (answering without checking the policy version) that produced no error, failed eval, or human correction. The conservative detector misses it today, so this case is a false negative on purpose - it keeps the gap measurable for future clustering/heuristic work (issues #37, #86).",
+      "trace": {
+        "trace_id": "corpus-recurring-unflagged-1",
+        "source": "detection-corpus",
+        "task": "Answer a customer policy question",
+        "events": [
+          {"id": "1", "type": "user_message", "content": "What is the refund window?"},
+          {"id": "2", "type": "assistant_message", "content": "The refund window is 30 days."},
+          {"id": "3", "type": "user_message", "content": "And for the premium plan?"},
+          {"id": "4", "type": "assistant_message", "content": "Also 30 days."},
+          {"id": "5", "type": "final_answer", "content": "Refund window is 30 days."}
+        ],
+        "outcome": "success",
+        "metadata": {"recurring_pattern": "answered_without_checking_policy_version"}
+      }
+    },
+    {
+      "case_id": "clean-success",
+      "should_detect": false,
+      "pattern": "benign",
+      "notes": "A boring successful run with no failure signal; the detector should stay silent.",
+      "trace": {
+        "trace_id": "corpus-clean-1",
+        "source": "detection-corpus",
+        "task": "Greet the user",
+        "events": [
+          {"id": "1", "type": "user_message", "content": "hi"},
+          {"id": "2", "type": "assistant_message", "content": "hello"},
+          {"id": "3", "type": "final_answer", "content": "done"}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "workflow-success-no-failure",
+      "should_detect": false,
+      "pattern": "benign_workflow",
+      "trace_path": "../traces/workflow_validation_order.json",
+      "notes": "Workflow steps that completed successfully; no failure follows, so no candidate is expected."
+    },
+    {
+      "case_id": "benign-error-keyword-in-content",
+      "should_detect": false,
+      "pattern": "benign_keyword",
+      "notes": "The word 'error' appears in message content but there is no ERROR event; the detector must not over-fire on text.",
+      "trace": {
+        "trace_id": "corpus-benign-keyword-1",
+        "source": "detection-corpus",
+        "task": "Summarize a log line",
+        "events": [
+          {"id": "1", "type": "user_message", "content": "Summarize: no error occurred during the run."},
+          {"id": "2", "type": "assistant_message", "content": "The run completed without any error."},
+          {"id": "3", "type": "final_answer", "content": "No issues found."}
+        ],
+        "outcome": "success"
+      }
+    }
+  ]
+}

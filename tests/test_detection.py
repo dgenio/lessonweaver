@@ -1,7 +1,9 @@
 from lessonweaver.detection import LessonDetector
-from lessonweaver.models import TraceBundle
+from lessonweaver.models import RecommendedActionType, TraceBundle
 from lessonweaver.registry import FileSystemRegistry
 from lessonweaver.traces import load_trace_bundle
+
+_WORKFLOW_SUMMARY = "workflow step that preceded a failure"
 
 
 def test_detection_from_human_correction() -> None:
@@ -231,6 +233,64 @@ def test_detection_sanitizes_trace_id_for_persistable_candidate_ids(tmp_path) ->
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(candidate)
     assert registry.load_candidate(candidate.id).id == candidate.id
+
+
+def test_detection_workflow_step_before_error() -> None:
+    trace = load_trace_bundle("examples/traces/workflow_validation_failure.json")
+    candidates = LessonDetector().detect(trace)
+    workflow = next(c for c in candidates if _WORKFLOW_SUMMARY in c.summary)
+    assert workflow.recommended_action_type is RecommendedActionType.WORKFLOW_CHANGE
+    assert workflow.confidence == 0.50
+    # confidence and evidence strength are intentionally distinct scores.
+    assert workflow.evidence_strength == 0.4
+    assert "add a validation step before this workflow step" in workflow.proposed_lesson
+    # Evidence points at the step immediately preceding the failure, then the failure.
+    assert workflow.evidence_event_ids == ["w4", "w5"]
+
+
+def test_detection_workflow_step_before_human_correction() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "wf-correction-1",
+            "source": "unit-test",
+            "task": "Guided workflow",
+            "events": [
+                {"id": "s1", "type": "workflow_step", "content": "Draft the reply"},
+                {"id": "c1", "type": "human_correction", "content": "Cite the policy first"},
+                {"id": "f1", "type": "final_answer", "content": "done"},
+            ],
+            "outcome": "corrected_by_human",
+        }
+    )
+    candidates = LessonDetector().detect(trace)
+    workflow = next(c for c in candidates if _WORKFLOW_SUMMARY in c.summary)
+    assert workflow.evidence_event_ids == ["s1", "c1"]
+    assert "human correction" in workflow.observed_problem
+
+
+def test_detection_workflow_steps_without_failure_no_candidate() -> None:
+    trace = load_trace_bundle("examples/traces/workflow_validation_order.json")
+    candidates = LessonDetector().detect(trace)
+    assert not any(_WORKFLOW_SUMMARY in c.summary for c in candidates)
+
+
+def test_detection_failure_before_workflow_step_no_workflow_candidate() -> None:
+    """A workflow step AFTER the failure is not evidence of a missing pre-step gate."""
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "wf-order-1",
+            "source": "unit-test",
+            "task": "Order check",
+            "events": [
+                {"id": "e1", "type": "error", "content": "early error"},
+                {"id": "s1", "type": "workflow_step", "content": "step after the error"},
+                {"id": "f1", "type": "final_answer", "content": "done"},
+            ],
+            "outcome": "failure",
+        }
+    )
+    candidates = LessonDetector().detect(trace)
+    assert not any(_WORKFLOW_SUMMARY in c.summary for c in candidates)
 
 
 def test_detection_corrected_by_human_with_event_does_not_duplicate_outcome_candidate() -> None:

@@ -53,7 +53,10 @@ CASES = [
         "ChainWeaverFailureImporter",
         "sample_chainweaver_failure.json",
         "cw-checkout-001",
-        1,
+        # The human-correction recovery plus the new workflow-step-before-failure
+        # signal (#55): the flow failed by charging before validating, which is
+        # exactly the missing-validation-gate pattern the workflow rule detects.
+        2,
     ),
 ]
 

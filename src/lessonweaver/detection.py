@@ -120,6 +120,62 @@ class LessonDetector:
                 )
             )
 
+        # Workflow-step signal: a workflow step that precedes a failure (an error
+        # or a human correction) is a conservative hint that the step ordering may
+        # be missing a validation gate. Report the workflow step immediately
+        # preceding the first such failure. Stays conservative: it never fires when
+        # the failure has no preceding workflow step.
+        _WORKFLOW_FAILURE_TYPES = {TraceEventType.ERROR, TraceEventType.HUMAN_CORRECTION}
+        first_failure_index = next(
+            (idx for idx, event in enumerate(events) if event.type in _WORKFLOW_FAILURE_TYPES),
+            None,
+        )
+        if first_failure_index is not None:
+            preceding_step = next(
+                (
+                    event
+                    for event in reversed(events[:first_failure_index])
+                    if event.type is TraceEventType.WORKFLOW_STEP
+                ),
+                None,
+            )
+            if preceding_step is not None:
+                failure_event = events[first_failure_index]
+                failure_kind = (
+                    "human correction"
+                    if failure_event.type is TraceEventType.HUMAN_CORRECTION
+                    else "error"
+                )
+                step_description = preceding_step.content or "an unlabeled workflow step"
+                candidates.append(
+                    LessonCandidate(
+                        id=_candidate_id(trace.trace_id, "workflow-step-failure"),
+                        summary=(
+                            "Candidate lesson based on a workflow step that preceded a failure."
+                        ),
+                        evidence_trace_ids=[trace.trace_id],
+                        evidence_event_ids=[preceding_step.id, failure_event.id],
+                        observed_problem=(
+                            f"Workflow step before the failure: {step_description} "
+                            f"(followed by {failure_kind})."
+                        ),
+                        proposed_lesson=(
+                            "Possible deterministic fix: add a validation step before this "
+                            "workflow step."
+                        ),
+                        confidence=0.50,
+                        evidence_strength=0.4,
+                        evidence_summary=(
+                            "A workflow step immediately preceding a failure is suggestive of a "
+                            "missing validation gate, but the failure may be unrelated to step "
+                            "ordering."
+                        ),
+                        recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
+                        risk_level=RiskLevel.MEDIUM,
+                        scope=Scope.PROJECT,
+                    )
+                )
+
         error_index = next(
             (idx for idx, event in enumerate(events) if event.type is TraceEventType.ERROR), None
         )

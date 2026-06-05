@@ -733,3 +733,37 @@ def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> 
     registry = FileSystemRegistry(str(tmp_path))
     stored = registry.load_candidate("fc-eval-as-evidence-001-human-correction")
     assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"
+
+
+def test_cli_cluster_groups_repeated_pattern(capsys) -> None:
+    trace = "examples/traces/github_pr_review_failure.json"
+    exit_code = main(["cluster", trace, trace])
+    assert exit_code == 0
+    clusters = json.loads(capsys.readouterr().out)
+    assert any(cluster["occurrence_count"] >= 2 for cluster in clusters)
+
+
+def test_cli_eval_detection_reports_metrics(capsys) -> None:
+    exit_code = main(["eval-detection", "examples/detection_corpus/corpus.json"])
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["true_positives"] == 5
+    assert report["false_negatives"] == 1
+    assert report["precision"] == 1.0
+    assert report["recall"] < 1.0
+
+
+def test_cli_eval_detection_min_recall_gate_fails(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--min-recall", "1.0"]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "recall" in err
+
+
+def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--min-precision", "1.0"]
+    )
+    assert exit_code == 0

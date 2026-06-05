@@ -17,6 +17,13 @@ trace. Detection is conservative, so "boring" traces produce zero candidates.
 | `traces/tool_api_fallback.json` | API call is rate-limited (429); agent falls back to a cached result. | 1 |
 | `traces/repo_check_finding.json` | A repository-check finding plus a human correction. | 1 |
 | `traces/workflow_validation_order.json` | Workflow validation order with no candidate signal (the boring case). | 0 |
+| `traces/workflow_validation_failure.json` | A workflow step promotes to production before validation, then fails. | 1 |
+
+## Detection corpus
+
+- [`detection_corpus/`](detection_corpus/) — a labeled corpus of should-detect /
+  should-not-detect traces and a precision/recall/F1 scorecard. Run it with
+  `lessonweaver eval-detection examples/detection_corpus/corpus.json`.
 
 ## Skills
 
