@@ -30,6 +30,15 @@ changelog; their dates are the dates of the corresponding work landing on
   `examples/interop_adapters/` (#91).
 - `docs/design/opentelemetry-import.md` design sketch for future OTel import
   (#27).
+- Workflow-step detection signal: a `WORKFLOW_STEP` event preceding an error or
+  human correction now yields a conservative `WORKFLOW_CHANGE` candidate, with an
+  `examples/traces/workflow_validation_failure.json` fixture (#55).
+- `LessonClusterer` / `LessonCluster` group recurring candidates across traces by
+  lexical similarity, plus a `cluster` CLI command (#37).
+- Detection-quality harness: `DetectionCorpus` / `run_detection_eval` report
+  precision/recall/F1 against a labeled corpus, an `eval-detection` CLI command
+  with `--min-precision` / `--min-recall` CI gates, and a baseline corpus under
+  `examples/detection_corpus/` (#86).
 
 ### Changed
 

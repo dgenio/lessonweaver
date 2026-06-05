@@ -1,6 +1,7 @@
 """Tests for CLI subcommands."""
 
 import json
+from pathlib import Path
 
 from lessonweaver.cli import main
 from lessonweaver.models import (
@@ -733,3 +734,54 @@ def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> 
     registry = FileSystemRegistry(str(tmp_path))
     stored = registry.load_candidate("fc-eval-as-evidence-001-human-correction")
     assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"
+
+
+def test_cli_cluster_groups_repeated_pattern(capsys, tmp_path) -> None:
+    # Two distinct traces (different trace_ids) carrying the same human-correction
+    # pattern must collapse into one cluster of distinct candidates.
+    source = json.loads(
+        Path("examples/traces/github_pr_review_failure.json").read_text(encoding="utf-8")
+    )
+    trace_paths = []
+    for trace_id in ("pr-review-a", "pr-review-b"):
+        source["trace_id"] = trace_id
+        path = tmp_path / f"{trace_id}.json"
+        path.write_text(json.dumps(source), encoding="utf-8")
+        trace_paths.append(str(path))
+    exit_code = main(["cluster", *trace_paths])
+    assert exit_code == 0
+    clusters = json.loads(capsys.readouterr().out)
+    assert len(clusters) == 1
+    cluster = clusters[0]
+    assert cluster["occurrence_count"] == 2
+    # Members are genuinely distinct candidates from the two separate traces.
+    assert set(cluster["member_ids"]) == {
+        "pr-review-a-human-correction",
+        "pr-review-b-human-correction",
+    }
+
+
+def test_cli_eval_detection_reports_metrics(capsys) -> None:
+    exit_code = main(["eval-detection", "examples/detection_corpus/corpus.json"])
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["true_positives"] == 5
+    assert report["false_negatives"] == 1
+    assert report["precision"] == 1.0
+    assert report["recall"] < 1.0
+
+
+def test_cli_eval_detection_min_recall_gate_fails(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--min-recall", "1.0"]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "recall" in err
+
+
+def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--min-precision", "1.0"]
+    )
+    assert exit_code == 0

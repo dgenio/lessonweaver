@@ -1,8 +1,16 @@
 """lessonweaver public API."""
 
 from .analysis import AnalysisFinding, SkillAnalyzer
+from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .detection import LessonDetector
+from .detection_eval import (
+    DetectionCase,
+    DetectionCorpus,
+    DetectionEvalReport,
+    DetectionEvalResult,
+    run_detection_eval,
+)
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -73,6 +81,10 @@ __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "CompiledContext",
+    "DetectionCase",
+    "DetectionCorpus",
+    "DetectionEvalReport",
+    "DetectionEvalResult",
     "DictTraceImporter",
     "ExportArtifact",
     "ExportFormat",
@@ -80,6 +92,8 @@ __all__ = [
     "FileSystemRegistry",
     "InclusionLevel",
     "LessonCandidate",
+    "LessonCluster",
+    "LessonClusterer",
     "LessonDetector",
     "LessonInterviewer",
     "LessonRegistry",
@@ -141,6 +155,7 @@ __all__ = [
     "load_session",
     "load_trace_bundle",
     "promote_skill",
+    "run_detection_eval",
     "run_validation_suite",
     "save_session",
     "validate_trace_dict",

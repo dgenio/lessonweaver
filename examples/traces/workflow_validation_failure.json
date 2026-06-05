@@ -1,0 +1,37 @@
+{
+  "trace_id": "trace-workflow-validation-failure-001",
+  "source": "workflow_agent",
+  "task": "Run a deployment workflow with validation gates",
+  "events": [
+    {
+      "id": "w1",
+      "type": "user_message",
+      "content": "Deploy the new release."
+    },
+    {
+      "id": "w2",
+      "type": "workflow_step",
+      "content": "Fetch the release artifact.",
+      "metadata": {"step": "fetch_artifact"}
+    },
+    {
+      "id": "w3",
+      "type": "workflow_step",
+      "content": "Apply configuration changes.",
+      "metadata": {"step": "apply_config"}
+    },
+    {
+      "id": "w4",
+      "type": "workflow_step",
+      "content": "Promote the build to production without a pre-promotion check.",
+      "metadata": {"step": "promote_to_production"}
+    },
+    {
+      "id": "w5",
+      "type": "error",
+      "content": "Production health check failed: the build was promoted before validation."
+    }
+  ],
+  "outcome": "failure",
+  "metadata": {"domain": "deployment"}
+}

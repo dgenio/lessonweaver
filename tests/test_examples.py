@@ -39,6 +39,7 @@ EXPECTED_TRACE_CANDIDATES = {
     "traces/specialist_agent_governance_miss.json": 1,
     "traces/tool_api_fallback.json": 1,
     "traces/voice_slot_correction.json": 1,
+    "traces/workflow_validation_failure.json": 1,
     "traces/workflow_validation_order.json": 0,
     "usefulness_report/traces/refund_match_1.json": 0,
     "usefulness_report/traces/refund_match_2.json": 0,

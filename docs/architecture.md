@@ -48,6 +48,8 @@ flowchart LR
 | `models.py` | Dataclasses and enums for every domain object. |
 | `traces.py` | Load and validate trace JSON into a `TraceBundle`. |
 | `detection.py` | Deterministic, conservative lesson-candidate detection. |
+| `detection_eval.py` | Score detection precision/recall/F1 against a labeled corpus. |
+| `clustering.py` | Group recurring candidates across traces by lexical similarity. |
 | `interview.py` | Build MCQ review questions and apply answers to a candidate. |
 | `registry.py` | Persist/list candidates, lessons, skills, artifacts (JSON files). |
 | `export.py` | Render skills/lessons into downstream formats. |
@@ -57,11 +59,14 @@ flowchart LR
 | `lint.py` | Deterministic structural/governance checks on a skill. |
 | `governance.py` | Guard the skill lifecycle transitions (and lint on activation). |
 | `analysis.py` | Detect duplicate, overlapping, or contradictory skills. |
+| `validation.py` | Score skill-retrieval correctness (precision/recall) for a suite. |
+| `sanitization.py` | Best-effort pre-mining scrub of sensitive trace content. |
+| `importers.py` | `TraceImporter` protocol and failure-case import path. |
+| `reporting.py` | Report stale, expired, or unused skills. |
 | `privacy.py` | `SimpleRedactor` best-effort secret/PII redaction for export. |
 | `cli.py` | Command-line entry point wiring the modules together. |
 
-> Several modules described in the backlog — `events.py`, `validation.py`,
-> `clustering.py`, `sanitization.py`, `importers.py`, `reporting.py` — are
+> `events.py` (structured lifecycle events) is described in the backlog but is
 > **planned, not yet implemented**. This table lists only what exists today.
 
 ## Detection signals

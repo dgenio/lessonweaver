@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from .analysis import SkillAnalyzer
+from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
+from .detection_eval import DetectionCorpus, run_detection_eval
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -286,6 +288,39 @@ def main(argv: list[str] | None = None) -> int:
         "--save", action="store_true", help="Save candidates to the registry"
     )
 
+    cluster_parser = subparsers.add_parser(
+        "cluster",
+        help="Detect candidates across multiple traces and group recurring patterns",
+    )
+    cluster_parser.add_argument("trace_paths", nargs="+")
+    cluster_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=DEFAULT_SIMILARITY_THRESHOLD,
+        help="Jaccard similarity threshold to group candidates (default: 0.4)",
+    )
+    cluster_parser.add_argument(
+        "--sanitize",
+        action="store_true",
+        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+    )
+
+    eval_detection_parser = subparsers.add_parser(
+        "eval-detection",
+        help="Score detection precision/recall/F1 against a labeled trace corpus",
+    )
+    eval_detection_parser.add_argument("corpus_path")
+    eval_detection_parser.add_argument(
+        "--min-precision",
+        type=float,
+        help="Exit non-zero if precision falls below this floor (CI gate)",
+    )
+    eval_detection_parser.add_argument(
+        "--min-recall",
+        type=float,
+        help="Exit non-zero if recall falls below this floor (CI gate)",
+    )
+
     interview_parser = subparsers.add_parser(
         "interview",
         parents=[dry_run_parent],
@@ -496,6 +531,39 @@ def _run(args: argparse.Namespace) -> int:
         artifact = _read_json(args.artifact_path)
         candidates = candidates_from_failure_case(artifact)
         return _emit_candidates(candidates, args)
+
+    if args.command == "cluster":
+        detector = LessonDetector()
+        sanitizer = TraceSanitizer() if args.sanitize else None
+        candidates = []
+        for trace_path in args.trace_paths:
+            bundle = load_trace_bundle(trace_path)
+            if sanitizer is not None:
+                bundle = sanitizer.sanitize(bundle)
+            candidates.extend(detector.detect(bundle))
+        clusters = LessonClusterer(threshold=args.threshold).cluster(candidates)
+        _print_json([cluster.to_dict() for cluster in clusters])
+        return 0
+
+    if args.command == "eval-detection":
+        corpus = DetectionCorpus.from_file(args.corpus_path)
+        report = run_detection_eval(corpus)
+        _print_json(report.to_dict())
+        if args.min_precision is not None and report.precision < args.min_precision:
+            print(
+                f"Error: detection precision {report.precision:.3f} is below the required "
+                f"minimum {args.min_precision:.3f}",
+                file=sys.stderr,
+            )
+            return 1
+        if args.min_recall is not None and report.recall < args.min_recall:
+            print(
+                f"Error: detection recall {report.recall:.3f} is below the required "
+                f"minimum {args.min_recall:.3f}",
+                file=sys.stderr,
+            )
+            return 1
+        return 0
 
     if args.command == "interview":
         registry = _registry(args.registry_root)
