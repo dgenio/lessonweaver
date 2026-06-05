@@ -102,3 +102,51 @@ def test_to_dict_exposes_counts_and_members() -> None:
     assert payload["representative_id"] == "c1"
     assert payload["member_ids"] == ["c1", "c2"]
     assert payload["representative"]["id"] == "c1"
+
+
+def test_groups_three_similar_candidates_into_one_cluster() -> None:
+    candidates = [
+        _candidate(
+            "c1",
+            "Agent skipped the version check before answering",
+            "Agent answered without verifying the policy version",
+            confidence=0.55,
+        ),
+        _candidate(
+            "c2",
+            "Agent skipped version check before responding",
+            "Agent answered without verifying policy version",
+            confidence=0.80,
+        ),
+        _candidate(
+            "c3",
+            "Agent did check version before answering",
+            "Agent answered without verifying the policy version field",
+            confidence=0.60,
+        ),
+    ]
+    clusters = LessonClusterer().cluster(candidates)
+    assert len(clusters) == 1
+    assert clusters[0].occurrence_count == 3
+    assert {member.id for member in clusters[0].members} == {"c1", "c2", "c3"}
+    # Representative is the highest-confidence member across all three.
+    assert clusters[0].representative.id == "c2"
+
+
+def test_identical_candidates_collapse_into_one_cluster() -> None:
+    candidates = [
+        _candidate(
+            "dup-1",
+            "Agent skipped the version check before answering",
+            "Agent answered without verifying the policy version",
+        ),
+        _candidate(
+            "dup-2",
+            "Agent skipped the version check before answering",
+            "Agent answered without verifying the policy version",
+        ),
+    ]
+    clusters = LessonClusterer().cluster(candidates)
+    assert len(clusters) == 1
+    assert clusters[0].occurrence_count == 2
+    assert {member.id for member in clusters[0].members} == {"dup-1", "dup-2"}
