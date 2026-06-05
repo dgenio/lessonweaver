@@ -1,0 +1,38 @@
+{
+  "id": "skill-run-tests-before-merge",
+  "name": "Run the test suite before merging",
+  "description": "Run the full test suite and confirm it passes before merging any pull request.",
+  "applies_when": [
+    "merging pull requests",
+    "reviewing a pull request before merge",
+    "approving a dependency-bump pull request"
+  ],
+  "does_not_apply_when": [
+    "drafting a pull request that is not yet ready to merge"
+  ],
+  "instructions": [
+    "Run the full test suite and confirm it passes before merging.",
+    "If the tests cannot be run, say so and do not merge.",
+    "Treat a green test run as a merge precondition, not an optional step."
+  ],
+  "anti_patterns": [
+    "Merging a pull request based on its title or description alone.",
+    "Assuming a dependency bump is safe without running the tests."
+  ],
+  "evidence_trace_ids": [
+    "trace-closed-loop-merge-without-tests-001"
+  ],
+  "confidence": 0.62,
+  "risk_level": "medium",
+  "scope": "project",
+  "version": "0.1.0",
+  "status": "active",
+  "sensitivity": "internal",
+  "owner": "platform-team",
+  "approved_by": "reviewer",
+  "created_at": "2026-06-05T00:00:00+00:00",
+  "updated_at": "2026-06-05T00:00:00+00:00",
+  "approved_at": "2026-06-05T00:00:00+00:00",
+  "expires_at": null,
+  "metadata": {}
+}
