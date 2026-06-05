@@ -50,7 +50,6 @@ changelog; their dates are the dates of the corresponding work landing on
 - README hero now leads with the skills / `AGENTS.md` framing and the
   human-review-gate differentiator, with the recognizable export surfaces up
   front (#85).
-
 - README quickstart distinguishes the user install (`pip install lessonweaver`)
   from the contributor install (`pip install -e ".[dev]"`).
 - `load_trace_bundle` now delegates to `DictTraceImporter` (behavior unchanged).

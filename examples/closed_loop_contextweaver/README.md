@@ -45,7 +45,7 @@ lessonweaver approve trace-closed-loop-merge-without-tests-001-human-correction 
 
 # 5. Export the reviewed skill as a skill card (the interchange artifact)
 lessonweaver export-skill skill-trace-closed-loop-merge-without-tests-001-human-correction \
-  --format json --registry-root /tmp/lw-closed-loop
+  --format json --redact --registry-root /tmp/lw-closed-loop
 ```
 
 Step 5 emits the same skill-card JSON shape as
