@@ -3,7 +3,7 @@
 This is the output side of lessonweaver's closed loop. A coding-agent failure
 (`traces/agent_merged_without_tests.json`) was detected, reviewed, approved, and
 exported as a skill card (`example_registry/skills/skill-run-tests-before-merge.json`
-— exactly what `export-skill --format json` emits). Here that card is loaded back
+— the same JSON shape `export-skill --format json` emits). Here that card is loaded back
 into the context an agent sees *before* its next run, so it starts already knowing
 not to repeat the mistake.
 

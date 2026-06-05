@@ -16,7 +16,7 @@ PII. No model is called at any step.
 | File | What it is |
 | --- | --- |
 | `traces/agent_merged_without_tests.json` | A coding agent merges a dependency-bump PR from its title alone; a human reverts and corrects it. **1 candidate.** |
-| `example_registry/skills/skill-run-tests-before-merge.json` | The reviewed, approved **skill card** — exactly what `export-skill --format json` emits. This JSON is the shared interchange format contextweaver ingests. |
+| `example_registry/skills/skill-run-tests-before-merge.json` | The reviewed **skill card** (an `active` `SkillCard`) — the same JSON shape `export-skill --format json` emits. Its content is curated review output, not the raw text `approve` generates from the candidate. This JSON is the shared interchange format contextweaver ingests. |
 | `example.py` | Loads the skill card back into agent context (the closed loop). Runs standalone; soft-imports contextweaver. |
 
 ## The full loop
@@ -33,7 +33,8 @@ lessonweaver detect examples/closed_loop_contextweaver/traces/agent_merged_witho
 lessonweaver interview trace-closed-loop-merge-without-tests-001-human-correction \
   --registry-root /tmp/lw-closed-loop
 
-# 3. Record a review answer (the human review gate)
+# 3. Record a review answer (the human review gate). --free-text is saved as a
+#    reviewer note on the candidate; it does not edit the exported skill's instructions.
 lessonweaver answer trace-closed-loop-merge-without-tests-001-human-correction decision approve \
   --free-text "Run the full test suite and confirm it passes before merging any PR." \
   --registry-root /tmp/lw-closed-loop

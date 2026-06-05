@@ -118,10 +118,13 @@ suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/
 The [`examples/closed_loop_contextweaver/`](examples/closed_loop_contextweaver/)
 keystone shows the whole loop end to end: a coding-agent failure → `detect` →
 human `approve` → `export-skill` as a skill card → that card **loaded back into an
-agent's context** so the next run starts already knowing not to repeat the
-mistake. Reproduce the 60-second terminal demo with
-[`docs/assets/demo.sh`](docs/assets/demo.sh). *(A recorded GIF/asciinema cast of
-this flow is tracked as a follow-up.)*
+agent's context** (via
+[`example.py`](examples/closed_loop_contextweaver/example.py)) so the next run
+starts already knowing not to repeat the mistake. Reproduce the 60-second
+terminal demo with [`docs/assets/demo.sh`](docs/assets/demo.sh), which runs the
+detect→review→export steps and ends by loading the reviewed card back into
+context. *(A recorded GIF/asciinema cast of this flow is tracked as a
+follow-up.)*
 
 ## Runtime loading
 

@@ -26,6 +26,7 @@ lessonweaver detect "$TRACE" --save --registry-root "$REG"
 
 echo
 echo "# 2. The human review gate: record an approve decision."
+echo "#    (--free-text is stored as a reviewer note; it does not edit skill instructions.)"
 lessonweaver answer "$CANDIDATE" decision approve \
   --free-text "Run the full test suite and confirm it passes before merging any PR." \
   --registry-root "$REG"
@@ -39,8 +40,13 @@ echo "# 4. Export the reviewed skill as an AGENTS.md fragment..."
 lessonweaver export-skill "$SKILL" --format agents-md --redact --registry-root "$REG"
 
 echo
-echo "# 5. ...and as a skill card (the format contextweaver loads back into context)."
+echo "# 5. ...and as a skill card (the JSON shape contextweaver loads back into context)."
 lessonweaver export-skill "$SKILL" --format json --redact --registry-root "$REG"
 
 echo
-echo "# Done: a real failure is now a reviewed, governed skill the next run can load."
+echo "# 6. Close the loop: load the reviewed skill card back into agent context."
+echo "#    (example.py loads the bundled, already-reviewed ACTIVE card.)"
+python examples/closed_loop_contextweaver/example.py
+
+echo
+echo "# Done: a real failure became a reviewed skill, now loaded back into the next run."
