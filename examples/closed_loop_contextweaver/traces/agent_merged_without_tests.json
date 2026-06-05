@@ -1,0 +1,24 @@
+{
+  "trace_id": "trace-closed-loop-merge-without-tests-001",
+  "source": "coding-agent",
+  "task": "Merge the dependency-bump pull request #412",
+  "events": [
+    {
+      "id": "e1",
+      "type": "tool_call",
+      "content": "Read PR #412 title 'chore: bump widgetlib to 2.0' and its description."
+    },
+    {
+      "id": "e2",
+      "type": "tool_call",
+      "content": "Merged PR #412 into main based on the title and description."
+    },
+    {
+      "id": "e3",
+      "type": "human_correction",
+      "content": "Reverted the merge: widgetlib 2.0 broke three tests. Run the full test suite and confirm it passes before merging any pull request."
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {}
+}

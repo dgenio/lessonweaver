@@ -30,6 +30,7 @@ USEFULNESS = EXAMPLES / "usefulness_report"
 # zero-candidate traces are the "boring" cases that prove detection is
 # conservative; the others lock the documented signal counts.
 EXPECTED_TRACE_CANDIDATES = {
+    "closed_loop_contextweaver/traces/agent_merged_without_tests.json": 1,
     "coding_agent_pr_review/traces/pr_review_correct.json": 0,
     "coding_agent_pr_review/traces/pr_review_missing_test.json": 1,
     "coding_agent_pr_review/traces/pr_review_security_miss.json": 2,
@@ -132,6 +133,11 @@ def test_usefulness_report_retrieval_counts() -> None:
 @pytest.mark.parametrize(
     ("registry_dir", "task", "skill_id"),
     [
+        (
+            "closed_loop_contextweaver/example_registry",
+            "Review and merge a pull request",
+            "skill-run-tests-before-merge",
+        ),
         (
             "llamaindex_runtime_loader/example_registry",
             "Answer a question about our refund policy",

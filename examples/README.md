@@ -33,6 +33,9 @@ trace. Detection is conservative, so "boring" traces produce zero candidates.
 
 ## Worked examples
 
+- [`closed_loop_contextweaver/`](closed_loop_contextweaver/) — the closed-loop
+  keystone: a coding-agent failure → reviewed skill card → loaded back into an
+  agent's context for the next run. The flagship "sum > parts" demo.
 - [`coding_agent_pr_review/`](coding_agent_pr_review/) — the main end-to-end
   example: multiple PR-review traces, an approved skill, a validation suite, and
   the exported instruction fragment.
