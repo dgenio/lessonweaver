@@ -244,7 +244,7 @@ def test_detection_workflow_step_before_error() -> None:
     # confidence and evidence strength are intentionally distinct scores.
     assert workflow.evidence_strength == 0.4
     assert "add a validation step before this workflow step" in workflow.proposed_lesson
-    # Evidence points at the step immediately preceding the failure, then the failure.
+    # Evidence points at the most recent workflow step before the failure, then the failure.
     assert workflow.evidence_event_ids == ["w4", "w5"]
 
 

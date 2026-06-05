@@ -122,9 +122,9 @@ class LessonDetector:
 
         # Workflow-step signal: a workflow step that precedes a failure (an error
         # or a human correction) is a conservative hint that the step ordering may
-        # be missing a validation gate. Report the workflow step immediately
-        # preceding the first such failure. Stays conservative: it never fires when
-        # the failure has no preceding workflow step.
+        # be missing a validation gate. Report the most recent workflow step before
+        # the first such failure (other events may fall between them). Stays
+        # conservative: it never fires when the failure has no preceding workflow step.
         _WORKFLOW_FAILURE_TYPES = {TraceEventType.ERROR, TraceEventType.HUMAN_CORRECTION}
         first_failure_index = next(
             (idx for idx, event in enumerate(events) if event.type in _WORKFLOW_FAILURE_TYPES),
@@ -166,9 +166,9 @@ class LessonDetector:
                         confidence=0.50,
                         evidence_strength=0.4,
                         evidence_summary=(
-                            "A workflow step immediately preceding a failure is suggestive of a "
-                            "missing validation gate, but the failure may be unrelated to step "
-                            "ordering."
+                            "The most recent workflow step before a failure is suggestive of a "
+                            "missing validation gate, but other events may fall between them and "
+                            "the failure may be unrelated to step ordering."
                         ),
                         recommended_action_type=RecommendedActionType.WORKFLOW_CHANGE,
                         risk_level=RiskLevel.MEDIUM,
