@@ -14,6 +14,30 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Added
 
+- Developer-workflow commands for the coding-agent learning loop, documented in
+  [`docs/developer-workflow.md`](docs/developer-workflow.md):
+  - `review-trace` — one guided command that detects candidates, applies MCQ
+    answers (`--answer q=opt`), optionally approves (`--approve`), and prints a
+    review packet with remaining questions, lint findings, and an export preview
+    (#106).
+  - `export-file` — diff-first, idempotent insertion of a skill into an
+    instruction file (`AGENTS.md`, `copilot-instructions.md`, `CLAUDE.md`, ...)
+    using id-keyed managed blocks; previews a unified diff by default and writes
+    only with `--write` (redacts by default; `--no-redact` to disable) (#107).
+  - `explain-load` and `load --explain` — explain which skills load or are
+    skipped (with reason codes), context-budget usage, and overlaps/contradictions
+    among the loaded set; new `SkillRetriever.diagnose` and `explain_load` API (#110).
+  - `cleanup-skills` — aggregate stale, low-confidence, never-used, noisy, and
+    overlapping skills into recommended actions; `--write` deprecates expired
+    skills through the governed lifecycle (#112).
+
+### Changed
+
+- `approve` now enforces the human-review gate: a candidate must have answered
+  the required (adaptive) review questions before it can be approved. Use
+  `--allow-incomplete-review` to override; the bypass and the unanswered
+  questions are recorded in the candidate and skill metadata (#108).
+
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).
 - GitHub issue forms (bug, feature, trace importer, example request) and a pull
