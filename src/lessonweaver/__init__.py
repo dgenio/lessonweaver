@@ -1,6 +1,7 @@
 """lessonweaver public API."""
 
 from .analysis import AnalysisFinding, SkillAnalyzer
+from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .detection import LessonDetector
@@ -11,6 +12,7 @@ from .detection_eval import (
     DetectionEvalResult,
     run_detection_eval,
 )
+from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -28,6 +30,12 @@ from .export import (
     export_skillcard_json,
     export_skillcard_markdown,
     export_workflow_recommendation_markdown,
+)
+from .filemerge import (
+    diff_managed_file,
+    has_managed_block,
+    managed_block,
+    merge_managed_block,
 )
 from .governance import can_promote_skill, promote_skill
 from .importers import (
@@ -66,7 +74,13 @@ from .models import (
 from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry, LessonRegistry
 from .reporting import SkillReporter
-from .retrieval import RetrievalQuery, RetrievalResult, SkillRetriever
+from .retrieval import (
+    RetrievalDiagnostics,
+    RetrievalQuery,
+    RetrievalResult,
+    SkillRetriever,
+    SkippedSkill,
+)
 from .sanitization import SanitizationRule, TraceSanitizer
 from .traces import load_trace_bundle, validate_trace_dict
 from .validation import (
@@ -80,6 +94,8 @@ from .validation import (
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
+    "BudgetUsage",
+    "CleanupAction",
     "CompiledContext",
     "DetectionCase",
     "DetectionCorpus",
@@ -100,9 +116,12 @@ __all__ = [
     "LessonStatus",
     "LintFinding",
     "LintSeverity",
+    "LoadDiagnostics",
+    "LoadedSkill",
     "LoadingPolicy",
     "OperationalLesson",
     "RecommendedActionType",
+    "RetrievalDiagnostics",
     "RetrievalQuery",
     "RetrievalResult",
     "ReviewAnswer",
@@ -116,6 +135,7 @@ __all__ = [
     "SimpleRedactor",
     "SkillAnalyzer",
     "SkillCard",
+    "SkillCleaner",
     "SkillCompiler",
     "SkillEvalResult",
     "SkillLinter",
@@ -124,6 +144,7 @@ __all__ = [
     "SkillRetriever",
     "SkillStatus",
     "SkillUsageEvent",
+    "SkippedSkill",
     "StaleSkillReport",
     "TraceBundle",
     "TraceEvent",
@@ -136,6 +157,8 @@ __all__ = [
     "apply_review_answer",
     "can_promote_skill",
     "candidates_from_failure_case",
+    "diff_managed_file",
+    "explain_load",
     "export_agents_md_fragment",
     "export_claude_md_snippet",
     "export_claude_rule_fragment",
@@ -152,8 +175,11 @@ __all__ = [
     "export_skillcard_json",
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
+    "has_managed_block",
     "load_session",
     "load_trace_bundle",
+    "managed_block",
+    "merge_managed_block",
     "promote_skill",
     "run_detection_eval",
     "run_validation_suite",

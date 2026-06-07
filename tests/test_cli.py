@@ -1,6 +1,7 @@
 """Tests for CLI subcommands."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from lessonweaver.cli import main
@@ -12,6 +13,7 @@ from lessonweaver.models import (
     Scope,
     SkillCard,
     SkillStatus,
+    SkillUsageEvent,
 )
 from lessonweaver.registry import FileSystemRegistry
 
@@ -63,6 +65,32 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     assert any(question["id"] == "decision" for question in questions)
 
 
+# The full set of base review answers that satisfies the enforced review gate
+# (a low-risk skill with no triggered follow-ups). decision=approve last.
+_COMPLETE_REVIEW = [
+    ("scope", "project"),
+    ("action_type", "skill"),
+    ("risk_level", "low"),
+    ("applicability", "always"),
+    ("negative_conditions", "none"),
+    ("decision", "approve"),
+]
+
+
+def _answer_full_review(candidate_id: str, registry_root: Path) -> None:
+    for question_id, option_id in _COMPLETE_REVIEW:
+        main(
+            [
+                "answer",
+                candidate_id,
+                question_id,
+                option_id,
+                "--registry-root",
+                str(registry_root),
+            ]
+        )
+
+
 def test_cli_answer_and_approve_flow(capsys, tmp_path) -> None:
     main(
         [
@@ -74,16 +102,7 @@ def test_cli_answer_and_approve_flow(capsys, tmp_path) -> None:
         ]
     )
     capsys.readouterr()
-    main(
-        [
-            "answer",
-            "trace-gh-pr-review-001-human-correction",
-            "decision",
-            "approve",
-            "--registry-root",
-            str(tmp_path),
-        ]
-    )
+    _answer_full_review("trace-gh-pr-review-001-human-correction", tmp_path)
     capsys.readouterr()
     exit_code = main(
         [
@@ -98,6 +117,39 @@ def test_cli_answer_and_approve_flow(capsys, tmp_path) -> None:
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["skill_id"] == "skill-trace-gh-pr-review-001-human-correction"
+
+
+def test_cli_approve_blocks_incomplete_review(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    exit_code = main(["approve", _CID, "--registry-root", str(tmp_path)])
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "review is incomplete" in err
+    assert "decision" in err
+    assert FileSystemRegistry(tmp_path).list_skills() == []
+
+
+def test_cli_approve_allow_incomplete_records_override(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    exit_code = main(
+        [
+            "approve",
+            _CID,
+            "--registry-root",
+            str(tmp_path),
+            "--approved-by",
+            "reviewer",
+            "--allow-incomplete-review",
+        ]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+    skill = FileSystemRegistry(tmp_path).load_skill(f"skill-{_CID}")
+    override = skill.metadata["incomplete_review_override"]
+    assert override["approved_by"] == "reviewer"
+    assert "decision" in override["unanswered_questions"]
 
 
 def test_cli_answer_unknown_question_returns_error(capsys, tmp_path) -> None:
@@ -496,6 +548,7 @@ def test_cli_approve_dry_run_does_not_persist(capsys, tmp_path) -> None:
             "--registry-root",
             str(tmp_path),
             "--dry-run",
+            "--allow-incomplete-review",
         ]
     )
     assert exit_code == 0
@@ -785,3 +838,258 @@ def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
         ["eval-detection", "examples/detection_corpus/corpus.json", "--min-precision", "1.0"]
     )
     assert exit_code == 0
+
+
+# --- review-trace (#106) ----------------------------------------------------
+
+
+def test_cli_review_trace_emits_packet_and_saves_candidates(capsys, tmp_path) -> None:
+    exit_code = main(["review-trace", _TRACE, "--registry-root", str(tmp_path)])
+    assert exit_code == 0
+    packet = json.loads(capsys.readouterr().out)
+    assert packet["trace_id"] == "trace-gh-pr-review-001"
+    candidate = packet["candidates"][0]
+    assert candidate["candidate_id"] == _CID
+    assert "decision" in candidate["remaining_questions"]
+    assert candidate["review_complete"] is False
+    assert packet["approval"] is None
+    # The detected candidate was persisted so the explicit subcommands can resume it.
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).id == _CID
+
+
+def test_cli_review_trace_apply_answer_reduces_remaining(capsys, tmp_path) -> None:
+    exit_code = main(
+        ["review-trace", _TRACE, "--registry-root", str(tmp_path), "--answer", "decision=approve"]
+    )
+    assert exit_code == 0
+    candidate = json.loads(capsys.readouterr().out)["candidates"][0]
+    assert "decision" not in candidate["remaining_questions"]
+
+
+def test_cli_review_trace_target_includes_export_preview(capsys, tmp_path) -> None:
+    exit_code = main(
+        ["review-trace", _TRACE, "--registry-root", str(tmp_path), "--target", "agents-md"]
+    )
+    assert exit_code == 0
+    preview = json.loads(capsys.readouterr().out)["candidates"][0]["export_preview"]
+    assert preview["format"] == "agents-md"
+    assert "<!-- lessonweaver skill_id=" in preview["content"]
+
+
+def test_cli_review_trace_approve_blocked_when_incomplete(capsys, tmp_path) -> None:
+    exit_code = main(["review-trace", _TRACE, "--registry-root", str(tmp_path), "--approve"])
+    assert exit_code == 1
+    assert "review is incomplete" in capsys.readouterr().err
+
+
+def test_cli_review_trace_full_answers_then_approve(capsys, tmp_path) -> None:
+    argv = ["review-trace", _TRACE, "--registry-root", str(tmp_path)]
+    for question_id, option_id in _COMPLETE_REVIEW:
+        argv += ["--answer", f"{question_id}={option_id}"]
+    argv += ["--approve", "--approved-by", "reviewer"]
+    exit_code = main(argv)
+    assert exit_code == 0
+    packet = json.loads(capsys.readouterr().out)
+    assert packet["approval"]["skill_id"] == f"skill-{_CID}"
+    assert FileSystemRegistry(tmp_path).load_skill(f"skill-{_CID}").id == f"skill-{_CID}"
+
+
+def test_cli_review_trace_ambiguous_requires_candidate(capsys, tmp_path) -> None:
+    trace = {
+        "trace_id": "multi",
+        "source": "unit-test",
+        "task": "do work",
+        "events": [
+            {"id": "e1", "type": "evaluation_result", "status": "failed"},
+            {"id": "e2", "type": "human_correction", "content": "fix it"},
+        ],
+        "outcome": "corrected_by_human",
+    }
+    path = tmp_path / "multi.json"
+    path.write_text(json.dumps(trace), encoding="utf-8")
+    exit_code = main(["review-trace", str(path), "--registry-root", str(tmp_path), "--approve"])
+    assert exit_code == 1
+    assert "pass --candidate" in capsys.readouterr().err
+
+
+# --- export-file (#107) -----------------------------------------------------
+
+
+def test_cli_export_file_default_previews_diff_without_writing(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    exit_code = main(
+        ["export-file", "skill-1", "--path", str(target), "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    assert not target.exists()
+    out = capsys.readouterr().out
+    assert f"+++ b/{target}" in out
+    assert "lessonweaver:begin skill_id=skill-1" in out
+
+
+def test_cli_export_file_write_creates_then_is_idempotent(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    assert (
+        main(
+            [
+                "export-file",
+                "skill-1",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    assert f"created: {target}" in capsys.readouterr().out
+    assert "lessonweaver:begin skill_id=skill-1" in target.read_text(encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "export-file",
+                "skill-1",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    assert "no changes" in capsys.readouterr().out
+
+
+def test_cli_export_file_dry_run_does_not_write_even_with_write(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    exit_code = main(
+        [
+            "export-file",
+            "skill-1",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--write",
+            "--dry-run",
+        ]
+    )
+    assert exit_code == 0
+    assert not target.exists()
+    assert f"[dry-run] would write to: {target}" in capsys.readouterr().out
+
+
+def test_cli_export_file_preserves_handwritten_content(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    target.write_text("# House rules\n\nKeep PRs small.\n", encoding="utf-8")
+    main(
+        [
+            "export-file",
+            "skill-1",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--write",
+        ]
+    )
+    capsys.readouterr()
+    content = target.read_text(encoding="utf-8")
+    assert "Keep PRs small." in content
+    assert "lessonweaver:begin skill_id=skill-1" in content
+
+
+# --- explain-load / load --explain (#110) -----------------------------------
+
+
+def test_cli_explain_load_reports_loaded_and_skipped(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill("skill-active"))
+    registry.save_skill(_skill("skill-draft", status=SkillStatus.DRAFT))
+    exit_code = main(["explain-load", "Review this pull request", "--registry-root", str(tmp_path)])
+    assert exit_code == 0
+    diag = json.loads(capsys.readouterr().out)
+    assert [item["skill_id"] for item in diag["loaded"]] == ["skill-active"]
+    skipped = {item["skill_id"]: item["reason"] for item in diag["skipped"]}
+    assert skipped["skill-draft"] == "status_not_active"
+    assert diag["budget"]["used_chars"] > 0
+
+
+def test_cli_load_explain_flag_emits_diagnostics(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    exit_code = main(
+        ["load", "Review this pull request", "--registry-root", str(tmp_path), "--explain"]
+    )
+    assert exit_code == 0
+    diag = json.loads(capsys.readouterr().out)
+    assert "loaded" in diag and "budget" in diag and "skipped" in diag
+
+
+# --- cleanup-skills (#112) --------------------------------------------------
+
+
+def _expired_skill(skill_id: str = "exp") -> SkillCard:
+    skill = _skill(skill_id)
+    skill.expires_at = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    return skill
+
+
+def test_cli_cleanup_skills_dry_run_reports_without_writing(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_expired_skill())
+    registry.save_usage_event(
+        SkillUsageEvent(id="u1", skill_id="exp", skill_version="0.2.0", task_context="ran")
+    )
+    exit_code = main(
+        ["cleanup-skills", "--registry-root", str(tmp_path), "--now", "2030-01-01T00:00:00Z"]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    reasons = {action["reason"] for action in payload["actions"]}
+    assert "expired" in reasons
+    assert payload["applied"] == []
+    assert registry.load_skill("exp").status is SkillStatus.ACTIVE
+
+
+def test_cli_cleanup_skills_write_deprecates_expired(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_expired_skill())
+    exit_code = main(
+        [
+            "cleanup-skills",
+            "--registry-root",
+            str(tmp_path),
+            "--now",
+            "2030-01-01T00:00:00Z",
+            "--write",
+        ]
+    )
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["applied"] == ["exp"]
+    assert registry.load_skill("exp").status is SkillStatus.DEPRECATED
+
+
+def test_cli_cleanup_skills_dry_run_overrides_write(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_expired_skill())
+    exit_code = main(
+        [
+            "cleanup-skills",
+            "--registry-root",
+            str(tmp_path),
+            "--now",
+            "2030-01-01T00:00:00Z",
+            "--write",
+            "--dry-run",
+        ]
+    )
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["applied"] == []
+    assert registry.load_skill("exp").status is SkillStatus.ACTIVE

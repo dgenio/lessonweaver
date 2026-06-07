@@ -12,10 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from .analysis import SkillAnalyzer
+from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import DetectionCorpus, run_detection_eval
+from .diagnostics import explain_load
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -33,6 +35,7 @@ from .export import (
     export_skillcard_markdown,
     export_workflow_recommendation_markdown,
 )
+from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
 from .importers import candidates_from_failure_case
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
@@ -219,6 +222,139 @@ def _lesson_from_candidate(
     )
 
 
+def _parse_now(value: str | None) -> datetime | None:
+    """Parse an ISO 8601 ``--now`` override into an aware datetime (UTC if naive)."""
+    if not value:
+        return None
+    moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment
+
+
+def _parse_kv(items: list[str]) -> dict[str, str]:
+    """Parse repeated ``KEY=VALUE`` CLI flags into a dict, preserving order."""
+    parsed: dict[str, str] = {}
+    for item in items:
+        if "=" not in item:
+            raise ValueError(f"expected KEY=VALUE, got '{item}'")
+        key, _, value = item.partition("=")
+        parsed[key.strip()] = value
+    return parsed
+
+
+def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
+    """Return the ids of required review questions still unanswered for a candidate.
+
+    The adaptive interviewer is the single source of truth for what "complete"
+    means: a ``reject`` decision drops scoping questions, and ``high`` risk or a
+    ``workflow_change`` action queues follow-ups. An empty list means the review
+    gate is satisfied.
+    """
+    history = candidate.metadata.get("review_history", [])
+    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
+    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
+
+
+def _apply_answers(
+    candidate: LessonCandidate,
+    answers: dict[str, str],
+    free_text: dict[str, str],
+) -> LessonCandidate:
+    """Apply ``question=option`` answers (with optional free text) to a candidate."""
+    for question_id, option_id in answers.items():
+        question = _find_review_question(candidate, question_id)
+        if question is None:
+            raise ValueError(f"question '{question_id}' not found")
+        answer = ReviewAnswer(question_id, option_id, free_text.get(question_id, ""))
+        candidate = apply_review_answer(candidate, question, answer)
+    return candidate
+
+
+def _do_approve(
+    candidate: LessonCandidate,
+    registry: FileSystemRegistry,
+    *,
+    approved_by: str | None,
+    name: str | None = None,
+    lesson_id: str | None = None,
+    skill_id: str | None = None,
+    allow_incomplete: bool = False,
+    dry_run: bool = False,
+) -> tuple[dict[str, str] | None, list[str]]:
+    """Approve a candidate into a lesson and skill, enforcing the review gate.
+
+    Returns ``(result, [])`` on success or ``(None, missing_questions)`` when the
+    review is incomplete and the override was not requested. When the override is
+    used, the unanswered questions are recorded on the lesson candidate and skill
+    metadata so the bypass is auditable.
+    """
+    remaining = _remaining_review_questions(candidate)
+    if remaining and not allow_incomplete:
+        return None, remaining
+
+    now = datetime.now(timezone.utc)
+    approved = replace(
+        candidate,
+        status=LessonStatus.APPROVED,
+        approved_by=approved_by,
+        approved_at=now,
+        updated_at=now,
+    )
+    title = name or approved.summary
+    lesson_id = lesson_id or f"lesson-{approved.id}"
+    skill_id = skill_id or f"skill-{approved.id}"
+    lesson = _lesson_from_candidate(approved, lesson_id=lesson_id, title=title)
+    skill = _skill_from_candidate(approved, skill_id=skill_id, name=title, approved_by=approved_by)
+
+    if remaining and allow_incomplete:
+        override = {
+            "unanswered_questions": remaining,
+            "approved_by": approved_by,
+            "approved_at": now.isoformat(),
+        }
+        approved.metadata["incomplete_review_override"] = override
+        skill.metadata["incomplete_review_override"] = override
+
+    if not dry_run:
+        registry.save_candidate(approved)
+        registry.save_lesson(lesson)
+        registry.save_skill(skill)
+    return {"candidate_id": approved.id, "lesson_id": lesson.lesson_id, "skill_id": skill.id}, []
+
+
+def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict[str, Any]:
+    """Build the guided-review summary for one candidate (questions, lint, preview)."""
+    remaining = _remaining_review_questions(candidate)
+    skill = _skill_from_candidate(
+        candidate,
+        skill_id=f"skill-{candidate.id}",
+        name=candidate.summary,
+        approved_by=getattr(args, "approved_by", None),
+    )
+    lint_findings = SkillLinter().lint(skill)
+    packet: dict[str, Any] = {
+        "candidate_id": candidate.id,
+        "summary": candidate.summary,
+        "observed_problem": candidate.observed_problem,
+        "evidence_trace_ids": candidate.evidence_trace_ids,
+        "status": candidate.status.value,
+        "remaining_questions": remaining,
+        "review_complete": not remaining,
+        "lint": [
+            f"[{finding.severity.value.upper()}] {finding.rule_id}: {finding.message}"
+            for finding in lint_findings
+        ],
+    }
+    target = getattr(args, "target", None)
+    if target:
+        packet["export_preview"] = {
+            "format": target,
+            "content": _export_skill(skill, target, args.redact, args.applies_to),
+        }
+    return packet
+
+
 def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "**") -> str:
     redactor = SimpleRedactor() if redact else None
     if fmt == "markdown":
@@ -363,6 +499,55 @@ def main(argv: list[str] | None = None) -> int:
     approve_parser.add_argument("--name")
     approve_parser.add_argument("--lesson-id")
     approve_parser.add_argument("--skill-id")
+    approve_parser.add_argument(
+        "--allow-incomplete-review",
+        action="store_true",
+        help="Override the review gate; records the unanswered questions in metadata",
+    )
+
+    review_trace_parser = subparsers.add_parser(
+        "review-trace",
+        parents=[dry_run_parent],
+        help="Guided detect -> review -> (approve) workflow for a single trace",
+    )
+    review_trace_parser.add_argument("trace_path")
+    review_trace_parser.add_argument("--registry-root")
+    review_trace_parser.add_argument(
+        "--candidate",
+        help="Focus a single detected candidate id (required to answer/approve when a "
+        "trace yields more than one candidate)",
+    )
+    review_trace_parser.add_argument(
+        "--answer",
+        action="append",
+        default=[],
+        metavar="QUESTION=OPTION",
+        help="Apply an MCQ answer, e.g. --answer decision=approve (repeatable)",
+    )
+    review_trace_parser.add_argument(
+        "--free-text",
+        action="append",
+        default=[],
+        metavar="QUESTION=TEXT",
+        help="Attach reviewer free text to a question, e.g. --free-text scope=team (repeatable)",
+    )
+    review_trace_parser.add_argument(
+        "--approve",
+        action="store_true",
+        help="Approve the focused candidate after applying answers (enforces the review gate)",
+    )
+    review_trace_parser.add_argument("--approved-by")
+    review_trace_parser.add_argument("--allow-incomplete-review", action="store_true")
+    review_trace_parser.add_argument(
+        "--target", help="Preview an export of the resulting skill in this format"
+    )
+    review_trace_parser.add_argument("--applies-to", default="**")
+    review_trace_parser.add_argument("--redact", action="store_true")
+    review_trace_parser.add_argument(
+        "--sanitize",
+        action="store_true",
+        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+    )
 
     export_parser = subparsers.add_parser(
         "export-skill",
@@ -420,6 +605,49 @@ def main(argv: list[str] | None = None) -> int:
         help='Wrap output in a {"format": ..., "content": ...} JSON envelope',
     )
 
+    export_file_parser = subparsers.add_parser(
+        "export-file",
+        parents=[dry_run_parent],
+        help="Merge a skill into an instruction file as a reviewable diff (idempotent block)",
+    )
+    export_file_parser.add_argument("skill")
+    export_file_parser.add_argument(
+        "--path", required=True, help="Target instruction file to create or update"
+    )
+    export_file_parser.add_argument(
+        "--format",
+        choices=[
+            "markdown",
+            "copilot",
+            "copilot-repo",
+            "copilot-path",
+            "claude",
+            "claude-skill",
+            "claude-rule",
+            "claude-md",
+            "agents-md",
+            "runtime",
+        ],
+        default="agents-md",
+    )
+    export_file_parser.add_argument(
+        "--applies-to",
+        default="**",
+        help="Glob for the copilot-path applyTo frontmatter (default: **)",
+    )
+    export_file_parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Redact before writing (default: on; pass --no-redact to disable)",
+    )
+    export_file_parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write the merged file (default: preview the diff only)",
+    )
+    export_file_parser.add_argument("--registry-root")
+
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
     lint_parser.add_argument("skill")
     lint_parser.add_argument("--registry-root")
@@ -441,12 +669,43 @@ def main(argv: list[str] | None = None) -> int:
     )
     load_parser.add_argument("task")
     load_parser.add_argument("--registry-root")
+    load_parser.add_argument("--agent-type", default="")
+    load_parser.add_argument("--tools", nargs="*", default=[])
     load_parser.add_argument("--scope", default="")
     load_parser.add_argument("--risk-level", default="")
     load_parser.add_argument("--budget-chars", type=int, default=2000)
     load_parser.add_argument("--max-skills", type=int, default=10)
     load_parser.add_argument(
         "--inclusion-level", choices=[item.value for item in InclusionLevel], default="summary"
+    )
+    load_parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="Explain which skills loaded or were skipped, with reason codes and budget usage",
+    )
+
+    explain_load_parser = subparsers.add_parser(
+        "explain-load",
+        help="Explain which skills load for a task and why (loaded, skipped, budget, overlaps)",
+    )
+    explain_load_parser.add_argument("task")
+    explain_load_parser.add_argument("--registry-root")
+    explain_load_parser.add_argument("--agent-type", default="")
+    explain_load_parser.add_argument("--tools", nargs="*", default=[])
+    explain_load_parser.add_argument("--scope", default="")
+    explain_load_parser.add_argument("--risk-level", default="")
+    explain_load_parser.add_argument("--budget-chars", type=int, default=2000)
+    explain_load_parser.add_argument("--max-skills", type=int, default=10)
+    explain_load_parser.add_argument(
+        "--inclusion-level", choices=[item.value for item in InclusionLevel], default="summary"
+    )
+    explain_load_parser.add_argument(
+        "--include-non-active",
+        action="store_true",
+        help="Also consider non-active skills (otherwise only active skills are eligible)",
+    )
+    explain_load_parser.add_argument(
+        "--snippet", action="store_true", help="Include the compiled prompt snippet in the output"
     )
 
     validate_parser = subparsers.add_parser(
@@ -496,6 +755,21 @@ def main(argv: list[str] | None = None) -> int:
     report_parser.add_argument("--registry-root")
     report_parser.add_argument(
         "--now", help="ISO 8601 timestamp to evaluate expiry against (default: current time)"
+    )
+
+    cleanup_parser = subparsers.add_parser(
+        "cleanup-skills",
+        parents=[dry_run_parent],
+        help="Report (and optionally apply) cleanup for stale, noisy, and overlapping skills",
+    )
+    cleanup_parser.add_argument("--registry-root")
+    cleanup_parser.add_argument(
+        "--now", help="ISO 8601 timestamp to evaluate expiry against (default: current time)"
+    )
+    cleanup_parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Apply the safe automated subset (deprecate expired skills through the lifecycle)",
     )
 
     args = parser.parse_args(argv)
@@ -673,28 +947,108 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "approve":
         registry = _registry(args.registry_root)
         candidate = registry.load_candidate(args.candidate_id)
-        now = datetime.now(timezone.utc)
-        approved = replace(
+        approve_result, missing = _do_approve(
             candidate,
-            status=LessonStatus.APPROVED,
+            registry,
             approved_by=args.approved_by,
-            approved_at=now,
-            updated_at=now,
+            name=args.name,
+            lesson_id=args.lesson_id,
+            skill_id=args.skill_id,
+            allow_incomplete=args.allow_incomplete_review,
+            dry_run=args.dry_run,
         )
-        title = args.name or approved.summary
-        lesson_id = args.lesson_id or f"lesson-{approved.id}"
-        skill_id = args.skill_id or f"skill-{approved.id}"
-        lesson = _lesson_from_candidate(approved, lesson_id=lesson_id, title=title)
-        skill = _skill_from_candidate(
-            approved, skill_id=skill_id, name=title, approved_by=args.approved_by
-        )
+        if approve_result is None:
+            print(
+                f"Error: cannot approve '{candidate.id}': review is incomplete; unanswered "
+                f"required questions: {', '.join(missing)}. Answer them with `lessonweaver "
+                f"answer`, or pass --allow-incomplete-review to override.",
+                file=sys.stderr,
+            )
+            return 1
+        _print_json(approve_result)
+        return 0
+
+    if args.command == "review-trace":
+        bundle = load_trace_bundle(args.trace_path)
+        if args.sanitize:
+            bundle = TraceSanitizer().sanitize(bundle)
+        candidates = LessonDetector().detect(bundle)
+        registry = _registry(args.registry_root)
         if not args.dry_run:
-            registry.save_candidate(approved)
-            registry.save_lesson(lesson)
-            registry.save_skill(skill)
-        _print_json(
-            {"candidate_id": approved.id, "lesson_id": lesson.lesson_id, "skill_id": skill.id}
-        )
+            for candidate in candidates:
+                registry.save_candidate(candidate)
+
+        answers = _parse_kv(args.answer)
+        free_text = _parse_kv(args.free_text)
+        needs_focus = bool(answers) or args.approve
+        focus: LessonCandidate | None = None
+        if needs_focus:
+            if args.candidate is not None:
+                focus = next((c for c in candidates if c.id == args.candidate), None)
+                if focus is None:
+                    print(
+                        f"Error: candidate '{args.candidate}' was not detected in this trace",
+                        file=sys.stderr,
+                    )
+                    return 1
+            elif len(candidates) == 1:
+                focus = candidates[0]
+            else:
+                print(
+                    f"Error: trace produced {len(candidates)} candidates; pass --candidate "
+                    f"to choose which one to answer or approve",
+                    file=sys.stderr,
+                )
+                return 1
+
+        approval: dict[str, str] | None = None
+        if focus is not None:
+            if answers:
+                focus = _apply_answers(focus, answers, free_text)
+                if not args.dry_run:
+                    registry.save_candidate(focus)
+            if args.approve:
+                approval, missing = _do_approve(
+                    focus,
+                    registry,
+                    approved_by=args.approved_by,
+                    allow_incomplete=args.allow_incomplete_review,
+                    dry_run=args.dry_run,
+                )
+                if approval is None:
+                    print(
+                        f"Error: cannot approve '{focus.id}': review is incomplete; unanswered "
+                        f"required questions: {', '.join(missing)}. Answer them with --answer, "
+                        f"or pass --allow-incomplete-review to override.",
+                        file=sys.stderr,
+                    )
+                    return 1
+
+        reviewed = [focus] if focus is not None else candidates
+        packet = {
+            "trace_id": bundle.trace_id,
+            "candidates": [_review_packet(candidate, args) for candidate in reviewed],
+            "approval": approval,
+        }
+        _print_json(packet)
+        return 0
+
+    if args.command == "export-file":
+        skill = _load_skill_ref(args.skill, _registry(args.registry_root))
+        content = _export_skill(skill, args.format, args.redact, args.applies_to)
+        target = Path(args.path)
+        existing = target.read_text(encoding="utf-8") if target.exists() else ""
+        merged = merge_managed_block(existing, content, skill.id)
+        if merged == existing:
+            print(f"no changes: {args.path} already has this skill block up to date")
+            return 0
+        if args.write and not args.dry_run:
+            target.write_text(merged, encoding="utf-8")
+            print(f"{'updated' if existing else 'created'}: {args.path}")
+            return 0
+        if args.dry_run:
+            print(f"[dry-run] would write to: {args.path}")
+        print(diff_managed_file(existing, merged, args.path), end="")
         return 0
 
     if args.command == "export-skill":
@@ -791,15 +1145,25 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "load":
         registry = _registry(args.registry_root)
-        results = SkillRetriever().retrieve(
-            registry.list_skills(),
-            RetrievalQuery(
-                task=args.task,
-                scope=args.scope,
-                risk_level=args.risk_level,
-                max_results=args.max_skills,
-            ),
+        query = RetrievalQuery(
+            task=args.task,
+            agent_type=args.agent_type,
+            tools=args.tools,
+            scope=args.scope,
+            risk_level=args.risk_level,
+            max_results=args.max_skills,
         )
+        if args.explain:
+            diagnostics = explain_load(
+                registry.list_skills(),
+                query,
+                budget_chars=args.budget_chars,
+                inclusion_level=InclusionLevel(args.inclusion_level),
+                include_snippet=True,
+            )
+            _print_json(diagnostics.to_dict())
+            return 0
+        results = SkillRetriever().retrieve(registry.list_skills(), query)
         context = SkillCompiler().compile(
             results,
             budget_chars=args.budget_chars,
@@ -813,6 +1177,27 @@ def _run(args: argparse.Namespace) -> int:
                 "total_chars": context.total_chars,
             }
         )
+        return 0
+
+    if args.command == "explain-load":
+        registry = _registry(args.registry_root)
+        query = RetrievalQuery(
+            task=args.task,
+            agent_type=args.agent_type,
+            tools=args.tools,
+            scope=args.scope,
+            risk_level=args.risk_level,
+            max_results=args.max_skills,
+            include_non_active=args.include_non_active,
+        )
+        diagnostics = explain_load(
+            registry.list_skills(),
+            query,
+            budget_chars=args.budget_chars,
+            inclusion_level=InclusionLevel(args.inclusion_level),
+            include_snippet=args.snippet,
+        )
+        _print_json(diagnostics.to_dict())
         return 0
 
     if args.command == "validate-skill":
@@ -857,13 +1242,19 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "report-stale":
         registry = _registry(args.registry_root)
-        report_now: datetime | None = None
-        if args.now:
-            report_now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
-            if report_now.tzinfo is None:
-                report_now = report_now.replace(tzinfo=timezone.utc)
-        reports = SkillReporter().report_stale(registry, now=report_now)
+        reports = SkillReporter().report_stale(registry, now=_parse_now(args.now))
         _print_json([report.to_dict() for report in reports])
+        return 0
+
+    if args.command == "cleanup-skills":
+        registry = _registry(args.registry_root)
+        moment = _parse_now(args.now)
+        cleaner = SkillCleaner()
+        actions = cleaner.plan(registry, now=moment)
+        applied: list[str] = []
+        if args.write and not args.dry_run:
+            applied = cleaner.apply(registry, actions, now=moment)
+        _print_json({"actions": [action.to_dict() for action in actions], "applied": applied})
         return 0
 
     return 1

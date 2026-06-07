@@ -167,10 +167,14 @@ remaining adaptive questions from the answers recorded so far.
 
 Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
+- `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
+- `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
-- `lessonweaver load "<task>"`
+- `lessonweaver load "<task>" [--explain]`
+- `lessonweaver explain-load "<task>" [--agent-type ...] [--tools ...]` — explain which skills load or are skipped (reason codes), budget usage, and overlaps
+- `lessonweaver cleanup-skills [--write]` — report (and optionally apply) cleanup for stale, noisy, and overlapping skills
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status>`
@@ -192,9 +196,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 ## Governance and safety
 
 - Detection is conservative; false negatives are preferred over noisy guidance.
-- Human review is the expected governance step before a lesson becomes an
-  approved skill; the workflow requires it, though the `approve` command does not
-  yet enforce that review questions were answered.
+- Human review is the enforced governance step before a lesson becomes an
+  approved skill: `approve` refuses to run until the required (adaptive) review
+  questions are answered. `--allow-incomplete-review` overrides the gate and
+  records the bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
 - `SimpleRedactor` is a best-effort safety net before export, not a compliance
@@ -264,6 +269,7 @@ any sibling. The Mermaid source is in
 - [Comparisons](docs/comparisons.md) — vs. observability, evals, memory, frameworks
 - [Ecosystem positioning](docs/ecosystem.md) — integration boundaries
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
+- [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
 - [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
