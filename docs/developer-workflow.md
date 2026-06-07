@@ -52,7 +52,8 @@ lessonweaver approve cand-1 --registry-root .lessonweaver
 
 For advanced/automated cases you can override with `--allow-incomplete-review`.
 The override and the list of unanswered questions are recorded under
-`incomplete_review_override` in the lesson and skill metadata, so the bypass is
+`incomplete_review_override` in the candidate and skill metadata
+(`LessonCandidate.metadata` and `SkillCard.metadata`), so the bypass is
 auditable.
 
 ## Diff-first file writes: `export-file`

@@ -974,12 +974,15 @@ def _run(args: argparse.Namespace) -> int:
             bundle = TraceSanitizer().sanitize(bundle)
         candidates = LessonDetector().detect(bundle)
         registry = _registry(args.registry_root)
+
+        # Parse/validate inputs before persisting anything so a malformed
+        # --answer/--free-text fails without leaving partial side effects.
+        answers = _parse_kv(args.answer)
+        free_text = _parse_kv(args.free_text)
+
         if not args.dry_run:
             for candidate in candidates:
                 registry.save_candidate(candidate)
-
-        answers = _parse_kv(args.answer)
-        free_text = _parse_kv(args.free_text)
         needs_focus = bool(answers) or args.approve
         focus: LessonCandidate | None = None
         if needs_focus:
