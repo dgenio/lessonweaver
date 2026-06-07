@@ -980,9 +980,6 @@ def _run(args: argparse.Namespace) -> int:
         answers = _parse_kv(args.answer)
         free_text = _parse_kv(args.free_text)
 
-        if not args.dry_run:
-            for candidate in candidates:
-                registry.save_candidate(candidate)
         needs_focus = bool(answers) or args.approve
         focus: LessonCandidate | None = None
         if needs_focus:
@@ -1004,12 +1001,19 @@ def _run(args: argparse.Namespace) -> int:
                 )
                 return 1
 
+        # Apply answers in memory first: _apply_answers raises on an unknown
+        # question id, so it runs before any registry write — a bad question id
+        # fails without persisting candidates, matching the malformed-flag case.
+        if focus is not None and answers:
+            focus = _apply_answers(focus, answers, free_text)
+            candidates = [focus if c.id == focus.id else c for c in candidates]
+
+        if not args.dry_run:
+            for candidate in candidates:
+                registry.save_candidate(candidate)
+
         approval: dict[str, str] | None = None
         if focus is not None:
-            if answers:
-                focus = _apply_answers(focus, answers, free_text)
-                if not args.dry_run:
-                    registry.save_candidate(focus)
             if args.approve:
                 approval, missing = _do_approve(
                     focus,

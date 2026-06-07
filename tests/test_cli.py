@@ -866,6 +866,24 @@ def test_cli_review_trace_apply_answer_reduces_remaining(capsys, tmp_path) -> No
     assert "decision" not in candidate["remaining_questions"]
 
 
+def test_cli_review_trace_bad_question_id_leaves_no_partial_writes(capsys, tmp_path) -> None:
+    # A valid KEY=VALUE whose question id does not exist must fail before any
+    # candidate is persisted, so the command leaves no partial side effects.
+    exit_code = main(
+        [
+            "review-trace",
+            _TRACE,
+            "--registry-root",
+            str(tmp_path),
+            "--answer",
+            "not-a-question=approve",
+        ]
+    )
+    assert exit_code == 2
+    assert "question 'not-a-question' not found" in capsys.readouterr().err
+    assert FileSystemRegistry(tmp_path).list_candidates() == []
+
+
 def test_cli_review_trace_target_includes_export_preview(capsys, tmp_path) -> None:
     exit_code = main(
         ["review-trace", _TRACE, "--registry-root", str(tmp_path), "--target", "agents-md"]
