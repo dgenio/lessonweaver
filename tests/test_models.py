@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from lessonweaver.governance import can_promote_skill, promote_skill
+from lessonweaver.governance import can_promote_skill, promote_skill, update_rollout_metadata
 from lessonweaver.models import (
     ExportArtifact,
     ExportFormat,
@@ -15,6 +15,9 @@ from lessonweaver.models import (
     ReviewOption,
     ReviewQuestion,
     RiskLevel,
+    RolloutEnvironment,
+    RolloutMetadata,
+    RolloutStatus,
     Scope,
     SkillCard,
     SkillStatus,
@@ -144,6 +147,33 @@ def test_skillcard_round_trip_includes_sensitivity() -> None:
     assert data == skill.to_dict()
 
 
+def test_skillcard_round_trip_includes_rollout_metadata() -> None:
+    skill = _skill(status=SkillStatus.EXPERIMENTAL)
+    skill.rollout = RolloutMetadata(
+        target_agents=["codex-cli"],
+        target_versions=["1.2.0"],
+        environment=RolloutEnvironment.STAGING,
+        status=RolloutStatus.CANARY,
+        percentage=15,
+        cohort="internal-reviewers",
+        owner="team-ai-platform",
+        approver="release-owner",
+        activation_date=NOW,
+        review_date=NOW,
+        expiry_date=NOW,
+        rollback_instructions="Revert to skill-1 v0.1.0.",
+        linked_eval_suite="suite-rollout-1",
+        monitoring_window_days=7,
+    )
+
+    data = skill.to_dict()
+
+    assert data["rollout"]["status"] == "canary"
+    assert data["rollout"]["environment"] == "staging"
+    assert data["rollout"]["target_agents"] == ["codex-cli"]
+    assert SkillCard.from_dict(data).to_dict() == data
+
+
 def test_skill_status_experimental_exists() -> None:
     assert SkillStatus.EXPERIMENTAL.value == "experimental"
 
@@ -187,6 +217,45 @@ def test_promote_to_active_enforces_lint_blockers() -> None:
     skill.approved_by = None
     with pytest.raises(ValueError, match="LW006"):
         promote_skill(skill, SkillStatus.ACTIVE)
+
+
+def test_update_rollout_metadata_allows_dev_to_canary_to_active_flow() -> None:
+    approved = update_rollout_metadata(
+        _skill(status=SkillStatus.APPROVED),
+        status=RolloutStatus.APPROVED,
+        environment=RolloutEnvironment.DEV,
+        owner="ai-platform",
+        approver="release-owner",
+        linked_eval_suite="suite-1",
+    )
+    canary = update_rollout_metadata(
+        approved,
+        status=RolloutStatus.CANARY,
+        environment=RolloutEnvironment.STAGING,
+        percentage=10,
+        cohort="internal",
+    )
+    active = update_rollout_metadata(
+        canary,
+        status=RolloutStatus.ACTIVE,
+        environment=RolloutEnvironment.PROD,
+        percentage=100,
+        activation_date=NOW,
+        review_date=NOW,
+    )
+
+    assert active.rollout.status is RolloutStatus.ACTIVE
+    assert active.rollout.environment is RolloutEnvironment.PROD
+    assert active.rollout.percentage == 100
+    assert active.rollout.review_date == NOW
+
+
+def test_update_rollout_metadata_blocks_invalid_transition() -> None:
+    skill = _skill(status=SkillStatus.EXPERIMENTAL)
+    skill.rollout = RolloutMetadata(status=RolloutStatus.DRAFT)
+
+    with pytest.raises(ValueError, match="cannot move rollout"):
+        update_rollout_metadata(skill, status=RolloutStatus.ACTIVE)
 
 
 def test_lesson_candidate_evidence_strength_is_distinct_from_confidence() -> None:
@@ -300,6 +369,8 @@ def test_stale_skill_report_round_trip() -> None:
         recommendation="revalidate",
         last_used_at=NOW,
         expires_at=NOW,
+        rollout_status=RolloutStatus.CANARY,
+        review_date=NOW,
     )
     assert StaleSkillReport.from_dict(report.to_dict()).to_dict() == report.to_dict()
 

@@ -177,7 +177,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver cleanup-skills [--write]` — report (and optionally apply) cleanup for stale, noisy, and overlapping skills
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
-- `lessonweaver promote-skill <skill-id> <target-status>`
+- `lessonweaver promote-skill <skill-id> <target-status> [--rollout-status draft|approved|canary|active|paused|retired] [--environment dev|staging|prod] [--rollout-percentage N] [--cohort NAME] [--target-agent NAME] [--target-version VERSION] [--owner NAME] [--approver NAME] [--activation-date ISO] [--review-date ISO] [--expiry-date ISO] [--rollback-instructions TEXT] [--linked-eval-suite ID] [--monitoring-window-days N]`
 
 ## Supported outputs and integrations
 

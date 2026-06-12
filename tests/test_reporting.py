@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from lessonweaver.models import (
     RiskLevel,
+    RolloutMetadata,
+    RolloutStatus,
     Scope,
     SkillCard,
     SkillStatus,
@@ -66,7 +68,9 @@ def test_report_stale_healthy_used_skill_has_no_findings(tmp_path) -> None:
 
 def test_report_stale_flags_expired_skill(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_skill(_skill(expires_at=NOW - timedelta(days=1)))
+    skill = _skill(expires_at=NOW - timedelta(days=1))
+    skill.rollout = RolloutMetadata(status=RolloutStatus.CANARY, review_date=NOW)
+    registry.save_skill(skill)
     _log_usage(registry, "skill-1")
     reports = SkillReporter().report_stale(registry, now=NOW)
     reasons = {report.reason for report in reports}
@@ -74,6 +78,8 @@ def test_report_stale_flags_expired_skill(tmp_path) -> None:
     expired = next(report for report in reports if report.reason == "expired")
     assert expired.recommendation == "revalidate"
     assert expired.last_used_at == NOW
+    assert expired.rollout_status is RolloutStatus.CANARY
+    assert expired.review_date == NOW
 
 
 def test_report_stale_does_not_flag_future_expiry(tmp_path) -> None:

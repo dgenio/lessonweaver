@@ -77,6 +77,38 @@ forces preview even with `--write`. Re-running an unchanged export reports
 `no changes` rather than rewriting the file. Review the diff like any code change
 before committing.
 
+## Stage rollout: dev -> canary -> prod
+
+Use rollout metadata when a reviewed skill needs staged deployment instead of an
+immediate full-production activation. `promote-skill` still controls the skill
+lifecycle; rollout flags record where and how that skill is being deployed.
+
+```bash
+# Approve the lesson artifact for development validation
+lessonweaver promote-skill skill-1 approved --registry-root .lessonweaver \
+  --rollout-status approved --environment dev \
+  --owner ai-platform --approver release-owner \
+  --linked-eval-suite suite-rollout-1
+
+# Move to a staging canary for a named cohort
+lessonweaver promote-skill skill-1 experimental --registry-root .lessonweaver \
+  --rollout-status canary --environment staging \
+  --rollout-percentage 10 --cohort internal-reviewers \
+  --target-agent codex-cli --target-version 1.2.0 \
+  --review-date 2026-06-02T12:00:00Z \
+  --rollback-instructions "Revert to skill-1 v0.1.0."
+
+# Activate for production after the canary window
+lessonweaver promote-skill skill-1 active --registry-root .lessonweaver \
+  --rollout-status active --environment prod \
+  --rollout-percentage 100 --activation-date 2026-06-09T12:00:00Z \
+  --expiry-date 2026-09-09T12:00:00Z --monitoring-window-days 14
+```
+
+`report-stale` includes rollout status and review dates in each finding, so
+expired or unused canaries can be routed back to the right owner before they are
+retired or widened.
+
 ## Understand loading decisions: `explain-load`
 
 A growing skill library poisons context if everything always loads. Diagnose

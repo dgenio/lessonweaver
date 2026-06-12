@@ -37,7 +37,7 @@ from .filemerge import (
     managed_block,
     merge_managed_block,
 )
-from .governance import can_promote_skill, promote_skill
+from .governance import can_promote_skill, promote_skill, update_rollout_metadata
 from .importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
@@ -61,6 +61,9 @@ from .models import (
     ReviewQuestion,
     ReviewSession,
     RiskLevel,
+    RolloutEnvironment,
+    RolloutMetadata,
+    RolloutStatus,
     Scope,
     SensitivityLevel,
     SkillCard,
@@ -129,6 +132,9 @@ __all__ = [
     "ReviewQuestion",
     "ReviewSession",
     "RiskLevel",
+    "RolloutEnvironment",
+    "RolloutMetadata",
+    "RolloutStatus",
     "SanitizationRule",
     "Scope",
     "SensitivityLevel",
@@ -184,5 +190,6 @@ __all__ = [
     "run_detection_eval",
     "run_validation_suite",
     "save_session",
+    "update_rollout_metadata",
     "validate_trace_dict",
 ]
