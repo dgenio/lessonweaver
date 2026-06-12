@@ -151,7 +151,7 @@ print(context.snippet)
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
-- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|cursor|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
 - `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
 
 Shared output flags: `--output FILE` writes the result to a file instead of stdout;
@@ -186,6 +186,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 | Markdown skill cards | Supported |
 | JSON skill cards | Supported |
 | GitHub Copilot instruction fragments | Supported (`copilot`, `copilot-repo`, `copilot-path`) |
+| Cursor project rules | Supported (`cursor`) |
 | Claude Code skill / rule / CLAUDE.md exports | Supported (`claude`, `claude-skill`, `claude-rule`, `claude-md`) |
 | Generic runtime prompt snippets | Supported |
 | Codex skill directory export | Supported (`codex`) |
@@ -272,7 +273,7 @@ any sibling. The Mermaid source is in
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
-- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
+- [Integrations: Cursor](docs/integrations/cursor.md), [LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
 - [Interoperability](docs/interoperability.md)
 - [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)
