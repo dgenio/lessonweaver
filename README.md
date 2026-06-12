@@ -217,9 +217,10 @@ Closed-loop effectiveness reports are available through the library API; see
 
 - Detection is conservative; false negatives are preferred over noisy guidance.
 - Human review is the enforced governance step before a lesson becomes an
-  approved skill: `approve` refuses to run until the required (adaptive) review
-  questions are answered. `--allow-incomplete-review` overrides the gate and
-  records the bypass in metadata.
+  approved skill or exportable lesson: `approve`, `review-trace --approve`, and
+  `export-lesson` refuse to run until the required (adaptive) review questions
+  are answered. `--allow-incomplete-review` overrides the gate and records the
+  bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
 - `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction

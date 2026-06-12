@@ -50,7 +50,14 @@ from .importers import (
     TraceImporter,
     candidates_from_failure_case,
 )
-from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
+from .interview import (
+    LessonInterviewer,
+    apply_review_answer,
+    is_review_complete,
+    load_session,
+    remaining_review_questions,
+    save_session,
+)
 from .lint import LintFinding, LintSeverity, SkillLinter
 from .loader import SkillLoader
 from .models import (
@@ -186,12 +193,14 @@ __all__ = [
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
     "has_managed_block",
+    "is_review_complete",
     "load_session",
     "load_trace_bundle",
     "managed_block",
     "merge_managed_block",
     "promote_skill",
     "run_clustered_detection_eval",
+    "remaining_review_questions",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",

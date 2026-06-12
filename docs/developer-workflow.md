@@ -38,10 +38,11 @@ approval.
 
 ## The review gate is enforced
 
-`approve` (and `review-trace --approve`) now **refuse to approve a candidate
-until the required review questions are answered**. The adaptive interviewer
-decides what "complete" means — a `reject` decision drops the scoping questions,
-and `high` risk or a `workflow_change` action type queues a follow-up.
+`approve`, `review-trace --approve`, and `export-lesson` now **refuse to approve
+or export a candidate until the required review questions are answered**. The
+adaptive interviewer decides what "complete" means — a `reject` decision drops
+the scoping questions, and `high` risk or a `workflow_change` action type queues
+a follow-up.
 
 ```bash
 lessonweaver approve cand-1 --registry-root .lessonweaver
@@ -52,9 +53,10 @@ lessonweaver approve cand-1 --registry-root .lessonweaver
 
 For advanced/automated cases you can override with `--allow-incomplete-review`.
 The override and the list of unanswered questions are recorded under
-`incomplete_review_override` in the candidate and skill metadata
-(`LessonCandidate.metadata` and `SkillCard.metadata`), so the bypass is
-auditable.
+`incomplete_review_override` in metadata, so the bypass is auditable. Approval
+overrides record both candidate and skill metadata (`LessonCandidate.metadata`
+and `SkillCard.metadata`); export overrides record the candidate metadata before
+rendering the lesson export.
 
 ## Diff-first file writes: `export-file`
 

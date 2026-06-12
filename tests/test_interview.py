@@ -4,6 +4,7 @@ from lessonweaver.interview import (
     LessonInterviewer,
     apply_review_answer,
     load_session,
+    remaining_review_questions,
     save_session,
 )
 from lessonweaver.models import (
@@ -152,6 +153,20 @@ def test_next_questions_workflow_change_queues_determinism_follow_up() -> None:
     ids = [q.id for q in remaining]
     assert "workflow_determinism" in ids
     assert ids.index("workflow_determinism") < ids.index("risk_level")
+
+
+def test_remaining_review_questions_uses_persisted_review_history() -> None:
+    candidate = _candidate("gate1")
+    candidate.metadata["review_history"] = [
+        {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""}
+    ]
+    assert remaining_review_questions(candidate) == [
+        "scope",
+        "action_type",
+        "risk_level",
+        "applicability",
+        "negative_conditions",
+    ]
 
 
 def test_follow_up_answer_is_stored_in_metadata() -> None:
