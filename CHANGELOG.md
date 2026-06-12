@@ -37,6 +37,8 @@ changelog; their dates are the dates of the corresponding work landing on
   the required (adaptive) review questions before it can be approved. Use
   `--allow-incomplete-review` to override; the bypass and the unanswered
   questions are recorded in the candidate and skill metadata (#108).
+- `apply_review_answer` now returns a new candidate instead of mutating the
+  input candidate in place; callers should use the returned value (#173).
 
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).
@@ -117,4 +119,3 @@ Once the first release is tagged (see docs/release.md), add reference links here
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
 -->
-

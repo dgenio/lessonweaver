@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
+from typing import Any
 
 from .models import (
     LessonCandidate,
@@ -393,7 +394,7 @@ def apply_review_answer(
     question: ReviewQuestion,
     answer: ReviewAnswer,
 ) -> LessonCandidate:
-    """Apply a structured review answer and preserve free text/history."""
+    """Apply a structured review answer and return an updated candidate."""
     if answer.question_id != question.id:
         raise ValueError(
             f"answer question_id '{answer.question_id}' does not match question '{question.id}'"
@@ -404,27 +405,29 @@ def apply_review_answer(
         raise ValueError(f"unknown option '{answer.chosen_option_id}' for question '{question.id}'")
 
     allowed_fields = {field.name for field in fields(candidate)}
+    metadata = dict(candidate.metadata)
+    updates: dict[str, Any] = {}
     for key, value in option.effect.items():
         if key.startswith("_"):
-            candidate.metadata[key] = value
+            metadata[key] = value
             continue
         if key not in allowed_fields:
             continue
         if key == "scope":
-            setattr(candidate, key, Scope(str(value)))
+            updates[key] = Scope(str(value))
         elif key == "recommended_action_type":
-            setattr(candidate, key, RecommendedActionType(str(value)))
+            updates[key] = RecommendedActionType(str(value))
         elif key == "risk_level":
-            setattr(candidate, key, RiskLevel(str(value)))
+            updates[key] = RiskLevel(str(value))
         elif key == "status":
-            setattr(candidate, key, LessonStatus(str(value)))
+            updates[key] = LessonStatus(str(value))
         else:
-            setattr(candidate, key, value)
+            updates[key] = value
 
     if answer.free_text:
-        candidate.metadata[f"review_note_{question.id}"] = answer.free_text
-    history = list(candidate.metadata.get("review_history", []))
+        metadata[f"review_note_{question.id}"] = answer.free_text
+    history = list(metadata.get("review_history", []))
     history.append(answer.to_dict())
-    candidate.metadata["review_history"] = history
+    metadata["review_history"] = history
 
-    return candidate
+    return replace(candidate, metadata=metadata, **updates)

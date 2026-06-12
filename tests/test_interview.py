@@ -60,6 +60,33 @@ def test_apply_review_answer_updates_scope_and_history() -> None:
     ]
 
 
+def test_apply_review_answer_returns_new_candidate_without_mutating_input() -> None:
+    candidate = _candidate("c3b")
+    original = candidate.to_dict()
+    question = next(q for q in LessonInterviewer().build_questions(candidate) if q.id == "scope")
+
+    result = apply_review_answer(candidate, question, ReviewAnswer("scope", "team"))
+
+    assert result is not candidate
+    assert result.metadata is not candidate.metadata
+    assert candidate.to_dict() == original
+    assert result.scope is Scope.TEAM
+    assert result.metadata["review_history"] == [
+        {"question_id": "scope", "chosen_option_id": "team", "free_text": ""}
+    ]
+
+
+def test_apply_review_answer_natural_summary_reports_changes() -> None:
+    interviewer = LessonInterviewer()
+    before = _candidate("c3c")
+    question = next(q for q in interviewer.build_questions(before) if q.id == "risk_level")
+
+    after = apply_review_answer(before, question, ReviewAnswer("risk_level", "high"))
+    summary = interviewer.build_session_summary(before, after, [])
+
+    assert "risk_level: medium -> high" in summary
+
+
 def test_apply_review_answer_updates_status_approved_and_rejected() -> None:
     approve_candidate = _candidate("c4")
     approve_question = next(
@@ -85,10 +112,10 @@ def test_apply_review_answer_preserves_free_text_and_accumulates_history() -> No
     questions = LessonInterviewer().build_questions(candidate)
     scope_question = next(q for q in questions if q.id == "scope")
     risk_question = next(q for q in questions if q.id == "risk_level")
-    apply_review_answer(
+    candidate = apply_review_answer(
         candidate, scope_question, ReviewAnswer("scope", "other", "Only platform repositories.")
     )
-    apply_review_answer(
+    candidate = apply_review_answer(
         candidate, risk_question, ReviewAnswer("risk_level", "high", "User-visible failure.")
     )
     assert candidate.metadata["review_note_scope"] == "Only platform repositories."
@@ -102,7 +129,9 @@ def test_apply_review_answer_stores_applies_when_hint() -> None:
     question = next(
         q for q in LessonInterviewer().build_questions(candidate) if q.id == "applicability"
     )
-    apply_review_answer(candidate, question, ReviewAnswer("applicability", "specific_tools"))
+    candidate = apply_review_answer(
+        candidate, question, ReviewAnswer("applicability", "specific_tools")
+    )
     assert candidate.metadata["_applies_when_hint"] == "specific_tools"
 
 
@@ -158,7 +187,7 @@ def test_follow_up_answer_is_stored_in_metadata() -> None:
     interviewer = LessonInterviewer()
     candidate = _candidate("nq5")
     follow_up = interviewer.build_follow_up_questions(candidate)["workflow_determinism"]
-    apply_review_answer(
+    candidate = apply_review_answer(
         candidate, follow_up, ReviewAnswer("workflow_determinism", "deterministic_rule")
     )
     assert candidate.metadata["_workflow_determinism"] == "deterministic_rule"
