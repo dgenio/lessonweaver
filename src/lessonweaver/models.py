@@ -23,6 +23,36 @@ def _parse_datetime(value: Any, *, default: datetime | None = None) -> datetime 
     return default
 
 
+def _unit_interval(value: Any, field_name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be between 0.0 and 1.0, got {value!r}")
+    parsed = float(value)
+    if not 0.0 <= parsed <= 1.0:
+        raise ValueError(f"{field_name} must be between 0.0 and 1.0, got {parsed}")
+    return parsed
+
+
+def _strict_bool(value: Any, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    raise ValueError(f"{field_name} must be a boolean")
+
+
+def _non_negative_int(value: Any, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a non-negative integer")
+    parsed = int(value)
+    if parsed < 0:
+        raise ValueError(f"{field_name} must be a non-negative integer, got {parsed}")
+    return parsed
+
+
 def _ensure_timezone_aware(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=timezone.utc)
@@ -216,13 +246,15 @@ class LessonCandidate:
             evidence_event_ids=list(data.get("evidence_event_ids", [])),
             observed_problem=str(data.get("observed_problem", "")),
             proposed_lesson=str(data.get("proposed_lesson", "")),
-            confidence=float(data.get("confidence", 0.0)),
+            confidence=_unit_interval(data.get("confidence", 0.0), "confidence"),
             recommended_action_type=RecommendedActionType(
                 str(data.get("recommended_action_type", RecommendedActionType.SKILL.value))
             ),
             risk_level=RiskLevel(str(data.get("risk_level", RiskLevel.LOW.value))),
             scope=Scope(str(data.get("scope", Scope.PROJECT.value))),
-            evidence_strength=float(data.get("evidence_strength", 0.0)),
+            evidence_strength=_unit_interval(
+                data.get("evidence_strength", 0.0), "evidence_strength"
+            ),
             evidence_summary=str(data.get("evidence_summary", "")),
             status=LessonStatus(str(data.get("status", LessonStatus.CANDIDATE.value))),
             owner=data.get("owner"),
@@ -300,7 +332,7 @@ class ReviewQuestion:
             options=[ReviewOption.from_dict(item) for item in data.get("options", [])],
             recommended_option_id=str(data.get("recommended_option_id", "")),
             rationale=str(data.get("rationale", "")),
-            allow_free_text=bool(data.get("allow_free_text", True)),
+            allow_free_text=_strict_bool(data.get("allow_free_text", True), "allow_free_text"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -359,8 +391,10 @@ class ReviewSession:
             started_at=str(data["started_at"]),
             updated_at=str(data["updated_at"]),
             answers=[ReviewAnswer.from_dict(item) for item in data.get("answers", [])],
-            current_question_index=int(data.get("current_question_index", 0)),
-            completed=bool(data.get("completed", False)),
+            current_question_index=_non_negative_int(
+                data.get("current_question_index", 0), "current_question_index"
+            ),
+            completed=_strict_bool(data.get("completed", False), "completed"),
             notes=str(data.get("notes", "")),
         )
 
@@ -418,7 +452,7 @@ class OperationalLesson:
             ),
             evidence_trace_ids=list(data.get("evidence_trace_ids", [])),
             evidence_event_ids=list(data.get("evidence_event_ids", [])),
-            confidence=float(data.get("confidence", 0.0)),
+            confidence=_unit_interval(data.get("confidence", 0.0), "confidence"),
             review_answers=[
                 ReviewAnswer.from_dict(item) for item in data.get("review_answers", [])
             ],
@@ -489,7 +523,7 @@ class SkillCard:
             instructions=list(data.get("instructions", [])),
             anti_patterns=list(data.get("anti_patterns", [])),
             evidence_trace_ids=list(data.get("evidence_trace_ids", [])),
-            confidence=float(data.get("confidence", 0.0)),
+            confidence=_unit_interval(data.get("confidence", 0.0), "confidence"),
             risk_level=RiskLevel(str(data.get("risk_level", RiskLevel.LOW.value))),
             scope=Scope(str(data.get("scope", Scope.PROJECT.value))),
             version=str(data.get("version", "0.1.0")),
@@ -596,7 +630,11 @@ class SkillUsageEvent:
             task_context=str(data.get("task_context", "")),
             loaded_at=loaded_at,
             outcome=data.get("outcome"),
-            outcome_positive=(bool(outcome_positive) if outcome_positive is not None else None),
+            outcome_positive=(
+                _strict_bool(outcome_positive, "outcome_positive")
+                if outcome_positive is not None
+                else None
+            ),
             notes=data.get("notes"),
         )
 
@@ -659,12 +697,16 @@ class LoadingPolicy:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LoadingPolicy:
         return cls(
-            max_skills=int(data.get("max_skills", 5)),
-            max_token_budget=int(data.get("max_token_budget", 2000)),
+            max_skills=_non_negative_int(data.get("max_skills", 5), "max_skills"),
+            max_token_budget=_non_negative_int(
+                data.get("max_token_budget", 2000), "max_token_budget"
+            ),
             allowed_scopes=[Scope(str(item)) for item in data.get("allowed_scopes", [])],
             max_risk_level=RiskLevel(str(data.get("max_risk_level", RiskLevel.MEDIUM.value))),
             excluded_skill_ids=[str(item) for item in data.get("excluded_skill_ids", [])],
-            require_approved_status=bool(data.get("require_approved_status", True)),
+            require_approved_status=_strict_bool(
+                data.get("require_approved_status", True), "require_approved_status"
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:

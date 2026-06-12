@@ -14,6 +14,7 @@ from lessonweaver.models import (
     ReviewAnswer,
     ReviewOption,
     ReviewQuestion,
+    ReviewSession,
     RiskLevel,
     Scope,
     SkillCard,
@@ -84,6 +85,20 @@ def test_review_option_and_question_round_trip() -> None:
     assert ReviewQuestion.from_dict(question.to_dict()).to_dict() == question.to_dict()
 
 
+def test_review_question_from_dict_rejects_invalid_bool() -> None:
+    question = ReviewQuestion(
+        id="scope",
+        question="Where should this apply?",
+        options=[ReviewOption("project", "A", "Project only", {"scope": "project"})],
+        recommended_option_id="project",
+        rationale="Evidence is project-local.",
+    ).to_dict()
+    question["allow_free_text"] = "nope"
+
+    with pytest.raises(ValueError, match="allow_free_text"):
+        ReviewQuestion.from_dict(question)
+
+
 def test_review_answer_round_trip() -> None:
     answer = ReviewAnswer("scope", "project", "Use for this repository.")
     assert ReviewAnswer.from_dict(answer.to_dict()).to_dict() == answer.to_dict()
@@ -124,6 +139,29 @@ def test_operational_lesson_round_trip() -> None:
         approved_at=NOW,
     )
     assert OperationalLesson.from_dict(lesson.to_dict()).to_dict() == lesson.to_dict()
+
+
+def test_operational_lesson_from_dict_rejects_confidence_outside_unit_interval() -> None:
+    lesson = OperationalLesson(
+        lesson_id="lesson-1",
+        candidate_id="c1",
+        title="Policy Version Check",
+        summary="Check policy version before answering.",
+        instructions=["Verify policy version."],
+        applies_when=["Answering policy questions"],
+        does_not_apply_when=["No policy content"],
+        anti_patterns=["Answering from stale memory"],
+        risk_level=RiskLevel.HIGH,
+        scope=Scope.PROJECT,
+        recommended_action_type=RecommendedActionType.SKILL,
+        evidence_trace_ids=["trace-1"],
+        evidence_event_ids=["event-1"],
+        confidence=0.82,
+    ).to_dict()
+    lesson["confidence"] = 1.1
+
+    with pytest.raises(ValueError, match="confidence"):
+        OperationalLesson.from_dict(lesson)
 
 
 def test_export_artifact_round_trip() -> None:
@@ -202,6 +240,32 @@ def test_lesson_candidate_evidence_strength_is_distinct_from_confidence() -> Non
     assert LessonCandidate.from_dict(data).to_dict() == data
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("confidence", -0.1),
+        ("confidence", 1.1),
+        ("evidence_strength", -0.1),
+        ("evidence_strength", 1.1),
+    ],
+)
+def test_lesson_candidate_from_dict_rejects_unit_interval_fields(field: str, value: float) -> None:
+    data = _candidate().to_dict()
+    data[field] = value
+    with pytest.raises(ValueError, match=field):
+        LessonCandidate.from_dict(data)
+
+
+@pytest.mark.parametrize("value", [0.0, 1.0])
+def test_lesson_candidate_from_dict_accepts_unit_interval_boundaries(value: float) -> None:
+    data = _candidate().to_dict()
+    data["confidence"] = value
+    data["evidence_strength"] = value
+    candidate = LessonCandidate.from_dict(data)
+    assert candidate.confidence == value
+    assert candidate.evidence_strength == value
+
+
 def test_lesson_candidate_from_dict_defaults_missing_evidence_fields() -> None:
     data = _candidate().to_dict()
     del data["evidence_strength"]
@@ -239,6 +303,68 @@ def test_skill_usage_event_outcome_defaults_to_none() -> None:
     assert SkillUsageEvent.from_dict(data).outcome_positive is None
 
 
+def test_skill_usage_event_from_dict_parses_false_string_as_false() -> None:
+    data = SkillUsageEvent(
+        id="usage-3",
+        skill_id="skill-1",
+        skill_version="0.2.0",
+        task_context="Reviewing a pull request",
+        loaded_at=NOW,
+        outcome_positive=False,
+    ).to_dict()
+    data["outcome_positive"] = "false"
+
+    assert SkillUsageEvent.from_dict(data).outcome_positive is False
+
+
+def test_skill_usage_event_from_dict_rejects_invalid_bool() -> None:
+    data = SkillUsageEvent(
+        id="usage-4",
+        skill_id="skill-1",
+        skill_version="0.2.0",
+        task_context="Reviewing a pull request",
+        loaded_at=NOW,
+    ).to_dict()
+    data["outcome_positive"] = "definitely"
+
+    with pytest.raises(ValueError, match="outcome_positive"):
+        SkillUsageEvent.from_dict(data)
+
+
+def test_skillcard_from_dict_rejects_confidence_outside_unit_interval() -> None:
+    data = _skill().to_dict()
+    data["confidence"] = 7.3
+
+    with pytest.raises(ValueError, match="confidence"):
+        SkillCard.from_dict(data)
+
+
+def test_review_session_from_dict_rejects_negative_current_question_index() -> None:
+    data = ReviewSession(
+        session_id="session-1",
+        candidate_id="c1",
+        started_at=NOW.isoformat(),
+        updated_at=NOW.isoformat(),
+    ).to_dict()
+    data["current_question_index"] = -1
+
+    with pytest.raises(ValueError, match="current_question_index"):
+        ReviewSession.from_dict(data)
+
+
+def test_review_session_from_dict_rejects_invalid_bool() -> None:
+    data = ReviewSession(
+        session_id="session-1",
+        candidate_id="c1",
+        started_at=NOW.isoformat(),
+        updated_at=NOW.isoformat(),
+    ).to_dict()
+    data["completed"] = "nope"
+
+    with pytest.raises(ValueError, match="completed"):
+        ReviewSession.from_dict(data)
+
+
 def test_loading_policy_round_trip() -> None:
     policy = LoadingPolicy(
         max_skills=3,
@@ -249,6 +375,23 @@ def test_loading_policy_round_trip() -> None:
         require_approved_status=False,
     )
     assert LoadingPolicy.from_dict(policy.to_dict()).to_dict() == policy.to_dict()
+
+
+@pytest.mark.parametrize("field", ["max_skills", "max_token_budget"])
+def test_loading_policy_from_dict_rejects_negative_limits(field: str) -> None:
+    data = LoadingPolicy().to_dict()
+    data[field] = -1
+
+    with pytest.raises(ValueError, match=field):
+        LoadingPolicy.from_dict(data)
+
+
+def test_loading_policy_from_dict_rejects_invalid_bool() -> None:
+    data = LoadingPolicy().to_dict()
+    data["require_approved_status"] = "nope"
+
+    with pytest.raises(ValueError, match="require_approved_status"):
+        LoadingPolicy.from_dict(data)
 
 
 def test_loading_policy_default_returns_all_approved_skills() -> None:

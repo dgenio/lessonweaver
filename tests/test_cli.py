@@ -510,6 +510,21 @@ def test_cli_export_skill_json_envelope(capsys, tmp_path) -> None:
     assert "# PR Diff First" in envelope["content"]
 
 
+def test_cli_loads_invalid_registry_model_as_usage_error(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.skills_dir.mkdir(parents=True)
+    data = _skill().to_dict()
+    data["confidence"] = 7.3
+    (registry.skills_dir / "skill-1.json").write_text(json.dumps(data), encoding="utf-8")
+
+    exit_code = main(["lint", "skill-1", "--registry-root", str(tmp_path)])
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "confidence" in err
+
+
 def test_cli_export_skill_dry_run_does_not_write(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())

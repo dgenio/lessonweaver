@@ -68,11 +68,12 @@ between these.
 
 - **Confidence** — Estimated probability that a candidate represents a
   generalizable pattern. Field: `LessonCandidate.confidence` /
-  `SkillCard.confidence` (float, `0.0`–`1.0`).
-- **Evidence strength** *(planned, [#36](https://github.com/dgenio/lessonweaver/issues/36))* —
+  `OperationalLesson.confidence` / `SkillCard.confidence` (float, `0.0`–`1.0`).
+- **Evidence strength** —
   A concept distinct from confidence: the quality, quantity, and directness of
   the trace evidence supporting a candidate. A high-confidence guess and a
-  well-evidenced observation are not the same thing. Not yet a model field.
+  well-evidenced observation are not the same thing. Field:
+  `LessonCandidate.evidence_strength` (float, `0.0`–`1.0`).
 
 ## Runtime retrieval
 
@@ -84,9 +85,11 @@ between these.
   `InclusionLevel` enum (`compile.py`).
 - **Skill loader** — The public facade combining registry, retrieval, and
   compilation. Class: `SkillLoader.load_for_task` (`loader.py`).
-- **Loading policy** *(planned, [#41](https://github.com/dgenio/lessonweaver/issues/41))* —
+- **Loading policy** —
   Rules controlling which skills are eligible for runtime injection (risk
-  ceiling, allowed scopes, denylist, approval requirement). Not yet implemented.
+  ceiling, allowed scopes, denylist, approval requirement). Class:
+  `LoadingPolicy`; `max_skills` and `max_token_budget` are non-negative
+  integers, and `require_approved_status` is a boolean.
 
 ## Classification metadata
 
