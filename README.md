@@ -191,6 +191,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 | Codex skill directory export | Supported (`codex`) |
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
+| GitHub Actions governance gate | Supported ([docs](docs/integrations/github-actions.md)) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
 ## Governance and safety
