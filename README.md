@@ -153,6 +153,7 @@ print(context.snippet)
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
 - `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
 - `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver completions --shell bash|zsh|fish` — print shell completions generated from the argparse command tree
 
 Shared output flags: `--output FILE` writes the result to a file instead of stdout;
 `--json` wraps `export-skill`/`export-lesson` output in a `{"format": ..., "content": ...}`
@@ -167,6 +168,26 @@ remaining adaptive questions from the answers recorded so far.
 
 Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
+
+### Shell completions
+
+Completion scripts are generated from the same argparse tree used by the CLI, so
+subcommands, flags, and choices such as `export-skill --format` stay in sync
+without a runtime dependency. Install them with your shell's completion path:
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+lessonweaver completions --shell bash > ~/.local/share/bash-completion/completions/lessonweaver
+mkdir -p ~/.zsh/completions
+lessonweaver completions --shell zsh > ~/.zsh/completions/_lessonweaver
+mkdir -p ~/.config/fish/completions
+lessonweaver completions --shell fish > ~/.config/fish/completions/lessonweaver.fish
+```
+
+For zsh, add `fpath=(~/.zsh/completions $fpath)` before `compinit`, reload with
+`autoload -Uz compinit && compinit`, then verify that
+`lessonweaver export-skill --format <TAB>` offers the documented format values.
+
 - `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`

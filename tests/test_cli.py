@@ -46,6 +46,30 @@ def test_cli_detect_produces_json(capsys) -> None:
     assert "summary" in candidates[0]
 
 
+def test_cli_completions_outputs_scripts_for_supported_shells(capsys) -> None:
+    for shell in ("bash", "zsh", "fish"):
+        exit_code = main(["completions", "--shell", shell])
+        assert exit_code == 0
+        output = capsys.readouterr().out
+        assert "lessonweaver" in output
+        assert "export-skill" in output
+        if shell == "fish":
+            assert "-l format" in output
+        else:
+            assert "--format" in output
+
+
+def test_cli_completions_include_export_skill_format_choices(capsys) -> None:
+    exit_code = main(["completions", "--shell", "zsh"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "export-skill" in output
+    assert "markdown json copilot copilot_instruction" in output
+    assert "copilot-repo copilot-path claude claude_skill claude-skill" in output
+    assert "claude-rule claude-md agents-md codex runtime" in output
+
+
 def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     main(
         [
