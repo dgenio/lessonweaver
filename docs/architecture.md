@@ -58,6 +58,7 @@ flowchart LR
 | `loader.py` | Public facade: registry + retrieval + compilation. |
 | `lint.py` | Deterministic structural/governance checks on a skill. |
 | `governance.py` | Guard the skill lifecycle transitions (and lint on activation). |
+| `effectiveness.py` | Score post-activation usage and recurrence signals for reviewed skills. |
 | `analysis.py` | Detect duplicate, overlapping, or contradictory skills. |
 | `validation.py` | Score skill-retrieval correctness (precision/recall) for a suite. |
 | `sanitization.py` | Best-effort pre-mining scrub of sensitive trace content. |
