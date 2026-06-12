@@ -33,6 +33,9 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Changed
 
+- CI now runs `eval-detection` against the labeled detection corpus on Python
+  3.12 and fails if precision drops below `1.0` or recall below `0.833` (#185).
+
 - `approve` now enforces the human-review gate: a candidate must have answered
   the required (adaptive) review questions before it can be approved. Use
   `--allow-incomplete-review` to override; the bypass and the unanswered
@@ -117,4 +120,3 @@ Once the first release is tagged (see docs/release.md), add reference links here
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
 -->
-

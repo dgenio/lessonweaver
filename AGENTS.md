@@ -35,6 +35,10 @@ lessonweaver converts AI-agent execution traces into reviewed, reusable operatio
 2. Call it from `LessonDetector.detect()`.
 3. Add unit tests for the true positive, false positive prevention, and edge cases.
 4. Keep detection conservative; prefer false negatives over false positives.
+5. Run `lessonweaver eval-detection examples/detection_corpus/corpus.json`
+   before opening the PR. The CI gate enforces the current corpus floors
+   (`--min-precision 1.0 --min-recall 0.833`); intentional floor changes must
+   update `.github/workflows/ci.yml` in the same PR with a short justification.
 
 ## Adding an Export Format
 

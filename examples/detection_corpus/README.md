@@ -24,7 +24,9 @@ Add `--min-precision` / `--min-recall` to fail (exit code 1) when quality drops
 below a floor — useful as a CI gate:
 
 ```bash
-lessonweaver eval-detection examples/detection_corpus/corpus.json --min-precision 1.0
+lessonweaver eval-detection examples/detection_corpus/corpus.json \
+  --min-precision 1.0 \
+  --min-recall 0.833
 ```
 
 Programmatic use:

@@ -32,3 +32,9 @@ jobs:
         run: mypy src/lessonweaver/
       - name: Run tests
         run: pytest
+      - name: Detection quality gate
+        if: matrix.python-version == '3.12'
+        run: |
+          lessonweaver eval-detection examples/detection_corpus/corpus.json \
+            --min-precision 1.0 \
+            --min-recall 0.833
