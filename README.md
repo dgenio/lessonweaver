@@ -147,6 +147,7 @@ print(context.snippet)
 ## Commands
 
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
+- `lessonweaver import-opencode <opencode-events.json> [--save] [--output FILE] [--dry-run]`
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
@@ -192,6 +193,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
+| OpenCode | Trace importer and reviewed export recipe ([OpenCode](docs/integrations/opencode.md)) |
 
 ## Governance and safety
 

@@ -37,7 +37,7 @@ from .export import (
 )
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
-from .importers import candidates_from_failure_case
+from .importers import OpenCodeTraceImporter, candidates_from_failure_case
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
 from .models import (
@@ -424,6 +424,23 @@ def main(argv: list[str] | None = None) -> int:
         "--save", action="store_true", help="Save candidates to the registry"
     )
 
+    opencode_parser = subparsers.add_parser(
+        "import-opencode",
+        parents=[dry_run_parent, output_parent],
+        help="Detect lesson candidates from an OpenCode plugin event trace",
+    )
+    opencode_parser.add_argument("artifact_path")
+    opencode_parser.add_argument("--registry-root")
+    opencode_parser.add_argument(
+        "--save", action="store_true", help="Save candidates to the registry"
+    )
+    opencode_parser.add_argument(
+        "--sanitize",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Scrub sensitive content before detection (default: on)",
+    )
+
     cluster_parser = subparsers.add_parser(
         "cluster",
         help="Detect candidates across multiple traces and group recurring patterns",
@@ -804,6 +821,12 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "import-failure-case":
         artifact = _read_json(args.artifact_path)
         candidates = candidates_from_failure_case(artifact)
+        return _emit_candidates(candidates, args)
+
+    if args.command == "import-opencode":
+        artifact = _read_json(args.artifact_path)
+        bundle = OpenCodeTraceImporter(sanitize=args.sanitize).import_trace(artifact)
+        candidates = LessonDetector().detect(bundle)
         return _emit_candidates(candidates, args)
 
     if args.command == "cluster":

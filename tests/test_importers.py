@@ -8,10 +8,12 @@ from lessonweaver.importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
+    OpenCodeTraceImporter,
     TraceImporter,
     candidates_from_failure_case,
 )
 from lessonweaver.models import TraceBundle, TraceEventType
+from lessonweaver.traces import validate_trace_dict
 
 CANONICAL_TRACE = {
     "trace_id": "trace-1",
@@ -36,6 +38,7 @@ def test_builtin_importers_satisfy_protocol() -> None:
     # TraceImporter is runtime_checkable, so isinstance verifies the contract.
     assert isinstance(DictTraceImporter(), TraceImporter)
     assert isinstance(FailureCaseImporter(), TraceImporter)
+    assert isinstance(OpenCodeTraceImporter(), TraceImporter)
 
 
 # --- DictTraceImporter ---------------------------------------------------------
@@ -116,3 +119,115 @@ def test_candidates_from_failure_case_stamps_provenance() -> None:
     assert ids == {"fc-0001-failed-eval", "fc-0001-human-correction"}
     for candidate in candidates:
         assert candidate.metadata[FAILURE_CASE_PROVENANCE_KEY]["failure_id"] == "fc-0001"
+
+
+# --- OpenCodeTraceImporter ----------------------------------------------------
+
+
+OPENCODE_TRACE = {
+    "source": "opencode",
+    "session_id": "oc-session-1",
+    "task": "Review a pull request",
+    "workspace": "/repo",
+    "events": [
+        {"id": "u1", "type": "user", "message": "Please review PR #42"},
+        {
+            "id": "t1",
+            "type": "tool_call",
+            "tool": "git.diff",
+            "input": {"path": "src/app.py"},
+        },
+        {
+            "id": "r1",
+            "type": "tool_result",
+            "tool": "git.diff",
+            "output": "No diff read",
+            "success": False,
+        },
+        {
+            "id": "h1",
+            "type": "correction",
+            "message": "You must inspect the diff before approving.",
+            "file": "src/app.py",
+        },
+    ],
+}
+
+
+def test_opencode_importer_can_import_structural_payload() -> None:
+    importer = OpenCodeTraceImporter()
+    assert importer.can_import(OPENCODE_TRACE) is True
+    assert importer.can_import({"schema": "opencode/plugin-events@1", "events": []}) is True
+    assert importer.can_import(CANONICAL_TRACE) is False
+
+
+def test_opencode_importer_normalizes_to_valid_trace_bundle() -> None:
+    bundle = OpenCodeTraceImporter().import_trace(OPENCODE_TRACE)
+
+    assert bundle.trace_id == "oc-session-1"
+    assert bundle.source == "opencode"
+    assert bundle.task == "Review a pull request"
+    assert bundle.outcome == "corrected_by_human"
+    assert [event.type for event in bundle.events] == [
+        TraceEventType.USER_MESSAGE,
+        TraceEventType.TOOL_CALL,
+        TraceEventType.TOOL_RESULT,
+        TraceEventType.HUMAN_CORRECTION,
+    ]
+    assert bundle.events[2].success is False
+    assert bundle.events[3].content == "You must inspect the diff before approving."
+    assert validate_trace_dict(bundle.to_dict()) == []
+
+
+def test_opencode_importer_preserves_safe_unknown_fields_in_metadata() -> None:
+    bundle = OpenCodeTraceImporter().import_trace(OPENCODE_TRACE)
+
+    assert bundle.metadata["opencode"]["workspace"] == "/repo"
+    assert bundle.events[1].metadata["tool"] == "git.diff"
+    assert bundle.events[1].metadata["input"] == {"path": "src/app.py"}
+    assert bundle.events[3].metadata["file"] == "src/app.py"
+
+
+def test_opencode_importer_fills_missing_optional_event_fields() -> None:
+    bundle = OpenCodeTraceImporter().import_trace(
+        {
+            "source": "opencode",
+            "session_id": "oc-minimal",
+            "events": [{"type": "assistant", "message": "I will inspect the diff."}],
+        }
+    )
+
+    assert bundle.task == "OpenCode session"
+    assert bundle.events[0].id == "oc-minimal-event-1"
+    assert bundle.events[0].type is TraceEventType.ASSISTANT_MESSAGE
+    assert bundle.outcome == "success"
+
+
+@pytest.mark.parametrize(
+    ("payload", "match"),
+    [
+        ({"source": "opencode", "events": []}, "session_id"),
+        ({"source": "opencode", "session_id": "oc-1"}, "events"),
+        ({"source": "opencode", "session_id": "oc-1", "events": ["bad"]}, "event object"),
+    ],
+)
+def test_opencode_importer_rejects_malformed_payloads(payload: dict, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        OpenCodeTraceImporter().import_trace(payload)
+
+
+def test_opencode_importer_redacts_event_content_by_default() -> None:
+    bundle = OpenCodeTraceImporter().import_trace(
+        {
+            "source": "opencode",
+            "session_id": "oc-redact",
+            "events": [
+                {
+                    "type": "correction",
+                    "message": "Do not echo a.user@example.com in the answer.",
+                }
+            ],
+        }
+    )
+
+    assert bundle.events[0].content == "Do not echo [REDACTED by email] in the answer."

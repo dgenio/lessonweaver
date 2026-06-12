@@ -789,6 +789,34 @@ def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> 
     assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"
 
 
+def test_cli_import_opencode_save_persists_candidates(capsys, tmp_path) -> None:
+    path = tmp_path / "opencode.json"
+    path.write_text(
+        json.dumps(
+            {
+                "source": "opencode",
+                "session_id": "oc-cli",
+                "task": "Review a pull request",
+                "events": [
+                    {
+                        "type": "correction",
+                        "message": "Inspect the diff before approving.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["import-opencode", str(path), "--save", "--registry-root", str(tmp_path)])
+
+    assert exit_code == 0
+    candidates = json.loads(capsys.readouterr().out)
+    assert [candidate["id"] for candidate in candidates] == ["oc-cli-human-correction"]
+    stored = FileSystemRegistry(tmp_path).load_candidate("oc-cli-human-correction")
+    assert stored.evidence_trace_ids == ["oc-cli"]
+
+
 def test_cli_cluster_groups_repeated_pattern(capsys, tmp_path) -> None:
     # Two distinct traces (different trace_ids) carrying the same human-correction
     # pattern must collapse into one cluster of distinct candidates.
