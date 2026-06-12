@@ -55,6 +55,8 @@ user corrects it, and detection produces one `human_correction` candidate.
 [`examples/skills/voice_slot_repair.md`](../../examples/skills/voice_slot_repair.md)
 is an example reviewed skill for slot correction. It repairs only the corrected
 slot and confirms in a single short sentence to respect the latency budget.
+For a full detect-to-export voice walkthrough, see the
+[conversational-agent cookbook](../cookbook/conversational-agents.md).
 
 ## What lessonweaver does not do
 
