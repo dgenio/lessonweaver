@@ -28,6 +28,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Quality Assurance",
   "Typing :: Typed",
 ]
@@ -43,6 +45,7 @@ dev = [
   "pytest>=8",
   "ruff>=0.8",
   "mypy>=1.13",
+  "tomli>=2",
   "build>=1.0",
   "twine>=6.1",
 ]
