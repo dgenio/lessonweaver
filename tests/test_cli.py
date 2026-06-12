@@ -269,7 +269,6 @@ def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     assert exit_code == 0
     assert "# PR Diff First" in capsys.readouterr().out
 
-
 def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_sensitive_skill())
@@ -286,6 +285,17 @@ def test_cli_export_skill_no_redact_emits_raw_content(capsys, tmp_path) -> None:
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path), "--no-redact"])
     assert exit_code == 0
     assert "admin@example.com" in capsys.readouterr().out
+
+
+def test_cli_export_skill_missing_ref_mentions_path_and_registry(capsys, tmp_path) -> None:
+    missing = tmp_path / "missing-skill.json"
+    exit_code = main(["export-skill", str(missing), "--registry-root", str(tmp_path)])
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "could not resolve skill" in err
+    assert f"path '{missing}' does not exist" in err
+    assert f"registry id '{missing}' was not found" in err
 
 
 def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:

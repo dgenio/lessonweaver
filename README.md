@@ -175,6 +175,10 @@ remaining adaptive questions from the answers recorded so far.
 Commands return non-zero on bad input and keep stdout clean for JSON consumers.
 Application-level error lines start with `Error:` on stderr; warnings start with `warning:`.
 Malformed argv rejected by argparse uses argparse's standard `usage:`/`error:` output.
+Commands that accept either an id or a JSON file path resolve existing paths
+first, then fall back to registry ids. If neither form resolves, the error
+message names both attempts so scripted usage can distinguish a missing file
+from a missing registry entry.
 
 | Failure class | Exit code |
 | --- | --- |
