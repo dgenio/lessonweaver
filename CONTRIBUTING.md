@@ -31,10 +31,14 @@ ruff check src/ tests/
 ruff format --check src/ tests/
 mypy src/lessonweaver/
 pytest
+
+# Coverage ratchet used by CI
+pytest --cov=lessonweaver --cov-report=term-missing --cov-report=xml --cov-fail-under=95
 ```
 
-CI runs lint, type check, and tests on Python 3.10, 3.11, and 3.12. Run the
-commands above locally before opening a PR so there are no surprises.
+CI runs lint, format, and type checks on Ubuntu, then runs the coverage-enforced
+test suite on Ubuntu, macOS, and Windows. Run the commands above locally before
+opening a PR so there are no surprises.
 
 ## Where to contribute
 
