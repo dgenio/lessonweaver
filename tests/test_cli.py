@@ -335,6 +335,57 @@ def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
     assert "LW001" in capsys.readouterr().out
 
 
+def test_cli_lint_accepts_multiple_skill_files(capsys, tmp_path) -> None:
+    clean = tmp_path / "clean-skill.json"
+    clean.write_text(json.dumps(_skill("clean").to_dict()), encoding="utf-8")
+    bad = _skill("bad")
+    bad.instructions = []
+    bad_path = tmp_path / "bad-skill.json"
+    bad_path.write_text(json.dumps(bad.to_dict()), encoding="utf-8")
+
+    exit_code = main(["lint", str(clean), str(bad_path)])
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert f"{bad_path}: [ERROR] LW003" in out
+
+
+def test_cli_lint_accepts_markdown_skill_files(capsys, tmp_path) -> None:
+    markdown = tmp_path / "review-discipline.md"
+    markdown.write_text(
+        "\n".join(
+            [
+                "# Review Discipline",
+                "",
+                "## Description",
+                "Inspect concrete evidence before reviewing code changes.",
+                "",
+                "## Use when",
+                "- reviewing pull requests",
+                "",
+                "## Do not use when",
+                "- no code changes",
+                "",
+                "## Instructions",
+                "- Inspect changed files first",
+                "",
+                "## Anti-patterns",
+                "- title-only approval",
+                "",
+                "## Evidence",
+                "- trace: trace-1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["lint", str(markdown)])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "[ERROR]" not in out
+
+
 def test_cli_retrieve(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
@@ -980,6 +1031,82 @@ def test_cli_export_file_write_creates_then_is_idempotent(capsys, tmp_path) -> N
         )
         == 0
     )
+    assert "no changes" in capsys.readouterr().out
+
+
+def test_cli_export_file_check_fails_on_drift(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    assert (
+        main(
+            [
+                "export-file",
+                "skill-1",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    target.write_text(
+        target.read_text(encoding="utf-8").replace("Inspect changed files first", "Skip the diff"),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "export-file",
+            "skill-1",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--check",
+        ]
+    )
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert "-- Skip the diff" in out
+    assert "+- Inspect changed files first" in out
+
+
+def test_cli_export_file_check_passes_when_up_to_date(capsys, tmp_path) -> None:
+    FileSystemRegistry(tmp_path).save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    assert (
+        main(
+            [
+                "export-file",
+                "skill-1",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    exit_code = main(
+        [
+            "export-file",
+            "skill-1",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--check",
+        ]
+    )
+
+    assert exit_code == 0
     assert "no changes" in capsys.readouterr().out
 
 

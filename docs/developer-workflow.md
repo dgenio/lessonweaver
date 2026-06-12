@@ -77,6 +77,48 @@ forces preview even with `--write`. Re-running an unchanged export reports
 `no changes` rather than rewriting the file. Review the diff like any code change
 before committing.
 
+Use `--check` in automation to fail instead of writing when a managed block is
+missing or out of date:
+
+```bash
+lessonweaver export-file skill-1 --path AGENTS.md --format agents-md \
+  --registry-root .lessonweaver --check
+```
+
+## Pre-commit hooks
+
+lessonweaver publishes two hooks for repositories that use the pre-commit
+framework:
+
+- `lessonweaver-lint` runs `lessonweaver lint` on staged JSON or Markdown skill
+  files. The command accepts multiple file arguments and returns non-zero when
+  any skill has blocking lint errors.
+- `lessonweaver-drift` runs `lessonweaver export-file --check` against
+  configured instruction files and returns non-zero when a managed block would
+  change.
+
+Example `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/dgenio/lessonweaver
+    rev: v0.3.0
+    hooks:
+      - id: lessonweaver-lint
+      - id: lessonweaver-drift
+        args:
+          - skill-pr-review-diff-discipline
+          - --path
+          - AGENTS.md
+          - --format
+          - agents-md
+          - --registry-root
+          - .lessonweaver
+```
+
+Use one `lessonweaver-drift` hook entry per exported skill/instruction target
+pair. The drift hook is check-only in v1; it never mutates files.
+
 ## Understand loading decisions: `explain-load`
 
 A growing skill library poisons context if everything always loads. Diagnose

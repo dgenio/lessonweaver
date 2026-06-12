@@ -168,8 +168,8 @@ remaining adaptive questions from the answers recorded so far.
 Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
-- `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
-- `lessonweaver lint <skill-id-or-json>`
+- `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--check] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`; `--check` exits non-zero on drift)
+- `lessonweaver lint <skill-id-or-json-or-md> [...]`
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`
 - `lessonweaver load "<task>" [--explain]`
@@ -206,6 +206,8 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   control.
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
+- Pre-commit hooks are available for skill linting and managed instruction-file
+  drift checks; see [developer workflow](docs/developer-workflow.md#pre-commit-hooks).
 
 See [when not to create a skill](docs/when-not-to-create-a-skill.md) — turning
 every observation into a skill causes context poisoning.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import uuid
 from dataclasses import replace
@@ -47,6 +48,8 @@ from .models import (
     RecommendedActionType,
     ReviewAnswer,
     ReviewSession,
+    RiskLevel,
+    Scope,
     SensitivityLevel,
     SkillCard,
     SkillStatus,
@@ -139,8 +142,85 @@ def _find_review_question(candidate: LessonCandidate, question_id: str):
 def _load_skill_ref(skill_ref: str, registry: FileSystemRegistry) -> SkillCard:
     path = Path(skill_ref)
     if path.exists():
+        if path.suffix.lower() in {".md", ".markdown"}:
+            return _load_skill_markdown(path)
         return SkillCard.from_dict(_read_json(path))
     return registry.load_skill(skill_ref)
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "markdown-skill"
+
+
+def _markdown_sections(text: str) -> tuple[str, dict[str, list[str]]]:
+    title = "Markdown skill"
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.rstrip()
+        if line.startswith("# "):
+            title = line[2:].strip() or title
+            current = None
+            continue
+        if line.startswith("## "):
+            current = line[3:].strip().lower()
+            sections.setdefault(current, [])
+            continue
+        if current is not None:
+            sections[current].append(line)
+    return title, sections
+
+
+def _markdown_paragraph(sections: dict[str, list[str]], name: str) -> str:
+    lines = [line.strip() for line in sections.get(name, []) if line.strip()]
+    return " ".join(line[2:].strip() if line.startswith("- ") else line for line in lines)
+
+
+def _markdown_list(sections: dict[str, list[str]], name: str) -> list[str]:
+    items: list[str] = []
+    for line in sections.get(name, []):
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:].strip())
+    return items
+
+
+def _markdown_governance(sections: dict[str, list[str]]) -> dict[str, str]:
+    governance: dict[str, str] = {}
+    for item in _markdown_list(sections, "governance"):
+        key, _, value = item.partition(":")
+        if value:
+            governance[key.strip().lower()] = value.strip()
+    return governance
+
+
+def _load_skill_markdown(path: Path) -> SkillCard:
+    title, sections = _markdown_sections(path.read_text(encoding="utf-8"))
+    governance = _markdown_governance(sections)
+    evidence = [
+        item.partition(":")[2].strip() if item.lower().startswith("trace:") else item
+        for item in _markdown_list(sections, "evidence")
+    ]
+    return SkillCard(
+        id=path.stem or _slugify(title),
+        name=title,
+        description=_markdown_paragraph(sections, "description"),
+        applies_when=_markdown_list(sections, "use when"),
+        does_not_apply_when=_markdown_list(sections, "do not use when"),
+        instructions=_markdown_list(sections, "instructions"),
+        anti_patterns=_markdown_list(sections, "anti-patterns"),
+        evidence_trace_ids=evidence,
+        confidence=float(governance.get("confidence", "0.8")),
+        risk_level=RiskLevel(governance.get("risk", RiskLevel.LOW.value)),
+        scope=Scope(governance.get("scope", Scope.PROJECT.value)),
+        version=governance.get("version", "0.1.0"),
+        status=SkillStatus(governance.get("status", SkillStatus.ACTIVE.value)),
+        sensitivity=SensitivityLevel(
+            governance.get("sensitivity", SensitivityLevel.INTERNAL.value)
+        ),
+        metadata={"source_path": str(path), "source_format": "markdown"},
+    )
 
 
 def _load_skill_cards_from_dir(skills_dir: str) -> list[SkillCard]:
@@ -612,7 +692,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_file_parser.add_argument("skill")
     export_file_parser.add_argument(
-        "--path", required=True, help="Target instruction file to create or update"
+        "--path",
+        required=True,
+        action="append",
+        help="Target instruction file to create, update, or check (repeatable)",
     )
     export_file_parser.add_argument(
         "--format",
@@ -646,10 +729,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Write the merged file (default: preview the diff only)",
     )
+    export_file_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail with a unified diff if a target file is missing or out of date",
+    )
     export_file_parser.add_argument("--registry-root")
 
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
-    lint_parser.add_argument("skill")
+    lint_parser.add_argument("skills", nargs="+")
     lint_parser.add_argument("--registry-root")
 
     analyze_parser = subparsers.add_parser(
@@ -1043,20 +1131,27 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "export-file":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
         content = _export_skill(skill, args.format, args.redact, args.applies_to)
-        target = Path(args.path)
-        existing = target.read_text(encoding="utf-8") if target.exists() else ""
-        merged = merge_managed_block(existing, content, skill.id)
-        if merged == existing:
-            print(f"no changes: {args.path} already has this skill block up to date")
-            return 0
-        if args.write and not args.dry_run:
-            target.write_text(merged, encoding="utf-8")
-            print(f"{'updated' if existing else 'created'}: {args.path}")
-            return 0
-        if args.dry_run:
-            print(f"[dry-run] would write to: {args.path}")
-        print(diff_managed_file(existing, merged, args.path), end="")
-        return 0
+        exit_code = 0
+        for path in args.path:
+            target = Path(path)
+            existing = target.read_text(encoding="utf-8") if target.exists() else ""
+            merged = merge_managed_block(existing, content, skill.id)
+            if merged == existing:
+                print(f"no changes: {path} already has this skill block up to date")
+                continue
+            diff = diff_managed_file(existing, merged, path)
+            if args.check:
+                print(diff, end="")
+                exit_code = 1
+                continue
+            if args.write and not args.dry_run:
+                target.write_text(merged, encoding="utf-8")
+                print(f"{'updated' if existing else 'created'}: {path}")
+                continue
+            if args.dry_run:
+                print(f"[dry-run] would write to: {path}")
+            print(diff, end="")
+        return exit_code
 
     if args.command == "export-skill":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
@@ -1103,18 +1198,21 @@ def _run(args: argparse.Namespace) -> int:
         return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "lint":
-        skill = _load_skill_ref(args.skill, _registry(args.registry_root))
-        lint_findings = SkillLinter().lint(skill)
-        for lint_finding in lint_findings:
-            print(
-                f"[{lint_finding.severity.value.upper()}] "
-                f"{lint_finding.rule_id}: {lint_finding.message}"
-            )
-        return (
-            1
-            if any(lint_finding.severity is LintSeverity.ERROR for lint_finding in lint_findings)
-            else 0
-        )
+        registry = _registry(args.registry_root)
+        exit_code = 0
+        multiple = len(args.skills) > 1
+        for skill_ref in args.skills:
+            skill = _load_skill_ref(skill_ref, registry)
+            lint_findings = SkillLinter().lint(skill)
+            for lint_finding in lint_findings:
+                prefix = f"{skill_ref}: " if multiple else ""
+                print(
+                    f"{prefix}[{lint_finding.severity.value.upper()}] "
+                    f"{lint_finding.rule_id}: {lint_finding.message}"
+                )
+            if any(lint_finding.severity is LintSeverity.ERROR for lint_finding in lint_findings):
+                exit_code = 1
+        return exit_code
 
     if args.command == "analyze-skills":
         skills = _load_skill_cards_from_dir(args.skills_dir)
