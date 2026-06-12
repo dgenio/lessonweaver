@@ -147,6 +147,7 @@ print(context.snippet)
 ## Commands
 
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
+- `lessonweaver detect <trace.json> --sanitize` — scrub best-effort sensitive content before mining
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
@@ -167,6 +168,17 @@ remaining adaptive questions from the answers recorded so far.
 
 Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
+
+Use `detect --sanitize` whenever traces may contain secrets or PII, especially
+when they come from logs, support transcripts, customer chat, CI output, or any
+source you do not fully control. Sanitization runs **before** detection, so the
+redacted text is what shapes lesson candidates, review questions, and any saved
+registry entries. Export-time `--redact` is still useful before committing a
+skill or lesson artifact, but it happens after mining and cannot remove
+sensitive text that already influenced a candidate. The built-in sanitizer is
+pattern-based and best-effort; keep raw traces protected at the source and add
+custom `SanitizationRule`s for domain-specific secrets.
+
 - `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`
