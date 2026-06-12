@@ -1,7 +1,10 @@
 """Tests for the lesson/skill registry."""
 
+from pathlib import Path
+
 import pytest
 
+from lessonweaver import registry as registry_module
 from lessonweaver.models import (
     ExportArtifact,
     ExportFormat,
@@ -98,6 +101,61 @@ def test_filesystem_registry_skill_round_trip(tmp_path) -> None:
     registry.save_skill(skill)
     assert registry.load_skill(skill.id).to_dict() == skill.to_dict()
     assert registry.list_skills()[0].id == skill.id
+
+
+def test_resolve_registry_root_prefers_explicit_path(tmp_path, monkeypatch) -> None:
+    explicit = tmp_path / "explicit"
+    env_root = tmp_path / "env"
+    project_root = tmp_path / ".lessonweaver" / "registry"
+    project_root.mkdir(parents=True)
+    monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(env_root))
+    monkeypatch.chdir(tmp_path)
+
+    assert registry_module.resolve_registry_root(str(explicit)) == explicit
+
+
+def test_resolve_registry_root_uses_environment_variable(tmp_path, monkeypatch) -> None:
+    env_root = tmp_path / "env-registry"
+    project_root = tmp_path / ".lessonweaver" / "registry"
+    project_root.mkdir(parents=True)
+    monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(env_root))
+    monkeypatch.chdir(tmp_path)
+
+    assert registry_module.resolve_registry_root(None) == env_root
+
+
+def test_resolve_registry_root_discovers_project_registry_from_subdirectory(
+    tmp_path, monkeypatch
+) -> None:
+    project_registry = tmp_path / ".lessonweaver" / "registry"
+    nested = tmp_path / "src" / "pkg"
+    project_registry.mkdir(parents=True)
+    nested.mkdir(parents=True)
+    monkeypatch.delenv("LESSONWEAVER_REGISTRY", raising=False)
+    monkeypatch.chdir(nested)
+
+    assert registry_module.resolve_registry_root(None) == project_registry
+
+
+def test_resolve_registry_root_falls_back_to_home_default(tmp_path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    cwd = tmp_path / "work"
+    home.mkdir()
+    cwd.mkdir()
+    monkeypatch.delenv("LESSONWEAVER_REGISTRY", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.chdir(cwd)
+
+    assert registry_module.resolve_registry_root(None) == home / ".lessonweaver" / "registry"
+
+
+def test_filesystem_registry_default_uses_resolved_root(tmp_path, monkeypatch) -> None:
+    project_registry = tmp_path / ".lessonweaver" / "registry"
+    project_registry.mkdir(parents=True)
+    monkeypatch.delenv("LESSONWEAVER_REGISTRY", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert FileSystemRegistry().root == project_registry
 
 
 def test_filesystem_registry_lesson_and_artifact_round_trip(tmp_path) -> None:

@@ -108,7 +108,10 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
   --format markdown --registry-root /tmp/lw
 ```
 
-Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
+Drop `--registry-root /tmp/lw` to use registry discovery: the
+`LESSONWEAVER_REGISTRY` environment variable, then the nearest
+`.lessonweaver/registry/` directory above the current working directory, then
+`~/.lessonweaver/registry`.
 For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md).
 For a complete worked example with traces, an approved skill, and a validation
 suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
