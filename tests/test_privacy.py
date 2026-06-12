@@ -1,27 +1,29 @@
+"""Tests for export-time redaction."""
+
+from __future__ import annotations
+
+import pytest
+from redaction_cases import SAFE_CASES, SENSITIVE_CASES_PARAM
+
 from lessonweaver.privacy import SimpleRedactor
 
 
-def test_redacts_email_addresses() -> None:
-    assert SimpleRedactor().redact("Email admin@example.com") == "Email [REDACTED]"
+@SENSITIVE_CASES_PARAM
+def test_simple_redactor_uses_shared_sensitive_cases(
+    _case_name: str, raw: str, expected: str
+) -> None:
+    assert SimpleRedactor().redact(raw) == expected
 
 
-def test_redacts_bearer_tokens() -> None:
-    token = "Bearer abcdefghijklmnopqrstuvwxyz123456"
-    assert SimpleRedactor().redact(f"Auth {token}") == "Auth [REDACTED]"
-
-
-def test_redacts_api_keys() -> None:
-    assert SimpleRedactor().redact("api_key: sk-abc123") == "[REDACTED]"
-
-
-def test_redacts_aws_access_key() -> None:
-    assert SimpleRedactor().redact("AKIAABCDEFGHIJKLMNOP") == "[REDACTED]"
-
-
-def test_redacts_private_key_header() -> None:
-    assert SimpleRedactor().redact("-----BEGIN RSA PRIVATE KEY-----") == "[REDACTED]"
-
-
-def test_redactor_leaves_plain_text_unchanged() -> None:
-    text = "No sensitive pattern here."
+@pytest.mark.parametrize("text", SAFE_CASES)
+def test_redactor_leaves_safe_text_unchanged(text: str) -> None:
     assert SimpleRedactor().redact(text) == text
+
+
+def test_redactor_propagates_rule_failures() -> None:
+    class ExplodingRule:
+        def apply(self, text: str) -> str:
+            raise RuntimeError("rule failed")
+
+    with pytest.raises(RuntimeError, match="rule failed"):
+        SimpleRedactor(rules=[ExplodingRule()]).redact("secret")  # type: ignore[list-item]

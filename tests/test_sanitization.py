@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from redaction_cases import SAFE_CASES, SENSITIVE_CASES_PARAM
+
 from lessonweaver.models import TraceBundle, TraceEvent, TraceEventType
 from lessonweaver.sanitization import SanitizationRule, TraceSanitizer
 
@@ -16,26 +19,9 @@ def _bundle(content: str | None) -> TraceBundle:
     )
 
 
-def test_default_rules_redact_email_bearer_and_key() -> None:
-    text = (
-        "Contact a.user@example.com with Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ "
-        "and key -----BEGIN RSA PRIVATE KEY-----"
-    )
-    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
-    assert out == (
-        "Contact [REDACTED by email] with [REDACTED by bearer_token] "
-        "and key [REDACTED by private_key]"
-    )
-
-
-def test_private_key_redacts_full_block() -> None:
-    text = (
-        "key:\n-----BEGIN RSA PRIVATE KEY-----\n"
-        "MIIBOgIBAAJBAKj34GkxFhD90vcNLYL\nq9p2x6Z3\n"
-        "-----END RSA PRIVATE KEY-----\nok"
-    )
-    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
-    assert out == "key:\n[REDACTED by private_key]\nok"
+@SENSITIVE_CASES_PARAM
+def test_default_rules_use_shared_sensitive_cases(_case_name: str, raw: str, expected: str) -> None:
+    assert TraceSanitizer().sanitize(_bundle(raw)).events[0].content == expected
 
 
 def test_sanitize_returns_new_bundle_and_leaves_input_unchanged() -> None:
@@ -55,6 +41,12 @@ def test_none_content_is_preserved() -> None:
 def test_clean_content_is_untouched() -> None:
     sanitized = TraceSanitizer().sanitize(_bundle("nothing sensitive here"))
     assert sanitized.events[0].content == "nothing sensitive here"
+
+
+@pytest.mark.parametrize("text", SAFE_CASES)
+def test_safe_content_is_untouched(text: str) -> None:
+    sanitized = TraceSanitizer().sanitize(_bundle(text))
+    assert sanitized.events[0].content == text
 
 
 def test_custom_rules_only() -> None:
