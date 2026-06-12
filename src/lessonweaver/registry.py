@@ -7,7 +7,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TypeVar
+from typing import Protocol, TypeVar, runtime_checkable
 
 from .models import (
     ExportArtifact,
@@ -38,22 +38,79 @@ def resolve_registry_root(explicit: str | Path | None = None) -> Path:
     return Path.home() / ".lessonweaver" / "registry"
 
 
+@runtime_checkable
+class SkillStore(Protocol):
+    """Minimal registry protocol for loading, reporting, and cleaning skills."""
+
+    def save_skill(self, skill: SkillCard) -> None: ...
+
+    def load_skill(self, skill_id: str) -> SkillCard: ...
+
+    def list_skills(self) -> list[SkillCard]: ...
+
+    def save_usage_event(self, event: SkillUsageEvent) -> None: ...
+
+    def list_usage_events(self) -> list[SkillUsageEvent]: ...
+
+
 @dataclass(slots=True)
 class LessonRegistry:
+    """In-memory registry with legacy add/get helpers and filesystem-style methods."""
+
     lessons: dict[str, LessonCandidate] = field(default_factory=dict)
     skills: dict[str, SkillCard] = field(default_factory=dict)
+    usage_events: dict[str, SkillUsageEvent] = field(default_factory=dict)
 
     def add_lesson(self, candidate: LessonCandidate) -> None:
-        self.lessons[candidate.id] = candidate
+        self.save_candidate(candidate)
 
     def add_skill(self, skill: SkillCard) -> None:
-        self.skills[skill.id] = skill
+        self.save_skill(skill)
 
     def get_lesson(self, lesson_id: str) -> LessonCandidate | None:
         return self.lessons.get(lesson_id)
 
     def get_skill(self, skill_id: str) -> SkillCard | None:
         return self.skills.get(skill_id)
+
+    def save_candidate(self, candidate: LessonCandidate) -> None:
+        self.lessons[candidate.id] = candidate
+
+    def load_candidate(self, candidate_id: str) -> LessonCandidate:
+        candidate = self.get_lesson(candidate_id)
+        if candidate is None:
+            raise FileNotFoundError(f"candidate '{candidate_id}' does not exist in registry")
+        return candidate
+
+    def list_candidates(self) -> list[LessonCandidate]:
+        return [self.lessons[key] for key in sorted(self.lessons)]
+
+    def save_skill(self, skill: SkillCard) -> None:
+        self.skills[skill.id] = skill
+
+    def load_skill(self, skill_id: str) -> SkillCard:
+        skill = self.get_skill(skill_id)
+        if skill is None:
+            raise FileNotFoundError(f"skill '{skill_id}' does not exist in registry")
+        return skill
+
+    def list_skills(self) -> list[SkillCard]:
+        return [self.skills[key] for key in sorted(self.skills)]
+
+    def save_usage_event(self, event: SkillUsageEvent) -> None:
+        self.usage_events[event.id] = event
+
+    def load_usage_event(self, event_id: str) -> SkillUsageEvent:
+        event = self.usage_events.get(event_id)
+        if event is None:
+            raise FileNotFoundError(f"usage event '{event_id}' does not exist in registry")
+        return event
+
+    def list_usage_events(self) -> list[SkillUsageEvent]:
+        return [self.usage_events[key] for key in sorted(self.usage_events)]
+
+    def list_skill_usage(self, skill_id: str) -> list[SkillUsageEvent]:
+        return [event for event in self.list_usage_events() if event.skill_id == skill_id]
 
 
 class FileSystemRegistry:

@@ -1,4 +1,4 @@
-"""Stale and unused skill detection over a filesystem registry."""
+"""Stale and unused skill detection over a skill registry."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from .models import SkillStatus, SkillUsageEvent, StaleSkillReport
-from .registry import FileSystemRegistry
+from .registry import SkillStore
 
 _LOW_CONFIDENCE_THRESHOLD = 0.3
 
@@ -21,7 +21,7 @@ class SkillReporter:
 
     def report_stale(
         self,
-        registry: FileSystemRegistry,
+        registry: SkillStore,
         now: datetime | None = None,
     ) -> list[StaleSkillReport]:
         """Return findings for expired, deprecated, low-confidence, or unused skills.

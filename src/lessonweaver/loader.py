@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .models import LoadingPolicy
-from .registry import FileSystemRegistry
+from .registry import FileSystemRegistry, SkillStore
 from .retrieval import RetrievalQuery, SkillRetriever
 
 
@@ -13,7 +13,7 @@ class SkillLoader:
 
     def __init__(
         self,
-        registry: FileSystemRegistry | None = None,
+        registry: SkillStore | None = None,
         retriever: SkillRetriever | None = None,
         compiler: SkillCompiler | None = None,
         policy: LoadingPolicy | None = None,

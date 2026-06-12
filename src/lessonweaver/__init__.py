@@ -84,7 +84,7 @@ from .models import (
     TraceEventType,
 )
 from .privacy import SimpleRedactor
-from .registry import FileSystemRegistry, LessonRegistry
+from .registry import FileSystemRegistry, LessonRegistry, SkillStore
 from .reporting import SkillReporter
 from .retrieval import (
     RetrievalDiagnostics,
@@ -159,6 +159,7 @@ __all__ = [
     "SkillReporter",
     "SkillRetriever",
     "SkillStatus",
+    "SkillStore",
     "SkillUsageEvent",
     "SkippedSkill",
     "StaleSkillReport",

@@ -10,7 +10,7 @@ from lessonweaver.models import (
     SkillStatus,
     SkillUsageEvent,
 )
-from lessonweaver.registry import FileSystemRegistry
+from lessonweaver.registry import FileSystemRegistry, LessonRegistry
 
 _PAST = datetime(2020, 1, 1, tzinfo=timezone.utc)
 _NOW = datetime(2030, 1, 1, tzinfo=timezone.utc)
@@ -101,6 +101,18 @@ def test_apply_deprecates_expired_active_skill_and_is_idempotent(tmp_path) -> No
     # Re-running finds nothing left to deprecate (the skill is already deprecated).
     again = cleaner.apply(registry, cleaner.plan(registry, now=_NOW), now=_NOW)
     assert again == []
+
+
+def test_apply_accepts_in_memory_registry() -> None:
+    registry = LessonRegistry()
+    registry.save_skill(_skill("exp", applies_when=["handling refunds"], expires_at=_PAST))
+    registry.save_usage_event(_usage("exp", "u-exp"))
+
+    cleaner = SkillCleaner()
+    changed = cleaner.apply(registry, cleaner.plan(registry, now=_NOW), now=_NOW)
+
+    assert changed == ["exp"]
+    assert registry.load_skill("exp").status is SkillStatus.DEPRECATED
 
 
 def test_apply_does_not_deprecate_revise_only_findings(tmp_path) -> None:

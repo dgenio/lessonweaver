@@ -9,7 +9,7 @@ from lessonweaver.models import (
     SkillStatus,
     SkillUsageEvent,
 )
-from lessonweaver.registry import FileSystemRegistry
+from lessonweaver.registry import FileSystemRegistry, LessonRegistry
 from lessonweaver.reporting import SkillReporter
 
 NOW = datetime(2026, 5, 26, 12, 0, tzinfo=timezone.utc)
@@ -61,6 +61,22 @@ def test_report_stale_healthy_used_skill_has_no_findings(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
     _log_usage(registry, "skill-1")
+    assert SkillReporter().report_stale(registry, now=NOW) == []
+
+
+def test_report_stale_accepts_in_memory_registry() -> None:
+    registry = LessonRegistry()
+    registry.save_skill(_skill())
+    registry.save_usage_event(
+        SkillUsageEvent(
+            id="usage-skill-1",
+            skill_id="skill-1",
+            skill_version="0.1.0",
+            task_context="testing reuse",
+            loaded_at=NOW,
+        )
+    )
+
     assert SkillReporter().report_stale(registry, now=NOW) == []
 
 
