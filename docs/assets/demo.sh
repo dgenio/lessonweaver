@@ -37,11 +37,11 @@ lessonweaver approve "$CANDIDATE" --approved-by reviewer --registry-root "$REG"
 
 echo
 echo "# 4. Export the reviewed skill as an AGENTS.md fragment..."
-lessonweaver export-skill "$SKILL" --format agents-md --redact --registry-root "$REG"
+lessonweaver export-skill "$SKILL" --format agents-md --registry-root "$REG"
 
 echo
 echo "# 5. ...and as a skill card (the JSON shape contextweaver loads back into context)."
-lessonweaver export-skill "$SKILL" --format json --redact --registry-root "$REG"
+lessonweaver export-skill "$SKILL" --format json --registry-root "$REG"
 
 echo
 echo "# 6. Close the loop: load the reviewed skill card back into agent context."

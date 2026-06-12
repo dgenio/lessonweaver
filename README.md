@@ -105,7 +105,7 @@ lessonweaver approve trace-gh-pr-review-001-human-correction \
 
 # 5. Export the reviewed skill for an instruction surface
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format markdown --redact --registry-root /tmp/lw
+  --format markdown --registry-root /tmp/lw
 ```
 
 Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
@@ -151,13 +151,15 @@ print(context.snippet)
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
-- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
-- `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact|--no-redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact|--no-redact] [--output FILE] [--json] [--dry-run]`
   - For a coherent eval/guardrail/workflow bundle, use
     `export_eval_companion_pack` from the library API; see
     [eval companion](docs/eval-companion.md).
 
-Shared output flags: `--output FILE` writes the result to a file instead of stdout;
+Redaction is on by default for export-rendering commands; pass `--no-redact`
+when you intentionally need raw content. Shared output flags:
+`--output FILE` writes the result to a file instead of stdout;
 `--json` wraps `export-skill`/`export-lesson` output in a `{"format": ..., "content": ...}`
 envelope for scripting; `--dry-run` previews a command without writing any file or
 registry entry (it prints a `[dry-run] would write to: ...` notice when `--output` is set).
@@ -170,7 +172,7 @@ remaining adaptive questions from the answers recorded so far.
 
 Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
-- `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
+- `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--redact|--no-redact] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
