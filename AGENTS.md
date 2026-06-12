@@ -11,6 +11,9 @@ lessonweaver converts AI-agent execution traces into reviewed, reusable operatio
 - No LLM in the core: detection, interview, linting, retrieval, and analysis are deterministic.
 - No mandatory framework dependencies: framework integrations belong in `examples/`, not `src/lessonweaver/`.
 - Stable data models: do not rename or remove dataclass fields without a migration plan.
+- Protected invariants: read `docs/protected-invariants.md` before changing
+  deterministic core behavior, review gates, retrieval, detection, registry, or
+  ML/LLM extension boundaries.
 
 ## Testing Expectations
 
