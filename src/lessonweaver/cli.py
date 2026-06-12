@@ -410,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
     detect_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (emails, tokens, keys) before detection",
     )
 
     failure_case_parser = subparsers.add_parser(
@@ -438,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
     cluster_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (emails, tokens, keys) before detection",
     )
 
     eval_detection_parser = subparsers.add_parser(
@@ -546,7 +546,7 @@ def main(argv: list[str] | None = None) -> int:
     review_trace_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (emails, tokens, keys) before detection",
     )
 
     export_parser = subparsers.add_parser(
