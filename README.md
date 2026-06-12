@@ -272,7 +272,7 @@ any sibling. The Mermaid source is in
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
-- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
+- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md), [Puppetmaster](docs/integrations/puppetmaster.md)
 - [Interoperability](docs/interoperability.md)
 - [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)
