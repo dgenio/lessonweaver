@@ -6,6 +6,7 @@ import re
 
 from .models import (
     LessonCandidate,
+    OutcomeLabelType,
     RecommendedActionType,
     RiskLevel,
     Scope,
@@ -28,7 +29,20 @@ def _candidate_id(trace_id: str, suffix: str) -> str:
 class LessonDetector:
     """Scan traces for candidate lessons using deterministic heuristics."""
 
-    def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
+    def detect(
+        self,
+        trace: TraceBundle,
+        outcome_labels: set[OutcomeLabelType | str] | None = None,
+    ) -> list[LessonCandidate]:
+        if outcome_labels is not None:
+            requested = {
+                str(label.value if isinstance(label, OutcomeLabelType) else label)
+                for label in outcome_labels
+            }
+            present = {label.label.value for label in trace.outcome_labels}
+            if requested.isdisjoint(present):
+                return []
+
         candidates: list[LessonCandidate] = []
         events = trace.events
 
@@ -295,4 +309,27 @@ class LessonDetector:
                 )
             )
 
+        if trace.outcome_labels:
+            labels = [label.to_dict() for label in trace.outcome_labels]
+            contradictions = trace.contradictory_outcome_labels()
+            for candidate in candidates:
+                candidate.metadata["outcome_labels"] = labels
+                if contradictions:
+                    candidate.metadata["contradictory_outcome_labels"] = [
+                        list(pair) for pair in contradictions
+                    ]
+
         return candidates
+
+
+def group_candidates_by_outcome_label(
+    candidates: list[LessonCandidate],
+) -> dict[str, list[LessonCandidate]]:
+    """Group candidates by evidence outcome label carried in candidate metadata."""
+    grouped: dict[str, list[LessonCandidate]] = {}
+    for candidate in candidates:
+        for item in candidate.metadata.get("outcome_labels", []):
+            if not isinstance(item, dict) or "label" not in item:
+                continue
+            grouped.setdefault(str(item["label"]), []).append(candidate)
+    return grouped

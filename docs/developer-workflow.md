@@ -56,6 +56,14 @@ The override and the list of unanswered questions are recorded under
 (`LessonCandidate.metadata` and `SkillCard.metadata`), so the bypass is
 auditable.
 
+## Outcome labels are evidence
+
+Imported telemetry can carry outcome labels such as `retrieval_miss`,
+`guardrail_violation`, or `human_correction`. These labels are reviewer or
+system evidence, not automatic truth; each label includes source, confidence,
+severity, timestamp, and notes. See [Outcome labels](outcome-labels.md) for the
+trace shape, filtering API, grouping helper, and contradictory-label handling.
+
 ## Diff-first file writes: `export-file`
 
 `export-skill` prints export text; `export-file` puts it into a real instruction
