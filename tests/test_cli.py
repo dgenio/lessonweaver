@@ -46,6 +46,55 @@ def test_cli_detect_produces_json(capsys) -> None:
     assert "summary" in candidates[0]
 
 
+def test_cli_demo_runs_full_loop_deterministically(capsys) -> None:
+    exit_code = main(["demo"])
+    assert exit_code == 0
+    first = capsys.readouterr().out
+
+    exit_code = main(["demo"])
+    assert exit_code == 0
+    second = capsys.readouterr().out
+
+    assert first == second
+    assert "lessonweaver demo" in first
+    assert "lessonweaver detect <demo-trace.json> --save --registry-root <registry>" in first
+    assert (
+        "lessonweaver answer trace-gh-pr-review-demo-human-correction decision approve "
+        "--registry-root <registry>"
+    ) in first
+    assert (
+        "lessonweaver approve trace-gh-pr-review-demo-human-correction "
+        "--approved-by lessonweaver-demo --registry-root <registry>"
+    ) in first
+    assert (
+        "lessonweaver export-skill skill-trace-gh-pr-review-demo-human-correction "
+        "--format markdown --redact --registry-root <registry>"
+    ) in first
+    assert "# Candidate lesson based on observed correction by a human reviewer." in first
+    assert "Temporary registry cleaned up." in first
+    assert "Registry kept at:" not in first
+
+
+def test_cli_demo_keep_retains_registry(capsys, tmp_path) -> None:
+    registry_root = tmp_path / "demo-registry"
+
+    exit_code = main(["demo", "--keep", "--registry-root", str(registry_root)])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert f"Registry kept at: {registry_root}" in output
+    registry = FileSystemRegistry(registry_root)
+    skill = registry.load_skill("skill-trace-gh-pr-review-demo-human-correction")
+    assert skill.approved_by == "lessonweaver-demo"
+
+
+def test_cli_demo_registry_root_requires_keep(capsys, tmp_path) -> None:
+    exit_code = main(["demo", "--registry-root", str(tmp_path / "demo-registry")])
+
+    assert exit_code == 1
+    assert "demo --registry-root requires --keep" in capsys.readouterr().err
+
+
 def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     main(
         [

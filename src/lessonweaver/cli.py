@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +61,23 @@ from .retrieval import RetrievalQuery, SkillRetriever
 from .sanitization import TraceSanitizer
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
+
+_EXPORT_FORMAT_CHOICES = [
+    "markdown",
+    "json",
+    "copilot",
+    "copilot_instruction",
+    "copilot-repo",
+    "copilot-path",
+    "claude",
+    "claude_skill",
+    "claude-skill",
+    "claude-rule",
+    "claude-md",
+    "agents-md",
+    "codex",
+    "runtime",
+]
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:
@@ -118,6 +137,103 @@ def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace
         [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
     )
     return _emit_text(content, output=args.output, dry_run=args.dry_run)
+
+
+def _demo_trace_text() -> str:
+    return (
+        resources.files("lessonweaver").joinpath("data/demo_trace.json").read_text(encoding="utf-8")
+    )
+
+
+def _run_demo(args: argparse.Namespace) -> int:
+    if args.registry_root and not args.keep:
+        print("Error: demo --registry-root requires --keep", file=sys.stderr)
+        return 1
+
+    if args.keep:
+        registry_root = (
+            Path(args.registry_root)
+            if args.registry_root
+            else Path(tempfile.mkdtemp(prefix="lessonweaver-demo-"))
+        )
+        registry_root.mkdir(parents=True, exist_ok=True)
+        return _run_demo_in_registry(args, registry_root, keep=True)
+
+    with tempfile.TemporaryDirectory(prefix="lessonweaver-demo-") as tmp_dir:
+        return _run_demo_in_registry(args, Path(tmp_dir), keep=False)
+
+
+def _run_demo_in_registry(args: argparse.Namespace, registry_root: Path, *, keep: bool) -> int:
+    trace_path = registry_root / "demo_trace.json"
+    trace_path.write_text(_demo_trace_text(), encoding="utf-8")
+    registry = FileSystemRegistry(str(registry_root))
+    bundle = load_trace_bundle(trace_path)
+    candidates = LessonDetector().detect(bundle)
+    if not candidates:
+        print("Error: demo trace produced no lesson candidates", file=sys.stderr)
+        return 1
+
+    candidate = candidates[0]
+    registry.save_candidate(candidate)
+    answers = {
+        "scope": "project",
+        "action_type": "skill",
+        "risk_level": "medium",
+        "applicability": "high_risk",
+        "negative_conditions": "different_domain",
+        "decision": "approve",
+    }
+    reviewed_candidate = _apply_answers(candidate, answers, {})
+    registry.save_candidate(reviewed_candidate)
+    approval, missing = _do_approve(
+        reviewed_candidate,
+        registry,
+        approved_by="lessonweaver-demo",
+    )
+    if approval is None:
+        print(
+            f"Error: demo review is incomplete; unanswered questions: {', '.join(missing)}",
+            file=sys.stderr,
+        )
+        return 1
+    skill = registry.load_skill(approval["skill_id"])
+    exported = _export_skill(skill, args.format, redact=True)
+
+    print("lessonweaver demo")
+    print()
+    print("1. Detect a lesson candidate from the bundled trace")
+    print("   $ lessonweaver detect <demo-trace.json> --save --registry-root <registry>")
+    print(f"   candidate: {candidate.id}")
+    print(f"   summary: {candidate.summary}")
+    print()
+    print("2. Apply scripted review answers")
+    for question_id, option_id in answers.items():
+        print(
+            f"   $ lessonweaver answer {candidate.id} {question_id} {option_id} "
+            "--registry-root <registry>"
+        )
+    print()
+    print("3. Approve the reviewed candidate")
+    print(
+        f"   $ lessonweaver approve {candidate.id} --approved-by lessonweaver-demo "
+        "--registry-root <registry>"
+    )
+    print(f"   skill: {approval['skill_id']}")
+    print()
+    print("4. Export the approved skill")
+    print(
+        f"   $ lessonweaver export-skill {approval['skill_id']} --format {args.format} "
+        "--redact --registry-root <registry>"
+    )
+    print()
+    print(exported)
+    if keep:
+        print()
+        print(f"Registry kept at: {registry_root}")
+    else:
+        print()
+        print("Temporary registry cleaned up.")
+    return 0
 
 
 def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> LessonCandidate:
@@ -397,6 +513,26 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Run the bundled detect -> review -> approve -> export demo",
+    )
+    demo_parser.add_argument(
+        "--format",
+        choices=_EXPORT_FORMAT_CHOICES,
+        default="markdown",
+        help="Final export format for the approved demo skill",
+    )
+    demo_parser.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep the demo registry and print its path",
+    )
+    demo_parser.add_argument(
+        "--registry-root",
+        help="Registry path to use with --keep (default: temporary directory)",
+    )
+
     detect_parser = subparsers.add_parser(
         "detect",
         parents=[dry_run_parent, output_parent],
@@ -562,22 +698,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_parser.add_argument(
         "--format",
-        choices=[
-            "markdown",
-            "json",
-            "copilot",
-            "copilot_instruction",
-            "copilot-repo",
-            "copilot-path",
-            "claude",
-            "claude_skill",
-            "claude-skill",
-            "claude-rule",
-            "claude-md",
-            "agents-md",
-            "codex",
-            "runtime",
-        ],
+        choices=_EXPORT_FORMAT_CHOICES,
         default="markdown",
     )
     export_parser.add_argument(
@@ -794,6 +915,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run(args: argparse.Namespace) -> int:
+    if args.command == "demo":
+        return _run_demo(args)
+
     if args.command == "detect":
         bundle = load_trace_bundle(args.trace_path)
         if args.sanitize:
