@@ -451,6 +451,66 @@ def test_cli_report_stale_outputs_json(capsys, tmp_path) -> None:
     assert "never_used" in reasons
 
 
+def test_cli_doctor_json_reports_healthy_registry(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(["doctor", "--registry-root", str(tmp_path), "--json"])
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "ok"
+    assert payload["summary"]["errors"] == 0
+    assert payload["registry"]["skill_count"] == 1
+    assert any(check["id"] == "registry.location" for check in payload["checks"])
+
+
+def test_cli_doctor_fails_for_invalid_payload(capsys, tmp_path) -> None:
+    bad_payload = tmp_path / "bad.json"
+    bad_payload.write_text("{not json", encoding="utf-8")
+    exit_code = main(["doctor", "--payload", str(bad_payload), "--json"])
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "error"
+    assert any(check["id"] == "payload.valid" for check in payload["checks"])
+
+
+def test_cli_doctor_warns_for_risky_export_without_redaction(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    skill = _skill()
+    skill.evidence_trace_ids = []
+    registry.save_skill(skill)
+    exit_code = main(
+        [
+            "doctor",
+            "--registry-root",
+            str(tmp_path),
+            "--export-format",
+            "copilot-repo",
+            "--no-redact",
+            "--json",
+        ]
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "warning"
+    messages = [check["message"] for check in payload["checks"]]
+    assert any("redaction is disabled" in message for message in messages)
+    assert any("evidence trace ID" in message for message in messages)
+
+
+def test_cli_doctor_fails_for_skill_lint_errors(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    skill = _skill()
+    skill.applies_when = []
+    registry.save_skill(skill)
+    exit_code = main(["doctor", "--registry-root", str(tmp_path), "--json"])
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "error"
+    assert any(
+        check["severity"] == "error" and check["id"] == "skill.lint" for check in payload["checks"]
+    )
+
+
 def test_cli_detect_output_writes_file_and_silences_stdout(capsys, tmp_path) -> None:
     out_path = tmp_path / "candidates.json"
     exit_code = main(

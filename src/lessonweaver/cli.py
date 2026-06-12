@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import uuid
 from dataclasses import replace
@@ -60,6 +61,38 @@ from .sanitization import TraceSanitizer
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
 
+_SKILL_EXPORT_FORMATS = [
+    "markdown",
+    "json",
+    "copilot",
+    "copilot_instruction",
+    "copilot-repo",
+    "copilot-path",
+    "claude",
+    "claude_skill",
+    "claude-skill",
+    "claude-rule",
+    "claude-md",
+    "agents-md",
+    "codex",
+    "runtime",
+]
+
+_INSTRUCTION_EXPORT_FORMATS = {
+    "copilot",
+    "copilot_instruction",
+    "copilot-repo",
+    "copilot-path",
+    "claude",
+    "claude_skill",
+    "claude-skill",
+    "claude-rule",
+    "claude-md",
+    "agents-md",
+    "codex",
+    "runtime",
+}
+
 
 def _read_json(path: str | Path) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as handle:
@@ -71,6 +104,192 @@ def _read_json(path: str | Path) -> dict[str, Any]:
 
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def _doctor_check(
+    checks: list[dict[str, Any]],
+    check_id: str,
+    severity: str,
+    message: str,
+    **extra: Any,
+) -> None:
+    payload = {"id": check_id, "severity": severity, "message": message}
+    payload.update(extra)
+    checks.append(payload)
+
+
+def _doctor_status(checks: list[dict[str, Any]]) -> str:
+    if any(check["severity"] == "error" for check in checks):
+        return "error"
+    if any(check["severity"] == "warning" for check in checks):
+        return "warning"
+    return "ok"
+
+
+def _doctor_payload(args: argparse.Namespace) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    registry = _registry(args.registry_root)
+    root = registry.root
+
+    if root.exists() and not root.is_dir():
+        _doctor_check(
+            checks,
+            "registry.location",
+            "error",
+            f"registry root exists but is not a directory: {root}",
+            path=str(root),
+        )
+    else:
+        permission_target = root if root.exists() else root.parent
+        if permission_target.exists() and os.access(permission_target, os.R_OK | os.W_OK | os.X_OK):
+            _doctor_check(
+                checks,
+                "registry.location",
+                "ok",
+                f"registry location is usable: {root}",
+                path=str(root),
+            )
+        else:
+            _doctor_check(
+                checks,
+                "registry.location",
+                "error",
+                f"registry location is not readable and writable: {root}",
+                path=str(root),
+            )
+
+    candidates: list[LessonCandidate] = []
+    skills: list[SkillCard] = []
+    try:
+        candidates = registry.list_candidates()
+        _doctor_check(
+            checks,
+            "registry.candidates",
+            "ok",
+            f"loaded {len(candidates)} candidate payload(s)",
+        )
+    except Exception as exc:
+        _doctor_check(checks, "registry.candidates", "error", str(exc))
+
+    try:
+        skills = registry.list_skills()
+        _doctor_check(checks, "registry.skills", "ok", f"loaded {len(skills)} skill payload(s)")
+    except Exception as exc:
+        _doctor_check(checks, "registry.skills", "error", str(exc))
+
+    for payload_path in args.payload:
+        path = Path(payload_path)
+        try:
+            data = _read_json(path)
+            if "trace_id" in data and "events" in data:
+                load_trace_bundle(path)
+                payload_type = "trace"
+            elif "name" in data:
+                SkillCard.from_dict(data)
+                payload_type = "skill"
+            elif "summary" in data and "recommended_action_type" in data:
+                LessonCandidate.from_dict(data)
+                payload_type = "candidate"
+            else:
+                payload_type = "json"
+            _doctor_check(
+                checks,
+                "payload.valid",
+                "ok",
+                f"payload is valid {payload_type}: {path}",
+                path=str(path),
+                payload_type=payload_type,
+            )
+        except Exception as exc:
+            _doctor_check(
+                checks,
+                "payload.valid",
+                "error",
+                f"invalid payload {path}: {exc}",
+                path=str(path),
+            )
+
+    _doctor_check(
+        checks,
+        "export.format",
+        "ok",
+        f"export format is supported: {args.export_format}",
+        export_format=args.export_format,
+    )
+    if args.export_path:
+        export_path = Path(args.export_path)
+        parent = export_path.parent
+        if parent.exists() and parent.is_dir() and os.access(parent, os.W_OK):
+            _doctor_check(
+                checks,
+                "export.target",
+                "ok",
+                f"export target parent is writable: {parent}",
+                path=str(export_path),
+            )
+        else:
+            _doctor_check(
+                checks,
+                "export.target",
+                "error",
+                f"export target parent is not writable: {parent}",
+                path=str(export_path),
+            )
+    if not args.redact and args.export_format in _INSTRUCTION_EXPORT_FORMATS:
+        _doctor_check(
+            checks,
+            "redaction.config",
+            "warning",
+            f"redaction is disabled for instruction export format: {args.export_format}",
+            export_format=args.export_format,
+        )
+    else:
+        _doctor_check(checks, "redaction.config", "ok", "redaction is enabled")
+
+    linter = SkillLinter()
+    for skill in skills:
+        for finding in linter.lint(skill):
+            _doctor_check(
+                checks,
+                "skill.lint",
+                finding.severity.value,
+                finding.message,
+                skill_id=skill.id,
+                rule_id=finding.rule_id,
+                field=finding.field,
+            )
+
+    status = _doctor_status(checks)
+    summary = {
+        "errors": sum(1 for check in checks if check["severity"] == "error"),
+        "warnings": sum(1 for check in checks if check["severity"] == "warning"),
+        "ok": sum(1 for check in checks if check["severity"] == "ok"),
+    }
+    return {
+        "status": status,
+        "registry": {
+            "root": str(root),
+            "candidate_count": len(candidates),
+            "skill_count": len(skills),
+        },
+        "summary": summary,
+        "checks": checks,
+    }
+
+
+def _emit_doctor(payload: dict[str, Any], *, as_json: bool) -> None:
+    if as_json:
+        _print_json(payload)
+        return
+    print(f"lessonweaver doctor: {payload['status']}")
+    print(
+        "summary: "
+        f"{payload['summary']['errors']} error(s), "
+        f"{payload['summary']['warnings']} warning(s), "
+        f"{payload['summary']['ok']} ok"
+    )
+    for check in payload["checks"]:
+        print(f"[{check['severity'].upper()}] {check['id']}: {check['message']}")
 
 
 def _now_iso() -> str:
@@ -562,22 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_parser.add_argument(
         "--format",
-        choices=[
-            "markdown",
-            "json",
-            "copilot",
-            "copilot_instruction",
-            "copilot-repo",
-            "copilot-path",
-            "claude",
-            "claude_skill",
-            "claude-skill",
-            "claude-rule",
-            "claude-md",
-            "agents-md",
-            "codex",
-            "runtime",
-        ],
+        choices=_SKILL_EXPORT_FORMATS,
         default="markdown",
     )
     export_parser.add_argument(
@@ -647,6 +851,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Write the merged file (default: preview the diff only)",
     )
     export_file_parser.add_argument("--registry-root")
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Run registry, payload, export, redaction, and skill-lint preflight checks",
+    )
+    doctor_parser.add_argument("--registry-root")
+    doctor_parser.add_argument(
+        "--payload",
+        action="append",
+        default=[],
+        help="Candidate, skill, trace, or generic JSON payload to validate (repeatable)",
+    )
+    doctor_parser.add_argument(
+        "--export-format",
+        choices=_SKILL_EXPORT_FORMATS,
+        default="agents-md",
+        help="Export surface to preflight (default: agents-md)",
+    )
+    doctor_parser.add_argument(
+        "--export-path",
+        help="Optional target path whose parent directory should be writable",
+    )
+    doctor_parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether planned exports use redaction (default: on)",
+    )
+    doctor_parser.add_argument("--json", action="store_true")
 
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
     lint_parser.add_argument("skill")
@@ -1101,6 +1334,11 @@ def _run(args: argparse.Namespace) -> int:
                 {"format": args.format, "content": content}, indent=2, sort_keys=True
             )
         return _emit_text(content, output=args.output, dry_run=args.dry_run)
+
+    if args.command == "doctor":
+        payload = _doctor_payload(args)
+        _emit_doctor(payload, as_json=args.json)
+        return 1 if payload["status"] == "error" else 0
 
     if args.command == "lint":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
