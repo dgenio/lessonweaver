@@ -57,6 +57,7 @@ from .registry import FileSystemRegistry
 from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, SkillRetriever
 from .sanitization import TraceSanitizer
+from .skill_packs import export_skill_pack, import_skill_pack, inspect_skill_pack
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
 
@@ -730,6 +731,31 @@ def main(argv: list[str] | None = None) -> int:
     promote_parser.add_argument("target", choices=[item.value for item in SkillStatus])
     promote_parser.add_argument("--registry-root")
 
+    pack_parser = subparsers.add_parser("pack", help="Export, inspect, and import skill packs")
+    pack_subparsers = pack_parser.add_subparsers(dest="pack_command", required=True)
+    pack_export_parser = pack_subparsers.add_parser(
+        "export", help="Export reviewed skills as a portable pack"
+    )
+    pack_export_parser.add_argument("skill_ids", nargs="+")
+    pack_export_parser.add_argument("--registry-root")
+    pack_export_parser.add_argument("--output", required=True)
+    pack_export_parser.add_argument("--name", required=True)
+    pack_export_parser.add_argument("--version", default="1.0.0")
+    pack_export_parser.add_argument("--publisher", default="")
+    pack_export_parser.add_argument("--allow-unapproved", action="store_true")
+    pack_export_parser.add_argument("--no-redact", action="store_true")
+
+    pack_inspect_parser = pack_subparsers.add_parser(
+        "inspect", help="Inspect and verify a portable skill pack"
+    )
+    pack_inspect_parser.add_argument("pack_path")
+
+    pack_import_parser = pack_subparsers.add_parser(
+        "import", help="Import a verified skill pack as experimental skills"
+    )
+    pack_import_parser.add_argument("pack_path")
+    pack_import_parser.add_argument("--registry-root")
+
     usage_parser = subparsers.add_parser(
         "log-usage", help="Record that a skill was loaded into an agent context"
     )
@@ -1231,6 +1257,39 @@ def _run(args: argparse.Namespace) -> int:
         registry.save_skill(promoted)
         _print_json(promoted.to_dict())
         return 0
+
+    if args.command == "pack":
+        if args.pack_command == "export":
+            registry = _registry(args.registry_root)
+            skills = [registry.load_skill(skill_id) for skill_id in args.skill_ids]
+            try:
+                pack = export_skill_pack(
+                    skills,
+                    name=args.name,
+                    version=args.version,
+                    publisher=args.publisher,
+                    redact=not args.no_redact,
+                    allow_unapproved=args.allow_unapproved,
+                )
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+            return _emit_text(
+                json.dumps(pack, indent=2, sort_keys=True),
+                output=args.output,
+                dry_run=False,
+            )
+        pack = _read_json(args.pack_path)
+        try:
+            if args.pack_command == "inspect":
+                _print_json(inspect_skill_pack(pack))
+                return 0
+            if args.pack_command == "import":
+                _print_json(import_skill_pack(pack, _registry(args.registry_root)))
+                return 0
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     if args.command == "log-usage":
         registry = _registry(args.registry_root)

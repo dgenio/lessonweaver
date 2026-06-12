@@ -82,6 +82,7 @@ from .retrieval import (
     SkippedSkill,
 )
 from .sanitization import SanitizationRule, TraceSanitizer
+from .skill_packs import export_skill_pack, import_skill_pack, inspect_skill_pack
 from .traces import load_trace_bundle, validate_trace_dict
 from .validation import (
     SkillEvalResult,
@@ -174,8 +175,11 @@ __all__ = [
     "export_runtime_prompt_snippet",
     "export_skillcard_json",
     "export_skillcard_markdown",
+    "export_skill_pack",
     "export_workflow_recommendation_markdown",
     "has_managed_block",
+    "import_skill_pack",
+    "inspect_skill_pack",
     "load_session",
     "load_trace_bundle",
     "managed_block",

@@ -178,6 +178,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status>`
+- `lessonweaver pack export|inspect|import ...` — create, verify, and import portable skill packs (see [`docs/skill-packs.md`](docs/skill-packs.md))
 
 ## Supported outputs and integrations
 
