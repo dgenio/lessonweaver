@@ -264,6 +264,7 @@ any sibling. The Mermaid source is in
 
 ## Documentation
 
+- [Claims and receipts](CLAIMS.md) — deterministic guarantees, receipts, and non-claims
 - [Architecture](docs/architecture.md) — modules, data flow, lifecycle
 - [Glossary](docs/glossary.md) — canonical terms
 - [Comparisons](docs/comparisons.md) — vs. observability, evals, memory, frameworks
