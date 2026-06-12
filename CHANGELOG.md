@@ -33,6 +33,10 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Changed
 
+- `LoadingPolicy.max_token_budget` was renamed to `max_budget_chars` to match
+  the character-based loader/compiler budget semantics; serialized policies
+  using the old `max_token_budget` key still load as a deprecated fallback.
+
 - `approve` now enforces the human-review gate: a candidate must have answered
   the required (adaptive) review questions before it can be approved. Use
   `--allow-incomplete-review` to override; the bypass and the unanswered
@@ -117,4 +121,3 @@ Once the first release is tagged (see docs/release.md), add reference links here
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
 -->
-

@@ -620,10 +620,15 @@ class LoadingPolicy:
     Retrieval without a policy is unconstrained: high-risk skills load beside
     low-risk ones and out-of-scope skills leak across teams. This model is the
     scope-aware, risk-filtered, "do not load" layer applied before retrieval.
+
+    ``max_budget_chars`` is a character budget, not a tokenizer-backed token
+    budget. As a rough planning rule, English text often averages around four
+    characters per token, but this policy intentionally avoids adding a
+    tokenizer dependency.
     """
 
     max_skills: int = 5
-    max_token_budget: int = 2000
+    max_budget_chars: int = 2000
     allowed_scopes: list[Scope] = field(default_factory=list)
     max_risk_level: RiskLevel = RiskLevel.MEDIUM
     excluded_skill_ids: list[str] = field(default_factory=list)
@@ -658,9 +663,10 @@ class LoadingPolicy:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LoadingPolicy:
+        budget_chars = data.get("max_budget_chars", data.get("max_token_budget", 2000))
         return cls(
             max_skills=int(data.get("max_skills", 5)),
-            max_token_budget=int(data.get("max_token_budget", 2000)),
+            max_budget_chars=int(budget_chars),
             allowed_scopes=[Scope(str(item)) for item in data.get("allowed_scopes", [])],
             max_risk_level=RiskLevel(str(data.get("max_risk_level", RiskLevel.MEDIUM.value))),
             excluded_skill_ids=[str(item) for item in data.get("excluded_skill_ids", [])],
@@ -670,7 +676,7 @@ class LoadingPolicy:
     def to_dict(self) -> dict[str, Any]:
         return {
             "max_skills": self.max_skills,
-            "max_token_budget": self.max_token_budget,
+            "max_budget_chars": self.max_budget_chars,
             "allowed_scopes": [scope.value for scope in self.allowed_scopes],
             "max_risk_level": self.max_risk_level.value,
             "excluded_skill_ids": list(self.excluded_skill_ids),
