@@ -20,6 +20,9 @@ poisoning, no automatic self-training, no skill activation without review. The
 core is **deterministic** with no LLM calls. See
 [when *not* to create a skill](docs/when-not-to-create-a-skill.md).
 
+Python API stability tiers and pre-1.0 compatibility guarantees are documented
+in [API stability](docs/api-stability.md).
+
 ## Before / after
 
 - **Before:** A coding agent "reviews" a PR from the title and description

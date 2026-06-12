@@ -5,6 +5,8 @@ positive and negative retrieval expectations for a skill, and
 ``run_validation_suite`` checks them deterministically against
 ``SkillRetriever``. This is a retrieval *correctness* check (does the right
 skill load for the right task?), not a quality evaluation of model output.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations

@@ -6,6 +6,8 @@ whether it loaded or was skipped (with a reason code), the context-budget usage,
 and any overlap/contradiction among the loaded skills. Surfacing skip reasons
 and overlaps is how a growing skill library is kept from quietly poisoning
 context.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations

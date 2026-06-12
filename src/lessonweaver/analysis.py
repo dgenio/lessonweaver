@@ -1,4 +1,7 @@
-"""Deterministic analysis for duplicate, overlapping, and conflicting skills."""
+"""Deterministic analysis for duplicate, overlapping, and conflicting skills.
+
+Provisional API: see docs/api-stability.md.
+"""
 
 from __future__ import annotations
 

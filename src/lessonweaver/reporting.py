@@ -1,4 +1,7 @@
-"""Stale and unused skill detection over a filesystem registry."""
+"""Stale and unused skill detection over a filesystem registry.
+
+Provisional API: see docs/api-stability.md.
+"""
 
 from __future__ import annotations
 

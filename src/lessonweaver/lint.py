@@ -1,4 +1,7 @@
-"""Deterministic quality checks for skill cards."""
+"""Deterministic quality checks for skill cards.
+
+Provisional API: see docs/api-stability.md.
+"""
 
 from __future__ import annotations
 

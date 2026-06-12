@@ -6,6 +6,8 @@ the repetition by hand. ``LessonClusterer`` groups candidates by normalized word
 overlap (Jaccard) of their ``summary`` + ``observed_problem`` text, so a
 recurring pattern surfaces as a single cluster with a higher occurrence count.
 Deterministic by construction: no embeddings, no model calls, no randomness.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations

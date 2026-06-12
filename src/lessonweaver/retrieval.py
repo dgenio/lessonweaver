@@ -1,4 +1,7 @@
-"""Lexical runtime retrieval for skill cards."""
+"""Lexical runtime retrieval for skill cards.
+
+Provisional API: see docs/api-stability.md.
+"""
 
 from __future__ import annotations
 

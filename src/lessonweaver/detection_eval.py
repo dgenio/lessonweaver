@@ -7,6 +7,8 @@ failures, or does it mostly re-surface mistakes a human already flagged? A
 including non-obvious recurring patterns the detector may still miss — so
 precision, recall, and F1 can be measured and regressions caught in CI. Fully
 deterministic; no model calls.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations

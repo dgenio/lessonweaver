@@ -6,6 +6,8 @@ review and merge.
 
 Read [AGENTS.md](AGENTS.md) for the full agent/contributor rules and
 [docs/architecture.md](docs/architecture.md) for how the pieces fit together.
+Public API tiers and compatibility expectations are documented in
+[docs/api-stability.md](docs/api-stability.md).
 
 ## Project principles
 
@@ -77,6 +79,8 @@ Browse the issue tracker for the most current list and labels.
 - Do not add runtime dependencies casually; optional integrations go in
   `[project.optional-dependencies]`.
 - Do not rename or remove dataclass fields without a migration note.
+- Do not change the top-level public API without updating
+  `tests/public_api_snapshot.json` and the API stability tier list.
 - Do not weaken review or promotion gates, and never commit real
   credentials or personal data.
 

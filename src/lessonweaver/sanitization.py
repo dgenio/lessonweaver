@@ -8,6 +8,8 @@ questions, and registry files by then. :class:`TraceSanitizer` scrubs
 This is a best-effort layer, not a privacy guarantee — pattern-based redaction
 cannot catch every form of sensitive data. Treat traces as sensitive at the
 source as well.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations

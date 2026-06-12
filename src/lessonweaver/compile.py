@@ -1,4 +1,7 @@
-"""Context-budgeted assembly of retrieved skills."""
+"""Context-budgeted assembly of retrieved skills.
+
+Provisional API: see docs/api-stability.md.
+"""
 
 from __future__ import annotations
 

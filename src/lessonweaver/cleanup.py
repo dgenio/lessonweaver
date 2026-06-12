@@ -7,6 +7,8 @@ outcomes, and overlap/contradiction analysis into a single set of recommended
 cleanup actions, and can optionally *apply* the safe subset (deprecating expired
 skills) through the governed lifecycle. Nothing is changed unless the caller
 explicitly applies the plan.
+
+Provisional API: see docs/api-stability.md.
 """
 
 from __future__ import annotations
