@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import RiskLevel, Scope, SkillCard, SkillStatus
 
 
@@ -174,6 +175,17 @@ class SkillRetriever:
             skipped.append(
                 SkippedSkill(
                     result.skill.id, "omitted_max_results", f"ranked beyond max_results={limit}"
+                )
+            )
+        for result in selected:
+            emitter.emit(
+                LifecycleEvent(
+                    LifecycleEventType.SKILL_RETRIEVED,
+                    result.skill.id,
+                    {
+                        "score": result.score,
+                        "match_reason": result.match_reason,
+                    },
                 )
             )
         return RetrievalDiagnostics(selected=selected, skipped=skipped)

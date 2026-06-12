@@ -6,6 +6,7 @@ import json
 from dataclasses import fields
 from pathlib import Path
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import (
     LessonCandidate,
     LessonStatus,
@@ -26,7 +27,7 @@ class LessonInterviewer:
     """Generates multiple-choice review questions for a candidate lesson."""
 
     def build_questions(self, candidate: LessonCandidate) -> list[ReviewQuestion]:
-        return [
+        questions = [
             ReviewQuestion(
                 id="scope",
                 question="Where should this lesson apply?",
@@ -201,6 +202,18 @@ class LessonInterviewer:
                 allow_free_text=True,
             ),
         ]
+        for question in questions:
+            emitter.emit(
+                LifecycleEvent(
+                    LifecycleEventType.REVIEW_QUESTION_GENERATED,
+                    candidate.id,
+                    {
+                        "question_id": question.id,
+                        "recommended_option_id": question.recommended_option_id,
+                    },
+                )
+            )
+        return questions
 
     def build_follow_up_questions(self, candidate: LessonCandidate) -> dict[str, ReviewQuestion]:
         """Conditional questions that are only asked when an option triggers them."""
@@ -427,4 +440,15 @@ def apply_review_answer(
     history.append(answer.to_dict())
     candidate.metadata["review_history"] = history
 
+    emitter.emit(
+        LifecycleEvent(
+            LifecycleEventType.REVIEW_ANSWER_APPLIED,
+            candidate.id,
+            {
+                "question_id": question.id,
+                "chosen_option_id": answer.chosen_option_id,
+                "status": candidate.status.value,
+            },
+        )
+    )
     return candidate

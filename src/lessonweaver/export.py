@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Protocol
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import LessonCandidate, OperationalLesson, SkillCard
 
 
@@ -32,6 +33,16 @@ def _redact_payload(value: Any, redactor: Redactor | None) -> Any:
     return value
 
 
+def _emit_export(subject_id: str, export_format: str) -> None:
+    emitter.emit(
+        LifecycleEvent(
+            LifecycleEventType.SKILL_EXPORTED,
+            subject_id,
+            {"format": export_format},
+        )
+    )
+
+
 def _section(lines: list[str], title: str, items: list[str]) -> None:
     if not items:
         return
@@ -44,6 +55,7 @@ def export_skillcard_markdown(skill: SkillCard, redactor: Redactor | None = None
     Callers are responsible for ensuring skills do not contain raw trace content before export.
     Use SimpleRedactor as a safety net, not as the primary privacy control.
     """
+    _emit_export(skill.id, "markdown")
     lines = [
         f"# {_text(skill.name, redactor)}",
         "",
@@ -78,6 +90,7 @@ def export_operational_lesson_markdown(
     lesson: OperationalLesson, redactor: Redactor | None = None
 ) -> str:
     """Render an approved operational lesson as Markdown."""
+    _emit_export(lesson.lesson_id, "operational_lesson_markdown")
     lines = [
         f"# Operational Lesson: {_text(lesson.title, redactor)}",
         "",
@@ -108,10 +121,12 @@ def export_operational_lesson_markdown(
 
 
 def export_skillcard_json(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    _emit_export(skill.id, "json")
     return json.dumps(_redact_payload(skill.to_dict(), redactor), indent=2, sort_keys=True)
 
 
 def export_copilot_instruction_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    _emit_export(skill.id, "copilot_instruction")
     return (
         f"- Skill: {_text(skill.name, redactor)}\n"
         f"- Use when: {'; '.join(_list(skill.applies_when, redactor))}\n"
@@ -121,6 +136,7 @@ def export_copilot_instruction_fragment(skill: SkillCard, redactor: Redactor | N
 
 
 def export_claude_skill_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    _emit_export(skill.id, "claude_skill")
     instruction_block = "\n".join(f"- {line}" for line in _list(skill.instructions, redactor))
     return (
         f"## {_text(skill.name, redactor)}\n\n"
@@ -133,6 +149,7 @@ def export_claude_skill_fragment(skill: SkillCard, redactor: Redactor | None = N
 
 
 def export_runtime_prompt_snippet(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    _emit_export(skill.id, "runtime_snippet")
     return (
         "Operational lesson:\n"
         f"{_text(skill.description, redactor)}\n"
@@ -149,6 +166,7 @@ def export_agents_md_fragment(skill: SkillCard, redactor: Redactor | None = None
     compact and must not be auto-appended or contain raw trace evidence. The
     leading HTML comment lets future tooling find lessonweaver-managed sections.
     """
+    _emit_export(skill.id, "agents-md")
     lines = [
         f"<!-- lessonweaver skill_id={skill.id} confidence={skill.confidence:.2f} -->",
         f"### {_text(skill.name, redactor)}",
@@ -170,6 +188,7 @@ def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None 
     Append the output to .github/copilot-instructions.md after review. The HTML
     comment header carries the skill id and version for future deduplication.
     """
+    _emit_export(skill.id, "copilot-repo")
     lines = [
         f"<!-- lessonweaver skill_id={skill.id} version={_text(skill.version, redactor)} -->",
         f"## {_text(skill.name, redactor)}",
@@ -195,6 +214,7 @@ def export_copilot_path_instruction(
     Intended for .github/instructions/{skill.id}.instructions.md. The applyTo
     frontmatter scopes the instructions to matching file paths.
     """
+    _emit_export(skill.id, "copilot-path")
     lines = [
         "---",
         f"applyTo: {json.dumps(applies_to_glob)}",
@@ -216,6 +236,7 @@ def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -
     Claude Code formats may evolve; treat the output as reviewed project guidance,
     not a guaranteed integration. Empty sections are suppressed.
     """
+    _emit_export(skill.id, "claude-skill-md")
     lines = [
         f"# {_text(skill.name, redactor)}",
         "",
@@ -237,6 +258,7 @@ def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -
 
 def export_claude_rule_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a concise rule fragment for .claude/rules/."""
+    _emit_export(skill.id, "claude-rule")
     return (
         f"# Rule: {_text(skill.name, redactor)}\n\n"
         f"**Applies when:** {'; '.join(_list(skill.applies_when, redactor))}\n\n"
@@ -247,6 +269,7 @@ def export_claude_rule_fragment(skill: SkillCard, redactor: Redactor | None = No
 
 def export_claude_md_snippet(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a short, appendable CLAUDE.md block."""
+    _emit_export(skill.id, "claude-md")
     return (
         f"## Operational guidance: {_text(skill.name, redactor)}\n\n"
         f"{_text(skill.description, redactor)}\n\n"
@@ -266,6 +289,7 @@ def export_codex_skill_directory(
     JSON-encoded so names/descriptions containing ``:``, ``#``, quotes, or
     newlines stay valid YAML.
     """
+    _emit_export(skill.id, "codex_directory")
     description = _text(skill.description, redactor)
     name = _text(skill.name, redactor)
     skill_md_lines = [
@@ -305,6 +329,7 @@ def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | N
     matching action type before calling this; invoked directly it renders
     whatever candidate it is given.
     """
+    _emit_export(candidate.id, "eval")
     lines = [
         f"# Eval: {_text(candidate.summary, redactor)}",
         "",
@@ -334,6 +359,7 @@ def export_guardrail_rule_markdown(
     matching action type before calling this; invoked directly it renders
     whatever candidate it is given.
     """
+    _emit_export(candidate.id, "guardrail")
     lines = [
         f"# Guardrail: {_text(candidate.summary, redactor)}",
         "",
@@ -363,6 +389,7 @@ def export_workflow_recommendation_markdown(
     matching action type before calling this; invoked directly it renders
     whatever candidate it is given.
     """
+    _emit_export(candidate.id, "workflow")
     lines = [
         f"# Workflow recommendation: {_text(candidate.summary, redactor)}",
         "",
