@@ -19,6 +19,10 @@ trace. Detection is conservative, so "boring" traces produce zero candidates.
 | `traces/workflow_validation_order.json` | Workflow validation order with no candidate signal (the boring case). | 0 |
 | `traces/workflow_validation_failure.json` | A workflow step promotes to production before validation, then fails. | 1 |
 
+`trace_recorder.py` shows the producer-side path: a Python agent uses
+`lessonweaver.record()` to write `/tmp/lessonweaver-recorded-trace.json`, which
+can be passed directly to `lessonweaver detect`.
+
 ## Detection corpus
 
 - [`detection_corpus/`](detection_corpus/) — a labeled corpus of should-detect /

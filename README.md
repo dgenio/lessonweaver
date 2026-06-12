@@ -113,6 +113,27 @@ For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md
 For a complete worked example with traces, an approved skill, and a validation
 suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
 
+## Recording traces
+
+Python agents can emit valid lessonweaver traces directly with the synchronous
+`TraceRecorder` API or the `record()` context manager:
+
+```python
+from lessonweaver import record
+
+with record("python_agent", "Review a pull request", output="trace.json") as trace:
+    trace.user_message("Please review this PR.")
+    trace.tool_call("github.diff")
+    trace.agent_message("Looks good from the title.")
+    trace.human_correction("Inspect changed files before review conclusions.")
+    trace.set_outcome("corrected_by_human")
+```
+
+The written `trace.json` is canonical trace JSON and can be passed directly to
+`lessonweaver detect trace.json`. If the block raises an exception, `record()`
+still writes a valid trace with an `error` event and `failure` outcome before
+re-raising. The recorder is synchronous and not thread-safe.
+
 ### Flagship demo: the closed loop
 
 The [`examples/closed_loop_contextweaver/`](examples/closed_loop_contextweaver/)
