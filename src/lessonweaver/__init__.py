@@ -13,6 +13,12 @@ from .detection_eval import (
     run_detection_eval,
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
+from .eval_rollout import (
+    generate_eval_suite_for_candidate,
+    generate_eval_suite_for_skill,
+    promote_artifact_with_eval,
+    validate_artifact_for_rollout,
+)
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -175,14 +181,18 @@ __all__ = [
     "export_skillcard_json",
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
+    "generate_eval_suite_for_candidate",
+    "generate_eval_suite_for_skill",
     "has_managed_block",
     "load_session",
     "load_trace_bundle",
     "managed_block",
     "merge_managed_block",
+    "promote_artifact_with_eval",
     "promote_skill",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",
     "validate_trace_dict",
+    "validate_artifact_for_rollout",
 ]

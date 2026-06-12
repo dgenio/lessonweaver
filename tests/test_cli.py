@@ -410,6 +410,150 @@ def test_cli_promote_skill(capsys, tmp_path) -> None:
     assert payload["status"] == "approved"
 
 
+def test_cli_generate_eval_from_skill(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+
+    exit_code = main(["generate-eval", "skill-1", "--registry-root", str(tmp_path)])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["suite_id"] == "rollout-eval-skill-1"
+    assert payload["skill_id"] == "skill-1"
+    assert [example["should_load"] for example in payload["examples"]] == [True, False]
+
+
+def test_cli_promote_artifact_requires_eval_suite(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+
+    exit_code = main(
+        [
+            "promote-artifact",
+            "skill-1",
+            "active",
+            "--registry-root",
+            str(tmp_path),
+            "--require-eval-pass",
+        ]
+    )
+
+    assert exit_code == 1
+    assert "--eval-suite is required" in capsys.readouterr().err
+
+
+def test_cli_promote_artifact_blocks_failed_eval(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(
+        json.dumps(
+            {
+                "suite_id": "suite-1",
+                "skill_id": "skill-1",
+                "examples": [
+                    {"example_id": "fn", "task": "Summarize meeting notes", "should_load": True}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "promote-artifact",
+            "skill-1",
+            "active",
+            "--registry-root",
+            str(tmp_path),
+            "--require-eval-pass",
+            "--eval-suite",
+            str(suite_path),
+        ]
+    )
+
+    assert exit_code == 1
+    assert "eval suite failed" in capsys.readouterr().err
+
+
+def test_cli_promote_artifact_promotes_when_eval_passes(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(
+        json.dumps(
+            {
+                "suite_id": "suite-1",
+                "skill_id": "skill-1",
+                "examples": [
+                    {"example_id": "pos", "task": "Review this pull request", "should_load": True},
+                    {
+                        "example_id": "neg",
+                        "task": "Generate a SQL migration",
+                        "should_load": False,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "promote-artifact",
+            "skill-1",
+            "active",
+            "--registry-root",
+            str(tmp_path),
+            "--require-eval-pass",
+            "--eval-suite",
+            str(suite_path),
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "active"
+    assert payload["metadata"]["eval_before_rollout"]["passed"] is True
+
+
+def test_cli_promote_artifact_allows_eval_override(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(
+        json.dumps(
+            {
+                "suite_id": "suite-1",
+                "skill_id": "skill-1",
+                "examples": [
+                    {"example_id": "fn", "task": "Summarize meeting notes", "should_load": True}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "promote-artifact",
+            "skill-1",
+            "active",
+            "--registry-root",
+            str(tmp_path),
+            "--require-eval-pass",
+            "--eval-suite",
+            str(suite_path),
+            "--allow-eval-fail",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "active"
+    assert payload["metadata"]["eval_before_rollout"]["override"] is True
+
+
 def test_cli_log_usage_records_event(capsys, tmp_path) -> None:
     exit_code = main(
         [

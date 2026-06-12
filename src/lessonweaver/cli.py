@@ -18,6 +18,12 @@ from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import DetectionCorpus, run_detection_eval
 from .diagnostics import explain_load
+from .eval_rollout import (
+    generate_eval_suite_for_candidate,
+    generate_eval_suite_for_skill,
+    promote_artifact_with_eval,
+    validate_artifact_for_rollout,
+)
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -723,6 +729,36 @@ def main(argv: list[str] | None = None) -> int:
         help="Registry root containing the skills/ directory (default: ~/.lessonweaver/registry)",
     )
 
+    generate_eval_parser = subparsers.add_parser(
+        "generate-eval",
+        help="Generate a positive/negative eval suite before rolling out an artifact",
+    )
+    generate_eval_parser.add_argument("artifact")
+    generate_eval_parser.add_argument("--registry-root")
+    generate_eval_parser.add_argument(
+        "--skill-id",
+        help="Expected skill id when generating from a candidate (default: skill-<candidate-id>)",
+    )
+
+    validate_artifact_parser = subparsers.add_parser(
+        "validate-artifact",
+        help="Validate an artifact against an eval suite before rollout",
+    )
+    validate_artifact_parser.add_argument("artifact")
+    validate_artifact_parser.add_argument("--eval-suite", required=True)
+    validate_artifact_parser.add_argument("--registry-root")
+
+    promote_artifact_parser = subparsers.add_parser(
+        "promote-artifact",
+        help="Promote an artifact, optionally requiring eval pass first",
+    )
+    promote_artifact_parser.add_argument("artifact")
+    promote_artifact_parser.add_argument("target", choices=[item.value for item in SkillStatus])
+    promote_artifact_parser.add_argument("--registry-root")
+    promote_artifact_parser.add_argument("--eval-suite")
+    promote_artifact_parser.add_argument("--require-eval-pass", action="store_true")
+    promote_artifact_parser.add_argument("--allow-eval-fail", action="store_true")
+
     promote_parser = subparsers.add_parser(
         "promote-skill", help="Promote a skill through the governed lifecycle"
     )
@@ -1223,6 +1259,46 @@ def _run(args: argparse.Namespace) -> int:
         result = run_validation_suite(suite, skills)
         _print_json(result.to_dict())
         return 0 if result.failed == 0 else 1
+
+    if args.command == "generate-eval":
+        registry = _registry(args.registry_root)
+        try:
+            suite = generate_eval_suite_for_skill(_load_skill_ref(args.artifact, registry))
+        except FileNotFoundError:
+            candidate = _load_candidate_ref(args.artifact, registry)
+            suite = generate_eval_suite_for_candidate(candidate, skill_id=args.skill_id)
+        _print_json(suite.to_dict())
+        return 0
+
+    if args.command == "validate-artifact":
+        registry = _registry(args.registry_root)
+        skill = _load_skill_ref(args.artifact, registry)
+        suite = ValidationSuite.from_dict(_read_json(args.eval_suite))
+        result = validate_artifact_for_rollout(skill, suite, skills=registry.list_skills())
+        _print_json(result.to_dict())
+        return 0 if result.failed == 0 else 1
+
+    if args.command == "promote-artifact":
+        registry = _registry(args.registry_root)
+        skill = _load_skill_ref(args.artifact, registry)
+        rollout_suite = (
+            ValidationSuite.from_dict(_read_json(args.eval_suite)) if args.eval_suite else None
+        )
+        try:
+            promoted = promote_artifact_with_eval(
+                skill,
+                SkillStatus(args.target),
+                suite=rollout_suite,
+                require_eval_pass=args.require_eval_pass,
+                allow_eval_fail=args.allow_eval_fail,
+                skills=registry.list_skills(),
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        registry.save_skill(promoted)
+        _print_json(promoted.to_dict())
+        return 0
 
     if args.command == "promote-skill":
         registry = _registry(args.registry_root)
