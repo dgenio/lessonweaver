@@ -401,6 +401,37 @@ def test_cli_validate_skill_warns_when_suite_skill_id_missing(capsys, tmp_path) 
     assert "expected_skill_id override" in captured.err
 
 
+def test_cli_validate_trace_reports_all_json_pointer_violations(capsys, tmp_path) -> None:
+    trace_path = tmp_path / "bad-trace.json"
+    trace_path.write_text(
+        json.dumps(
+            {
+                "trace_id": "",
+                "events": [{"id": "", "type": "unknown"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["validate-trace", str(trace_path)])
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "/trace_id: field 'trace_id' must be non-empty" in err
+    assert "/source: missing required field: source" in err
+    assert "/task: missing required field: task" in err
+    assert "/outcome: missing required field: outcome" in err
+    assert "/events/0/id: missing non-empty id" in err
+    assert "/events/0/type: unknown type 'unknown'" in err
+
+
+def test_cli_validate_trace_accepts_example(capsys) -> None:
+    exit_code = main(["validate-trace", "examples/traces/github_pr_review_failure.json"])
+
+    assert exit_code == 0
+    assert "valid trace:" in capsys.readouterr().out
+
+
 def test_cli_promote_skill(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill(status=SkillStatus.DRAFT))

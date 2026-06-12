@@ -177,6 +177,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver cleanup-skills [--write]` — report (and optionally apply) cleanup for stale, noisy, and overlapping skills
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
+- `lessonweaver validate-trace <trace.json>` — validate a producer trace before detection; prints all violations with JSON-pointer paths and exits `2` on invalid input
 - `lessonweaver promote-skill <skill-id> <target-status>`
 
 ## Supported outputs and integrations
@@ -191,6 +192,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 | Codex skill directory export | Supported (`codex`) |
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
+| JSON Schemas | Supported for [traces](schemas/trace.schema.json) and [skill cards](schemas/skill-card.schema.json) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
 ## Governance and safety

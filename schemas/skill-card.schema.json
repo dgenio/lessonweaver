@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/dgenio/lessonweaver/main/schemas/skill-card.schema.json",
+  "title": "LessonWeaver Skill Card",
+  "description": "A reviewed LessonWeaver skill card that can be linted, governed, and exported.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "applies_when",
+    "does_not_apply_when",
+    "instructions",
+    "anti_patterns",
+    "evidence_trace_ids",
+    "confidence",
+    "risk_level",
+    "scope",
+    "version"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Optional skill-card schema version used by producers that pin a contract version.",
+      "default": "1.0.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "applies_when": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "does_not_apply_when": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "anti_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_trace_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["user", "project", "team", "organization", "global"]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "experimental", "active", "rejected", "deprecated"]
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "owner": {
+      "type": ["string", "null"]
+    },
+    "approved_by": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approved_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
