@@ -204,6 +204,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   before becoming `active`.
 - `SimpleRedactor` is a best-effort safety net before export, not a compliance
   control.
+- Optional LLM-assisted extensions must use the shared assist boundary: disabled
+  by default, redacted before provider calls, audit-marked, and non-authoritative.
+  The LLM proposes, deterministic checks run, the human approves, and runtime
+  loading obeys reviewed artifacts. See [LLM assist boundary](docs/llm-assist.md).
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
 
