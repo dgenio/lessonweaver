@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from lessonweaver.interview import (
@@ -15,6 +17,7 @@ from lessonweaver.models import (
     RiskLevel,
     Scope,
 )
+from lessonweaver.schema_versioning import SCHEMA_VERSION
 
 
 def _candidate(candidate_id: str = "c1") -> LessonCandidate:
@@ -207,12 +210,45 @@ def test_save_session_writes_valid_json(tmp_path) -> None:
     )
     path = tmp_path / "session.json"
     save_session(session, path)
-    import json
-
     loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert loaded["schema_version"] == SCHEMA_VERSION
     assert loaded["session_id"] == "session-2"
     assert loaded["answers"] == []
     assert loaded["completed"] is False
+
+
+def test_load_session_accepts_v0_payload_and_resaves_current_version(tmp_path) -> None:
+    session = ReviewSession(
+        session_id="session-v0",
+        candidate_id="cand-v0",
+        started_at="2026-05-30T10:00:00+00:00",
+        updated_at="2026-05-30T10:00:00+00:00",
+    )
+    path = tmp_path / "session.json"
+    path.write_text(json.dumps(session.to_dict()), encoding="utf-8")
+
+    restored = load_session(path)
+    assert restored == session
+
+    save_session(restored, path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == SCHEMA_VERSION
+
+
+def test_load_session_rejects_future_schema_version(tmp_path) -> None:
+    session = ReviewSession(
+        session_id="session-future",
+        candidate_id="cand-future",
+        started_at="2026-05-30T10:00:00+00:00",
+        updated_at="2026-05-30T10:00:00+00:00",
+    )
+    payload = session.to_dict()
+    payload["schema_version"] = SCHEMA_VERSION + 1
+    path = tmp_path / "session.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="newer lessonweaver"):
+        load_session(path)
 
 
 def test_build_session_summary_reports_follow_up_effects() -> None:

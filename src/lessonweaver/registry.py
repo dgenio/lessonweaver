@@ -15,6 +15,7 @@ from .models import (
     SkillCard,
     SkillUsageEvent,
 )
+from .schema_versioning import migrate_persisted_payload, stamp_schema_version
 
 T = TypeVar("T")
 
@@ -123,6 +124,7 @@ class FileSystemRegistry:
     def _save(self, directory: Path, object_id: str, payload: dict[str, object]) -> None:
         directory.mkdir(parents=True, exist_ok=True)
         path = self._path(directory, object_id)
+        payload = stamp_schema_version(payload)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def _load(
@@ -141,6 +143,10 @@ class FileSystemRegistry:
             raise ValueError(f"{label} '{object_id}' registry file contains invalid JSON") from exc
         if not isinstance(payload, dict):
             raise ValueError(f"{label} '{object_id}' registry file must contain a JSON object")
+        payload = migrate_persisted_payload(
+            payload,
+            label=f"{label} '{object_id}' registry file",
+        )
         return factory(payload)
 
     def _list(self, directory: Path, factory: Callable[[dict[str, object]], T]) -> list[T]:
@@ -154,6 +160,7 @@ class FileSystemRegistry:
                 raise ValueError(f"registry file {path} contains invalid JSON") from exc
             if not isinstance(payload, dict):
                 raise ValueError(f"registry file {path} must contain a JSON object")
+            payload = migrate_persisted_payload(payload, label=f"registry file {path}")
             items.append(factory(payload))
         return items
 

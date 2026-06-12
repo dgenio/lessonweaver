@@ -62,6 +62,7 @@ flowchart LR
 | `validation.py` | Score skill-retrieval correctness (precision/recall) for a suite. |
 | `sanitization.py` | Best-effort pre-mining scrub of sensitive trace content. |
 | `importers.py` | `TraceImporter` protocol and failure-case import path. |
+| `schema_versioning.py` | Version and migrate persisted registry/session JSON files. |
 | `reporting.py` | Report stale, expired, or unused skills. |
 | `privacy.py` | `SimpleRedactor` best-effort secret/PII redaction for export. |
 | `cli.py` | Command-line entry point wiring the modules together. |

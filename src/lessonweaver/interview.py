@@ -17,6 +17,7 @@ from .models import (
     RiskLevel,
     Scope,
 )
+from .schema_versioning import migrate_persisted_payload, stamp_schema_version
 
 # Base questions that no longer apply once a reviewer rejects the lesson.
 _SKIP_ON_REJECT = ("scope", "applicability", "negative_conditions")
@@ -376,7 +377,7 @@ def _format_value(value: object) -> str:
 
 def save_session(session: ReviewSession, path: str | Path) -> None:
     """Persist a review session to a JSON file."""
-    payload = json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n"
+    payload = json.dumps(stamp_schema_version(session.to_dict()), indent=2, sort_keys=True) + "\n"
     Path(path).write_text(payload, encoding="utf-8")
 
 
@@ -385,6 +386,7 @@ def load_session(path: str | Path) -> ReviewSession:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
+    data = migrate_persisted_payload(data, label=f"review session {path}")
     return ReviewSession.from_dict(data)
 
 
