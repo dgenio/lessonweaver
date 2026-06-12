@@ -8,6 +8,7 @@ from lessonweaver.importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
+    OpenTelemetryImporter,
     TraceImporter,
     candidates_from_failure_case,
 )
@@ -116,3 +117,155 @@ def test_candidates_from_failure_case_stamps_provenance() -> None:
     assert ids == {"fc-0001-failed-eval", "fc-0001-human-correction"}
     for candidate in candidates:
         assert candidate.metadata[FAILURE_CASE_PROVENANCE_KEY]["failure_id"] == "fc-0001"
+
+
+# --- OpenTelemetryImporter ----------------------------------------------------
+
+
+OTEL_TRACE = {
+    "resourceSpans": [
+        {
+            "resource": {
+                "attributes": [
+                    {"key": "agent.name", "value": {"stringValue": "lesson-bot"}},
+                    {"key": "agent.version", "value": {"stringValue": "1.2.0"}},
+                    {"key": "agent.framework", "value": {"stringValue": "langgraph"}},
+                ]
+            },
+            "scopeSpans": [
+                {
+                    "spans": [
+                        {
+                            "traceId": "trace-otel-1",
+                            "spanId": "span-llm",
+                            "name": "llm.chat",
+                            "attributes": [
+                                {
+                                    "key": "gen_ai.request.model",
+                                    "value": {"stringValue": "gpt-4.1"},
+                                },
+                                {"key": "gen_ai.usage.input_tokens", "value": {"intValue": "12"}},
+                                {"key": "authorization", "value": {"stringValue": "Bearer secret"}},
+                            ],
+                            "events": [
+                                {
+                                    "name": "human_feedback",
+                                    "attributes": [
+                                        {
+                                            "key": "feedback.comment",
+                                            "value": {"stringValue": "Use cited sources."},
+                                        }
+                                    ],
+                                }
+                            ],
+                        },
+                        {
+                            "traceId": "trace-otel-1",
+                            "spanId": "span-tool",
+                            "name": "tool.call",
+                            "attributes": [
+                                {"key": "tool.name", "value": {"stringValue": "github.search"}},
+                                {
+                                    "key": "tool.arguments_shape",
+                                    "value": {"stringValue": "query:string"},
+                                },
+                                {
+                                    "key": "tool.result_shape",
+                                    "value": {"stringValue": "items:list"},
+                                },
+                            ],
+                        },
+                        {
+                            "traceId": "trace-otel-1",
+                            "spanId": "span-retrieval",
+                            "name": "retrieval.search",
+                            "attributes": [
+                                {
+                                    "key": "retrieval.query",
+                                    "value": {"stringValue": "policy rollout"},
+                                },
+                                {"key": "retrieval.documents_count", "value": {"intValue": 3}},
+                            ],
+                        },
+                        {
+                            "traceId": "trace-otel-1",
+                            "spanId": "span-handoff",
+                            "name": "agent.handoff",
+                            "attributes": [
+                                {"key": "agent.handoff.from", "value": {"stringValue": "planner"}},
+                                {"key": "agent.handoff.to", "value": {"stringValue": "executor"}},
+                            ],
+                        },
+                        {
+                            "traceId": "trace-otel-1",
+                            "spanId": "span-guardrail",
+                            "name": "guardrail.check",
+                            "attributes": [
+                                {"key": "guardrail.name", "value": {"stringValue": "pii"}},
+                                {"key": "guardrail.result", "value": {"stringValue": "blocked"}},
+                            ],
+                        },
+                    ]
+                }
+            ],
+        }
+    ]
+}
+
+
+def test_opentelemetry_importer_maps_agent_spans_and_redacts_sensitive_attributes() -> None:
+    bundle = OpenTelemetryImporter().import_trace(OTEL_TRACE)
+
+    assert bundle.trace_id == "trace-otel-1"
+    assert bundle.source == "opentelemetry"
+    assert bundle.metadata["otel"]["agent"] == {
+        "framework": "langgraph",
+        "name": "lesson-bot",
+        "version": "1.2.0",
+    }
+    assert [event.type for event in bundle.events] == [
+        TraceEventType.MODEL_CALL,
+        TraceEventType.HUMAN_CORRECTION,
+        TraceEventType.TOOL_CALL,
+        TraceEventType.TOOL_CALL,
+        TraceEventType.WORKFLOW_STEP,
+        TraceEventType.EVALUATION_RESULT,
+    ]
+    llm = bundle.events[0]
+    assert llm.metadata["model"] == "gpt-4.1"
+    assert llm.metadata["token_usage"]["input"] == 12
+    assert llm.metadata["span_attributes"]["authorization"] == "[REDACTED]"
+    assert bundle.events[2].metadata["tool_name"] == "github.search"
+    assert bundle.events[3].metadata["retrieval"]["query"] == "policy rollout"
+    assert bundle.events[4].content == "handoff planner -> executor"
+    assert bundle.events[5].status == "failed"
+
+
+def test_opentelemetry_importer_accepts_jsonl_spans() -> None:
+    jsonl = "\n".join(
+        [
+            '{"traceId":"trace-jsonl","spanId":"s1","name":"llm.chat","attributes":{"gen_ai.request.model":"gpt-4.1"}}',
+            '{"traceId":"trace-jsonl","spanId":"s2","name":"tool.call","attributes":{"tool.name":"shell"}}',
+        ]
+    )
+
+    bundle = OpenTelemetryImporter().import_jsonl_lines(jsonl.splitlines())
+
+    assert bundle.trace_id == "trace-jsonl"
+    assert [event.type for event in bundle.events] == [
+        TraceEventType.MODEL_CALL,
+        TraceEventType.TOOL_CALL,
+    ]
+
+
+def test_opentelemetry_importer_tolerates_missing_optional_fields_with_warnings() -> None:
+    bundle = OpenTelemetryImporter().import_trace({"spans": [{"spanId": "s1", "name": "llm"}]})
+
+    assert bundle.trace_id == "otel-trace"
+    assert bundle.events[0].id == "s1"
+    assert "missing traceId" in bundle.metadata["otel"]["warnings"][0]
+
+
+def test_opentelemetry_importer_rejects_malformed_traces() -> None:
+    with pytest.raises(ValueError, match="no spans"):
+        OpenTelemetryImporter().import_trace({"resourceSpans": []})

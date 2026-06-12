@@ -37,7 +37,7 @@ from .export import (
 )
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
-from .importers import candidates_from_failure_case
+from .importers import OpenTelemetryImporter, candidates_from_failure_case
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
 from .models import (
@@ -424,6 +424,21 @@ def main(argv: list[str] | None = None) -> int:
         "--save", action="store_true", help="Save candidates to the registry"
     )
 
+    otel_parser = subparsers.add_parser(
+        "import-otel",
+        parents=[output_parent],
+        help="Import OpenTelemetry spans into a lessonweaver trace bundle",
+    )
+    otel_parser.add_argument("artifact_path")
+    otel_parser.add_argument(
+        "--jsonl", action="store_true", help="Read newline-delimited JSON span exports"
+    )
+    otel_parser.add_argument(
+        "--no-redact",
+        action="store_true",
+        help="Preserve sensitive span attributes instead of redacting them",
+    )
+
     cluster_parser = subparsers.add_parser(
         "cluster",
         help="Detect candidates across multiple traces and group recurring patterns",
@@ -805,6 +820,25 @@ def _run(args: argparse.Namespace) -> int:
         artifact = _read_json(args.artifact_path)
         candidates = candidates_from_failure_case(artifact)
         return _emit_candidates(candidates, args)
+
+    if args.command == "import-otel":
+        importer = OpenTelemetryImporter(redact_sensitive=not args.no_redact)
+        path = Path(args.artifact_path)
+        if args.jsonl:
+            bundle = importer.import_jsonl_lines(path.read_text(encoding="utf-8").splitlines())
+        else:
+            with path.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            if isinstance(payload, list):
+                payload = {"spans": payload}
+            if not isinstance(payload, dict):
+                raise ValueError("OpenTelemetry import expects a JSON object, array, or JSONL")
+            bundle = importer.import_trace(payload)
+        return _emit_text(
+            json.dumps(bundle.to_dict(), indent=2, sort_keys=True),
+            output=args.output,
+            dry_run=False,
+        )
 
     if args.command == "cluster":
         detector = LessonDetector()
