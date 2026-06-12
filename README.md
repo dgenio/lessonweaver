@@ -165,8 +165,15 @@ is required so it can be reloaded), record answers into that session with
 `answer --session FILE`, and continue later with `resume-interview`, which lists the
 remaining adaptive questions from the answers recorded so far.
 
-Commands return non-zero on bad input: a missing file exits `1`, and invalid JSON or
-an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
+Commands return non-zero on bad input and keep stdout clean for JSON consumers.
+Error lines start with `Error:` on stderr; warnings start with `warning:`.
+
+| Failure class | Exit code |
+| --- | --- |
+| Missing file or missing registry object | `1` |
+| Review/export gate refusal | `1` |
+| Invalid JSON, invalid payload, or malformed command input | `2` |
+
 - `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`
