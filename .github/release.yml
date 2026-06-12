@@ -1,0 +1,40 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - question
+      - wontfix
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+    - title: Features
+      labels:
+        - type: feature
+        - enhancement
+    - title: CLI and Integrations
+      labels:
+        - type: cli
+        - type: integration
+    - title: Evaluation and Governance
+      labels:
+        - type: evals
+        - type: governance
+    - title: Security
+      labels:
+        - type: security
+        - security
+    - title: Documentation
+      labels:
+        - type: docs
+        - documentation
+    - title: Maintenance
+      labels:
+        - type: maintenance
+        - type: tests
+        - type: refactor
+        - refactor
+    - title: Other Changes
+      labels:
+        - "*"

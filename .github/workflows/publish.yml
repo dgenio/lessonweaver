@@ -19,12 +19,23 @@ jobs:
           python-version: "3.10"
 
       - name: Install build tools
-        run: python -m pip install --upgrade pip build
+        run: python -m pip install --upgrade pip build twine
 
       - name: Build distribution
         run: python -m build
 
+      - name: Verify distribution
+        run: |
+          python -m twine check dist/*
+          python -m venv /tmp/lessonweaver-release-smoke
+          /tmp/lessonweaver-release-smoke/bin/python -m pip install --upgrade pip
+          /tmp/lessonweaver-release-smoke/bin/python -m pip install dist/*.whl
+          /tmp/lessonweaver-release-smoke/bin/lessonweaver --version
+          /tmp/lessonweaver-release-smoke/bin/lessonweaver detect examples/traces/github_pr_review_failure.json > /tmp/lessonweaver-detect.json
+          python -m json.tool /tmp/lessonweaver-detect.json >/dev/null
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          attestations: true
           repository-url: https://upload.pypi.org/legacy/

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .analysis import SkillAnalyzer
 from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
@@ -385,6 +386,7 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     dry_run_parent = argparse.ArgumentParser(add_help=False)
     dry_run_parent.add_argument(

@@ -68,6 +68,9 @@ changelog; their dates are the dates of the corresponding work landing on
   plus the skill-card interchange-format notes for contextweaver ingestion (#92).
 - `docs/assets/demo.sh`, a reproducible ~60-second closed-loop terminal demo, and
   `docs/awesome-list-submissions.md` listing copy (#88).
+- Release automation: generated release-note categories, a CI changelog gate
+  for source changes, metadata-derived package version reporting, wheel smoke
+  checks before publish, and PyPI publish attestations (#162).
 
 ### Changed
 
@@ -117,4 +120,3 @@ Once the first release is tagged (see docs/release.md), add reference links here
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
 -->
-

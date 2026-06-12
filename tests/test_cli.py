@@ -4,6 +4,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
+import lessonweaver
 from lessonweaver.cli import main
 from lessonweaver.models import (
     LessonCandidate,
@@ -63,6 +66,14 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     assert exit_code == 0
     questions = json.loads(capsys.readouterr().out)
     assert any(question["id"] == "decision" for question in questions)
+
+
+def test_cli_version_uses_package_metadata(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+
+    assert exc.value.code == 0
+    assert f"lessonweaver {lessonweaver.__version__}" in capsys.readouterr().out
 
 
 # The full set of base review answers that satisfies the enforced review gate

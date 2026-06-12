@@ -14,12 +14,12 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
 ## Checklist
 
 1. **Pick the version.** Follow [SemVer](https://semver.org/). Update `version`
-   in `pyproject.toml`.
+   in `pyproject.toml`. The CLI and `lessonweaver.__version__` read installed
+   package metadata, so `pyproject.toml` is the single version declaration.
 2. **Update the changelog.** Move the `[Unreleased]` notes in
    [`CHANGELOG.md`](../CHANGELOG.md) into a new version section with today's
-   date. For the first tagged release, uncomment the comparison/release link
-   template at the bottom of the changelog and fill it in; on later releases,
-   update those links.
+   date. PRs touching `src/` fail CI unless they update `CHANGELOG.md` or carry
+   the `no-changelog` label.
 3. **Run the full local check** (the same checks CI runs):
    ```bash
    ruff check src/ tests/
@@ -27,12 +27,17 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
    mypy src/lessonweaver/
    pytest
    ```
-4. **Build the distribution and verify it.** Clean `dist/` first so stale
-   artifacts from a previous version can't be checked or uploaded:
+4. **Build the distribution and verify it.** The publish workflow runs these
+   checks before upload, including a clean wheel install and CLI smoke test:
    ```bash
    rm -rf dist/
    python -m build
    twine check dist/*
+   python -m venv /tmp/lessonweaver-release-smoke
+   /tmp/lessonweaver-release-smoke/bin/python -m pip install dist/*.whl
+   /tmp/lessonweaver-release-smoke/bin/lessonweaver --version
+   /tmp/lessonweaver-release-smoke/bin/lessonweaver detect examples/traces/github_pr_review_failure.json >/tmp/lw-detect.json
+   python -m json.tool /tmp/lw-detect.json >/dev/null
    ```
    Confirm the wheel ships the type marker:
    ```bash
@@ -51,9 +56,11 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
    git tag vX.Y.Z
    git push origin main --tags
    ```
-7. **Publish the GitHub Release** for the `vX.Y.Z` tag with the changelog notes.
-   Publishing the release triggers `publish.yml`, which builds and uploads to
-   PyPI.
+7. **Publish the GitHub Release** for the `vX.Y.Z` tag. GitHub's generated
+   release notes are categorized by `.github/release.yml`; use the changelog as
+   the canonical narrative and keep the generated notes as the PR index.
+   Publishing the release triggers `publish.yml`, which builds, verifies, and
+   uploads to PyPI with Trusted Publishing attestations.
 8. **Verify the release** is live:
    ```bash
    python -m pip install lessonweaver

@@ -1,5 +1,7 @@
 """lessonweaver public API."""
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .analysis import AnalysisFinding, SkillAnalyzer
 from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
@@ -91,8 +93,14 @@ from .validation import (
     run_validation_suite,
 )
 
+try:
+    __version__ = version("lessonweaver")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
+
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
+    "__version__",
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",

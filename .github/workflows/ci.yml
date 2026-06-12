@@ -8,6 +8,31 @@ permissions:
   contents: read
 
 jobs:
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require changelog for source changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          NO_CHANGELOG: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+        run: |
+          if [ "$NO_CHANGELOG" = "true" ]; then
+            echo "Skipping changelog gate because the PR has the no-changelog label."
+            exit 0
+          fi
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          if printf '%s\n' "$changed_files" | grep -q '^src/'; then
+            if ! printf '%s\n' "$changed_files" | grep -qx 'CHANGELOG.md'; then
+              echo "PRs touching src/ must update CHANGELOG.md or carry the no-changelog label."
+              exit 1
+            fi
+          fi
+
   test:
     runs-on: ubuntu-latest
     strategy:
