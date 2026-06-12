@@ -7,6 +7,16 @@ from pathlib import Path
 
 import pytest
 
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--update-golden",
+        action="store_true",
+        default=False,
+        help="Rewrite checked-in golden output files for exporter snapshot tests.",
+    )
+
+
 if os.name == "nt":
 
     @pytest.fixture

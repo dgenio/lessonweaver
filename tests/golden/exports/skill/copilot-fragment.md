@@ -1,0 +1,4 @@
+- Skill: Review Diff Before Approval
+- Use when: Reviewing code changes; Summarizing pull request risk
+- Avoid when: No repository diff is available
+- Do: Read the changed files before making a recommendation.; Call out missing tests when behavior changes.
