@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Protocol
 
-from .models import LessonCandidate, OperationalLesson, SkillCard
+from .models import LessonCandidate, OperationalLesson, RecommendedActionType, SkillCard
 
 
 class Redactor(Protocol):
@@ -381,3 +381,113 @@ def export_workflow_recommendation_markdown(
         [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
     )
     return "\n".join(lines).strip() + "\n"
+
+
+def export_framework_artifact(
+    candidate: LessonCandidate,
+    *,
+    framework: str = "generic",
+    redactor: Redactor | None = None,
+) -> dict[str, Any]:
+    """Render a reviewed candidate as a framework-targeted artifact payload.
+
+    The artifact type is deterministic: it follows the candidate's
+    ``recommended_action_type`` and, for workflow changes, an optional
+    ``metadata["failure_mode"]`` such as ``handoff`` or ``routing``.
+    """
+    artifact_type = _framework_artifact_type(candidate)
+    return {
+        "framework": framework,
+        "artifact_type": artifact_type,
+        "candidate_id": candidate.id,
+        "title": _text(candidate.summary, redactor),
+        "governance": _framework_governance(candidate, redactor),
+        "does_not_apply_when": ["When the task is unrelated to the observed trace context."],
+        "body": _framework_artifact_body(candidate, artifact_type, redactor),
+    }
+
+
+def _framework_artifact_type(candidate: LessonCandidate) -> str:
+    failure_mode = str(candidate.metadata.get("failure_mode", "")).lower()
+    if candidate.recommended_action_type is RecommendedActionType.REJECT:
+        return "reject"
+    if candidate.recommended_action_type is RecommendedActionType.EVAL:
+        return "eval_fixture"
+    if candidate.recommended_action_type is RecommendedActionType.GUARDRAIL:
+        return "guardrail"
+    if candidate.recommended_action_type is RecommendedActionType.RETRIEVAL_RULE:
+        return "retrieval_rule"
+    if candidate.recommended_action_type is RecommendedActionType.WORKFLOW_CHANGE:
+        if failure_mode in {"handoff", "routing", "handoff_rule"}:
+            return "handoff_rule"
+        return "workflow_change"
+    return "prompt_lesson"
+
+
+def _framework_governance(candidate: LessonCandidate, redactor: Redactor | None) -> dict[str, Any]:
+    return {
+        "scope": candidate.scope.value,
+        "owner": _optional_text(candidate.owner, redactor),
+        "approved_by": _optional_text(candidate.approved_by, redactor),
+        "risk_level": candidate.risk_level.value,
+        "confidence": candidate.confidence,
+        "status": candidate.status.value,
+        "expires_at": candidate.expires_at.isoformat() if candidate.expires_at else None,
+        "evidence_trace_ids": _list(candidate.evidence_trace_ids, redactor),
+        "evidence_event_ids": _list(candidate.evidence_event_ids, redactor),
+        "review_metadata": _redact_payload(candidate.metadata.get("review_history", []), redactor),
+    }
+
+
+def _optional_text(value: str | None, redactor: Redactor | None) -> str | None:
+    if value is None:
+        return None
+    return _text(value, redactor)
+
+
+def _framework_artifact_body(
+    candidate: LessonCandidate,
+    artifact_type: str,
+    redactor: Redactor | None,
+) -> dict[str, Any]:
+    summary = _text(candidate.summary, redactor)
+    observed_problem = _text(candidate.observed_problem, redactor)
+    proposed_lesson = _text(candidate.proposed_lesson, redactor)
+    if artifact_type == "reject":
+        return {
+            "decision": "no_op",
+            "reason": f"No runtime artifact should be generated for: {observed_problem}",
+        }
+    if artifact_type == "eval_fixture":
+        return {
+            "input": observed_problem,
+            "assertion": proposed_lesson,
+            "expected_behavior": (
+                "The agent satisfies the reviewed lesson without requiring human correction."
+            ),
+        }
+    if artifact_type == "guardrail":
+        return {
+            "trigger": observed_problem,
+            "guardrail": proposed_lesson,
+            "blocked_behavior": "Proceeding without the reviewed corrective check.",
+        }
+    if artifact_type == "handoff_rule":
+        return {
+            "route_when": observed_problem,
+            "handoff_guidance": proposed_lesson,
+        }
+    if artifact_type == "retrieval_rule":
+        return {
+            "query_condition": summary,
+            "retrieval_guidance": proposed_lesson,
+        }
+    if artifact_type == "workflow_change":
+        return {
+            "problem": observed_problem,
+            "node_recommendation": proposed_lesson,
+        }
+    return {
+        "prompt_fragment": proposed_lesson,
+        "apply_when": summary,
+    }
