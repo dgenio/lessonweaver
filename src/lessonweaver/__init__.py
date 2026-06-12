@@ -39,7 +39,9 @@ from .filemerge import (
 )
 from .governance import can_promote_skill, promote_skill
 from .importers import (
+    CLAUDE_CODE_PROVENANCE_KEY,
     FAILURE_CASE_PROVENANCE_KEY,
+    ClaudeCodeTraceImporter,
     DictTraceImporter,
     FailureCaseImporter,
     TraceImporter,
@@ -92,9 +94,11 @@ from .validation import (
 )
 
 __all__ = [
+    "CLAUDE_CODE_PROVENANCE_KEY",
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "BudgetUsage",
+    "ClaudeCodeTraceImporter",
     "CleanupAction",
     "CompiledContext",
     "DetectionCase",

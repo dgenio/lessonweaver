@@ -1,9 +1,10 @@
 # Claude Code integration
 
-lessonweaver exports reviewed skills into the three instruction mechanisms
-Claude Code reads. lessonweaver is an **export tool**, not a Claude Code
-integration: it generates text that you review and place yourself. Nothing is
-installed or committed automatically.
+lessonweaver imports reviewed Claude Code hook/transcript evidence into its
+trace model, and exports reviewed skills into the three instruction mechanisms
+Claude Code reads. lessonweaver does not install hooks or generated
+instructions for you: it generates artifacts that you review and place
+yourself.
 
 > Claude Code formats may change. Treat these exports as reviewed project
 > guidance and a starting point, not a guaranteed contract.
@@ -29,9 +30,38 @@ suppressed. `claude-rule` and `claude-md` emit compact fragments.
 The legacy `--format claude` / `claude_skill` still produces the original short
 fragment and is kept for backward compatibility.
 
+## Import hook or transcript evidence
+
+Use `ClaudeCodeTraceImporter` when a hook, wrapper script, or transcript export
+has captured a coding-agent correction:
+
+```python
+from lessonweaver import ClaudeCodeTraceImporter, LessonDetector
+
+payload = {
+    "schema": "claude-code/transcript@1",
+    "session_id": "cc-42",
+    "task": "Fix the auth regression",
+    "transcript": [
+        {"type": "user", "message": "The login test is failing."},
+        {"type": "tool_use", "name": "Edit", "input": {"file_path": "src/auth.py"}},
+        {"type": "tool_result", "content": "No match found", "is_error": True},
+        {"type": "human_correction", "content": "Use src/login.py instead."},
+    ],
+}
+
+bundle = ClaudeCodeTraceImporter().import_trace(payload)
+candidates = LessonDetector().detect(bundle)
+```
+
+The importer maps messages, tool calls/results, errors, retries, final answers,
+and human corrections to the documented `TraceBundle` shape. It preserves
+source-specific fields in metadata and applies `TraceSanitizer` by default
+before detection.
+
 ## What lessonweaver does not do
 
-- It does not install skills into Claude Code or run hooks.
+- It does not install skills into Claude Code or register/run hooks.
 - It does not test against a real Claude Code installation.
 - Always export with `--redact` and review the output before committing —
   these files are loaded into agent context.
