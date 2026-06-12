@@ -23,6 +23,12 @@ def _parse_datetime(value: Any, *, default: datetime | None = None) -> datetime 
     return default
 
 
+def _require_datetime(value: datetime | None, field_name: str) -> datetime:
+    if value is None:
+        raise ValueError(f"{field_name} must be a valid datetime")
+    return value
+
+
 def _ensure_timezone_aware(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=timezone.utc)
@@ -207,8 +213,8 @@ class LessonCandidate:
     def from_dict(cls, data: dict[str, Any]) -> LessonCandidate:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
         updated_at = _parse_datetime(data.get("updated_at"), default=created_at)
-        assert created_at is not None
-        assert updated_at is not None
+        created_at = _require_datetime(created_at, "created_at")
+        updated_at = _require_datetime(updated_at, "updated_at")
         return cls(
             id=str(data["id"]),
             summary=str(data["summary"]),
@@ -401,7 +407,7 @@ class OperationalLesson:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OperationalLesson:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
-        assert created_at is not None
+        created_at = _require_datetime(created_at, "created_at")
         return cls(
             lesson_id=str(data["lesson_id"]),
             candidate_id=str(data["candidate_id"]),
@@ -478,8 +484,8 @@ class SkillCard:
     def from_dict(cls, data: dict[str, Any]) -> SkillCard:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
         updated_at = _parse_datetime(data.get("updated_at"), default=created_at)
-        assert created_at is not None
-        assert updated_at is not None
+        created_at = _require_datetime(created_at, "created_at")
+        updated_at = _require_datetime(updated_at, "updated_at")
         return cls(
             id=str(data["id"]),
             name=str(data["name"]),
@@ -544,7 +550,7 @@ class ExportArtifact:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExportArtifact:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
-        assert created_at is not None
+        created_at = _require_datetime(created_at, "created_at")
         return cls(
             artifact_id=str(data["artifact_id"]),
             format=ExportFormat(str(data["format"])),
@@ -587,7 +593,7 @@ class SkillUsageEvent:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillUsageEvent:
         loaded_at = _parse_datetime(data.get("loaded_at"), default=_utc_now())
-        assert loaded_at is not None
+        loaded_at = _require_datetime(loaded_at, "loaded_at")
         outcome_positive = data.get("outcome_positive")
         return cls(
             id=str(data["id"]),

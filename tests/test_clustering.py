@@ -88,9 +88,9 @@ def test_empty_input_returns_no_clusters() -> None:
 
 
 def test_invalid_threshold_raises() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="threshold"):
         LessonClusterer(threshold=0.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="threshold"):
         LessonClusterer(threshold=1.5)
 
 
