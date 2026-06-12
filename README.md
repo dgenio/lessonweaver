@@ -192,6 +192,7 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
+| Langfuse and LangSmith | Exported JSON trace importers ([Langfuse](docs/integrations/langfuse.md), [LangSmith](docs/integrations/langsmith.md)) |
 
 ## Governance and safety
 

@@ -8,10 +8,13 @@ from lessonweaver.importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
+    LangfuseTraceImporter,
+    LangSmithTraceImporter,
     TraceImporter,
     candidates_from_failure_case,
 )
 from lessonweaver.models import TraceBundle, TraceEventType
+from lessonweaver.traces import validate_trace_dict
 
 CANONICAL_TRACE = {
     "trace_id": "trace-1",
@@ -36,6 +39,8 @@ def test_builtin_importers_satisfy_protocol() -> None:
     # TraceImporter is runtime_checkable, so isinstance verifies the contract.
     assert isinstance(DictTraceImporter(), TraceImporter)
     assert isinstance(FailureCaseImporter(), TraceImporter)
+    assert isinstance(LangfuseTraceImporter(), TraceImporter)
+    assert isinstance(LangSmithTraceImporter(), TraceImporter)
 
 
 # --- DictTraceImporter ---------------------------------------------------------
@@ -116,3 +121,164 @@ def test_candidates_from_failure_case_stamps_provenance() -> None:
     assert ids == {"fc-0001-failed-eval", "fc-0001-human-correction"}
     for candidate in candidates:
         assert candidate.metadata[FAILURE_CASE_PROVENANCE_KEY]["failure_id"] == "fc-0001"
+
+
+# --- LangfuseTraceImporter ----------------------------------------------------
+
+
+LANGFUSE_EXPORT = {
+    "source": "langfuse",
+    "trace": {
+        "id": "lf-trace-1",
+        "name": "Handle refund request",
+        "input": {"message": "Can I get a refund?"},
+        "metadata": {"tenant": "acme"},
+    },
+    "observations": [
+        {
+            "id": "obs-1",
+            "type": "GENERATION",
+            "name": "answer",
+            "input": {"messages": [{"role": "user", "content": "refund?"}]},
+            "output": {"content": "Old policy answer"},
+            "level": "DEFAULT",
+            "metadata": {"model": "demo"},
+        },
+        {
+            "id": "obs-2",
+            "type": "SPAN",
+            "name": "policy.lookup",
+            "input": {"version": "old"},
+            "output": {"status": "stale"},
+            "level": "ERROR",
+            "status_message": "Used stale policy.",
+        },
+    ],
+    "scores": [
+        {
+            "id": "score-1",
+            "name": "human_review",
+            "value": 0,
+            "comment": "Reviewer corrected the stale policy answer.",
+        }
+    ],
+}
+
+
+def test_langfuse_importer_can_import_only_langfuse_payloads() -> None:
+    importer = LangfuseTraceImporter()
+    assert importer.can_import(LANGFUSE_EXPORT) is True
+    assert importer.can_import({"schema": "langfuse/export@1", "observations": []}) is True
+    assert importer.can_import(CANONICAL_TRACE) is False
+    assert importer.can_import({"source": "langsmith", "runs": []}) is False
+
+
+def test_langfuse_importer_normalizes_export_to_valid_trace() -> None:
+    bundle = LangfuseTraceImporter().import_trace(LANGFUSE_EXPORT)
+
+    assert bundle.trace_id == "lf-trace-1"
+    assert bundle.source == "langfuse"
+    assert bundle.task == "Handle refund request"
+    assert bundle.outcome == "failure"
+    assert [event.type for event in bundle.events] == [
+        TraceEventType.USER_MESSAGE,
+        TraceEventType.MODEL_CALL,
+        TraceEventType.ERROR,
+        TraceEventType.EVALUATION_RESULT,
+        TraceEventType.HUMAN_CORRECTION,
+    ]
+    assert bundle.events[2].status == "failed"
+    assert bundle.events[4].content == "Reviewer corrected the stale policy answer."
+    assert validate_trace_dict(bundle.to_dict()) == []
+
+
+def test_langfuse_importer_preserves_unmapped_metadata() -> None:
+    bundle = LangfuseTraceImporter().import_trace(LANGFUSE_EXPORT)
+
+    assert bundle.metadata["langfuse"]["trace"]["tenant"] == "acme"
+    assert bundle.events[1].metadata["langfuse"]["model"] == "demo"
+    assert bundle.events[2].metadata["langfuse"]["observation_type"] == "SPAN"
+
+
+def test_langfuse_importer_rejects_malformed_payload() -> None:
+    with pytest.raises(ValueError, match="trace id"):
+        LangfuseTraceImporter().import_trace({"source": "langfuse", "observations": []})
+
+
+# --- LangSmithTraceImporter ---------------------------------------------------
+
+
+LANGSMITH_EXPORT = {
+    "source": "langsmith",
+    "runs": [
+        {
+            "id": "run-root",
+            "trace_id": "ls-trace-1",
+            "name": "Refund agent",
+            "run_type": "chain",
+            "inputs": {"question": "Can I get a refund?"},
+            "outputs": {"answer": "Old policy answer"},
+            "status": "success",
+            "extra": {"metadata": {"tenant": "acme"}},
+            "dotted_order": "20260612Zrun-root",
+        },
+        {
+            "id": "run-tool",
+            "trace_id": "ls-trace-1",
+            "name": "policy_lookup",
+            "run_type": "tool",
+            "inputs": {"version": "old"},
+            "outputs": {"status": "stale"},
+            "error": "Used stale policy.",
+            "status": "error",
+            "dotted_order": "20260612Zrun-root.20260612Zrun-tool",
+        },
+    ],
+    "feedback": [
+        {
+            "run_id": "run-root",
+            "key": "human_review",
+            "score": 0,
+            "comment": "Human reviewer required checking the current policy.",
+        }
+    ],
+}
+
+
+def test_langsmith_importer_can_import_only_langsmith_payloads() -> None:
+    importer = LangSmithTraceImporter()
+    assert importer.can_import(LANGSMITH_EXPORT) is True
+    assert importer.can_import({"schema": "langsmith/run-export@1", "runs": []}) is True
+    assert importer.can_import(CANONICAL_TRACE) is False
+    assert importer.can_import(LANGFUSE_EXPORT) is False
+
+
+def test_langsmith_importer_normalizes_export_to_valid_trace() -> None:
+    bundle = LangSmithTraceImporter().import_trace(LANGSMITH_EXPORT)
+
+    assert bundle.trace_id == "ls-trace-1"
+    assert bundle.source == "langsmith"
+    assert bundle.task == "Refund agent"
+    assert bundle.outcome == "failure"
+    assert [event.type for event in bundle.events] == [
+        TraceEventType.WORKFLOW_STEP,
+        TraceEventType.ERROR,
+        TraceEventType.EVALUATION_RESULT,
+        TraceEventType.HUMAN_CORRECTION,
+    ]
+    assert bundle.events[1].content == "Used stale policy."
+    assert bundle.events[3].content == "Human reviewer required checking the current policy."
+    assert validate_trace_dict(bundle.to_dict()) == []
+
+
+def test_langsmith_importer_preserves_run_metadata() -> None:
+    bundle = LangSmithTraceImporter().import_trace(LANGSMITH_EXPORT)
+
+    assert bundle.metadata["langsmith"]["run_count"] == 2
+    assert bundle.events[0].metadata["langsmith"]["run_type"] == "chain"
+    assert bundle.events[0].metadata["langsmith"]["extra"]["metadata"]["tenant"] == "acme"
+
+
+def test_langsmith_importer_rejects_malformed_payload() -> None:
+    with pytest.raises(ValueError, match="runs"):
+        LangSmithTraceImporter().import_trace({"source": "langsmith", "runs": "bad"})
