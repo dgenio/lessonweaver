@@ -1,5 +1,7 @@
 """Tests for the lesson/skill registry."""
 
+import os
+
 import pytest
 
 from lessonweaver.models import (
@@ -133,22 +135,57 @@ def test_filesystem_registry_delete(tmp_path) -> None:
     assert registry.list_skills() == []
 
 
-def test_filesystem_registry_list_rejects_non_object_json(tmp_path) -> None:
+def test_filesystem_registry_list_skips_non_object_json_by_default(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.skills_dir.mkdir(parents=True)
+    registry.save_skill(_skill("good"))
+    registry.skills_dir.mkdir(parents=True, exist_ok=True)
     (registry.skills_dir / "bad.json").write_text("[]", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="must contain a JSON object"):
-        registry.list_skills()
+    skills = registry.list_skills()
+    err = capsys.readouterr().err
+
+    assert [skill.id for skill in skills] == ["good"]
+    assert "warning:" in err
+    assert "bad.json" in err
+    assert "must contain a JSON object" in err
 
 
-def test_filesystem_registry_list_rejects_invalid_json(tmp_path) -> None:
+def test_filesystem_registry_list_strict_rejects_invalid_json(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.skills_dir.mkdir(parents=True)
     (registry.skills_dir / "bad.json").write_text("{", encoding="utf-8")
 
     with pytest.raises(ValueError, match="contains invalid JSON"):
-        registry.list_skills()
+        registry.list_skills(strict=True)
+
+
+def test_filesystem_registry_load_corrupt_id_still_raises(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.skills_dir.mkdir(parents=True)
+    (registry.skills_dir / "bad.json").write_text("{", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="skill 'bad' registry file contains invalid JSON"):
+        registry.load_skill("bad")
+
+
+def test_filesystem_registry_save_is_atomic_when_replace_fails(monkeypatch, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    original = _skill("skill-1")
+    registry.save_skill(original)
+    original_payload = registry.load_skill("skill-1").to_dict()
+
+    def fail_replace(src, dst) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    updated = _skill("skill-1")
+    updated.description = "Updated description with enough detail."
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        registry.save_skill(updated)
+
+    assert registry.load_skill("skill-1").to_dict() == original_payload
+    assert not list(registry.skills_dir.glob("*.tmp"))
 
 
 def _usage_event(event_id: str, skill_id: str = "skill-1") -> SkillUsageEvent:
