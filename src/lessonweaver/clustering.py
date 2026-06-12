@@ -11,53 +11,20 @@ and candidate order does not affect the output.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._text import CLUSTERING_STOPWORDS, jaccard, tokens
 from .models import LessonCandidate
-
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_']+")
-_STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "based",
-    "before",
-    "candidate",
-    "for",
-    "if",
-    "in",
-    "is",
-    "it",
-    "lesson",
-    "must",
-    "not",
-    "of",
-    "on",
-    "or",
-    "that",
-    "the",
-    "this",
-    "to",
-    "when",
-}
 
 DEFAULT_SIMILARITY_THRESHOLD = 0.4
 
 
-def _tokens(value: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_RE.findall(value) if token.lower() not in _STOPWORDS}
-
-
 def _candidate_tokens(candidate: LessonCandidate) -> set[str]:
-    return _tokens(f"{candidate.summary} {candidate.observed_problem}")
-
-
-def _jaccard(left: set[str], right: set[str]) -> float:
-    if not left or not right:
-        return 0.0
-    return len(left & right) / len(left | right)
+    return tokens(
+        f"{candidate.summary} {candidate.observed_problem}",
+        stopwords=CLUSTERING_STOPWORDS,
+    )
 
 
 def _is_stronger(candidate: LessonCandidate, current: LessonCandidate) -> bool:
@@ -129,7 +96,7 @@ class LessonClusterer:
             tokens = _candidate_tokens(candidate)
             placed = False
             for index, existing in enumerate(clusters):
-                if _jaccard(tokens, seed_tokens[index]) >= self.threshold:
+                if jaccard(tokens, seed_tokens[index]) >= self.threshold:
                     existing.members.append(candidate)
                     if _is_stronger(candidate, existing.representative):
                         existing.representative = candidate
