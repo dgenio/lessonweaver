@@ -814,6 +814,95 @@ def test_cli_cluster_groups_repeated_pattern(capsys, tmp_path) -> None:
     }
 
 
+def test_cli_ingest_directory_clusters_and_saves_representatives(capsys, tmp_path) -> None:
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    source = json.loads(
+        Path("examples/traces/github_pr_review_failure.json").read_text(encoding="utf-8")
+    )
+    for trace_id in ("batch-a", "batch-b"):
+        trace = dict(source)
+        trace["trace_id"] = trace_id
+        (traces_dir / f"{trace_id}.json").write_text(json.dumps(trace), encoding="utf-8")
+    (traces_dir / "boring.json").write_text(
+        json.dumps(
+            {
+                "trace_id": "boring",
+                "source": "unit-test",
+                "task": "Translate hello",
+                "events": [{"id": "e1", "type": "user_message"}],
+                "outcome": "success",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (traces_dir / "bad.json").write_text("{not json", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            str(traces_dir),
+            "--save",
+            "--registry-root",
+            str(tmp_path / "registry"),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["files_read"] == 3
+    assert report["files_skipped"] == [
+        {"path": str(traces_dir / "bad.json"), "reason": "invalid JSON"}
+    ]
+    assert report["candidates_found"] == 2
+    assert report["clusters_formed"] == 1
+    assert report["candidates_saved"] == 1
+    stored = FileSystemRegistry(tmp_path / "registry").list_candidates()
+    assert len(stored) == 1
+    assert stored[0].evidence_trace_ids == ["batch-a", "batch-b"]
+
+
+def test_cli_ingest_dry_run_does_not_save(capsys, tmp_path) -> None:
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    source = json.loads(
+        Path("examples/traces/github_pr_review_failure.json").read_text(encoding="utf-8")
+    )
+    source["trace_id"] = "dry-run"
+    (traces_dir / "trace.json").write_text(json.dumps(source), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            str(traces_dir),
+            "--save",
+            "--dry-run",
+            "--registry-root",
+            str(tmp_path / "registry"),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["candidates_saved"] == 0
+    assert FileSystemRegistry(tmp_path / "registry").list_candidates() == []
+
+
+def test_cli_ingest_strict_fails_on_skipped_file(capsys, tmp_path) -> None:
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    (traces_dir / "bad.json").write_text("{not json", encoding="utf-8")
+
+    exit_code = main(["ingest", str(traces_dir), "--strict", "--json"])
+
+    assert exit_code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["files_read"] == 0
+    assert report["files_skipped"][0]["reason"] == "invalid JSON"
+
+
 def test_cli_eval_detection_reports_metrics(capsys) -> None:
     exit_code = main(["eval-detection", "examples/detection_corpus/corpus.json"])
     assert exit_code == 0
