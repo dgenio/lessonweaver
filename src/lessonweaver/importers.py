@@ -9,25 +9,40 @@ This module formalizes how an external payload becomes a :class:`TraceBundle`
 * :class:`FailureCaseImporter` — a governed path that turns a replayable
   *failure case* artifact into a trace bundle so the normal
   ``detect -> review -> approve -> export`` loop applies to it (issue #82).
+* :class:`VibeguardReportImporter` — a first-class, dependency-free importer
+  for VibeGuard ArtifactSafetyReport/native report JSON that preserves finding
+  provenance and produces candidates only for repeated categories (issue #132).
 
-Concrete adapters for *sibling* tools (agent-kernel, ChainWeaver, vibeguard) are
-intentionally NOT in core. Per ``AGENTS.md`` and ``docs/interoperability.md``
-those map a sibling's serialized output to the trace shape *without importing
-the sibling*, and they live in ``examples/interop_adapters/``. See
-``docs/adapters.md`` for the normalization contract.
+Lightweight example adapters for sibling single-run outputs still live in
+``examples/interop_adapters/``. See ``docs/adapters.md`` for the normalization
+contract.
 """
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 from .detection import LessonDetector
-from .models import LessonCandidate, TraceBundle, TraceEvent, TraceEventType
+from .models import (
+    LessonCandidate,
+    LessonStatus,
+    RecommendedActionType,
+    RiskLevel,
+    Scope,
+    TraceBundle,
+    TraceEvent,
+    TraceEventType,
+)
 from .traces import validate_trace_dict
 
 # Provenance key stamped onto a TraceBundle (and propagated onto candidates) so a
 # reviewer can always trace a lesson back to the failure case it came from.
 FAILURE_CASE_PROVENANCE_KEY = "failure_case"
+VIBEGUARD_PROVENANCE_KEY = "vibeguard"
+
+_SEVERITY_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
 @runtime_checkable
@@ -188,3 +203,239 @@ def candidates_from_failure_case(
             # leaks into the others or back into the bundle metadata.
             candidate.metadata[FAILURE_CASE_PROVENANCE_KEY] = dict(provenance)
     return candidates
+
+
+@dataclass(slots=True)
+class VibeguardImportResult:
+    """Summary returned when importing one or more VibeGuard reports."""
+
+    candidates: list[LessonCandidate]
+    one_off_findings: list[dict[str, Any]]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidates": [candidate.to_dict() for candidate in self.candidates],
+            "one_off_findings": self.one_off_findings,
+        }
+
+
+class VibeguardReportImporter:
+    """Importer for VibeGuard ArtifactSafetyReport-style JSON payloads.
+
+    The importer accepts the Weaver Stack ``ArtifactSafetyReport`` shape used by
+    VibeGuard's ``--weaver`` output, plus native VibeGuard-style reports that
+    carry a top-level ``findings`` list. It keeps the mapping deterministic and
+    dependency-free: no VibeGuard package import is required.
+    """
+
+    _SCHEMA_MARKERS = ("artifact-safety-report", "artifactsafetyreport")
+
+    def can_import(self, source: dict[str, Any]) -> bool:
+        if not isinstance(source, dict):
+            return False
+        schema = str(source.get("schema") or source.get("type") or "").lower()
+        if any(marker in schema for marker in self._SCHEMA_MARKERS):
+            return True
+        if str(source.get("tool", "")).lower() == "vibeguard" and "findings" in source:
+            return True
+        return "findings" in source and ("report_id" in source or "source_refs" in source)
+
+    def import_trace(self, source: dict[str, Any]) -> TraceBundle:
+        if not self.can_import(source):
+            raise ValueError("Unrecognized VibeGuard report: expected a report with findings.")
+        findings = _vibeguard_findings(source)
+        if not findings:
+            raise ValueError("VibeGuard report contains no findings.")
+
+        report_id = _vibeguard_report_id(source)
+        events = [
+            TraceEvent(
+                id=finding["finding_id"],
+                type=TraceEventType.EVALUATION_RESULT,
+                content=finding.get("message") or finding.get("remediation") or finding["category"],
+                status="failed",
+                metadata=finding,
+            )
+            for finding in findings
+        ]
+        return TraceBundle(
+            trace_id=report_id,
+            source="vibeguard",
+            task=str(source.get("task") or "Review VibeGuard artifact safety findings"),
+            events=events,
+            outcome="failure",
+            metadata={
+                VIBEGUARD_PROVENANCE_KEY: {
+                    "report_id": report_id,
+                    "source_refs": _source_refs(source),
+                }
+            },
+        )
+
+
+def candidates_from_vibeguard_reports(sources: list[dict[str, Any]]) -> VibeguardImportResult:
+    """Create review candidates from repeated VibeGuard finding categories.
+
+    Findings are deduplicated by fingerprint within a report/PR context. A
+    category becomes a candidate only when it appears across at least two
+    distinct contexts; one-off categories are returned in the summary but are
+    not promoted to lesson candidates.
+    """
+
+    importer = VibeguardReportImporter()
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    seen_in_context: set[tuple[str, str]] = set()
+
+    for source in sources:
+        importer.import_trace(source)  # validates the report shape.
+        report_id = _vibeguard_report_id(source)
+        context_id = _vibeguard_context_id(source)
+        for finding in _vibeguard_findings(source):
+            fingerprint = finding["fingerprint"]
+            dedupe_key = (context_id, fingerprint)
+            if dedupe_key in seen_in_context:
+                continue
+            seen_in_context.add(dedupe_key)
+            enriched = dict(finding)
+            enriched["report_id"] = report_id
+            enriched["context_id"] = context_id
+            enriched["source_refs"] = _combine_source_refs(
+                _source_refs(source), finding.get("source_refs", [])
+            )
+            by_category.setdefault(enriched["category"], []).append(enriched)
+
+    candidates: list[LessonCandidate] = []
+    one_off_findings: list[dict[str, Any]] = []
+    for category, findings in by_category.items():
+        context_ids = {finding["context_id"] for finding in findings}
+        if len(context_ids) < 2:
+            one_off_findings.append(_one_off_summary(category, findings))
+            continue
+        candidates.append(_vibeguard_candidate(category, findings, context_ids))
+
+    return VibeguardImportResult(candidates=candidates, one_off_findings=one_off_findings)
+
+
+def _vibeguard_report_id(source: dict[str, Any]) -> str:
+    return str(source.get("report_id") or source.get("id") or "vibeguard-report").strip()
+
+
+def _vibeguard_context_id(source: dict[str, Any]) -> str:
+    for ref in _source_refs(source):
+        if ref.get("type") in {"pull_request", "pr", "merge_request"} and ref.get("id"):
+            return str(ref["id"])
+    context = source.get("pr") or source.get("pull_request") or source.get("context")
+    if isinstance(context, dict):
+        for key in ("id", "number", "url"):
+            if context.get(key) is not None:
+                return str(context[key])
+    return _vibeguard_report_id(source)
+
+
+def _vibeguard_findings(source: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_findings = source.get("findings")
+    if not isinstance(raw_findings, list):
+        raise ValueError("VibeGuard report missing a 'findings' list.")
+
+    findings: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_findings, start=1):
+        if not isinstance(raw, dict):
+            raise ValueError("VibeGuard finding must be a JSON object.")
+        finding_id = str(raw.get("finding_id") or raw.get("id") or "").strip()
+        if not finding_id:
+            raise ValueError("VibeGuard finding missing a non-empty 'finding_id' (or 'id').")
+        category = str(raw.get("category") or raw.get("rule") or "uncategorized").strip()
+        fingerprint = str(raw.get("fingerprint") or finding_id or f"finding-{index}").strip()
+        findings.append(
+            {
+                "finding_id": finding_id,
+                "rule": raw.get("rule") or raw.get("rule_id"),
+                "category": category,
+                "severity": str(raw.get("severity") or "medium").lower(),
+                "path": raw.get("path") or raw.get("file"),
+                "fingerprint": fingerprint,
+                "remediation": raw.get("remediation") or raw.get("recommendation"),
+                "message": raw.get("message") or raw.get("summary"),
+                "source_refs": _source_refs(raw),
+            }
+        )
+    return findings
+
+
+def _source_refs(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    refs = payload.get("source_refs") or payload.get("sourceRefs") or []
+    if not isinstance(refs, list):
+        return []
+    return [dict(ref) for ref in refs if isinstance(ref, dict)]
+
+
+def _combine_source_refs(
+    report_refs: list[dict[str, Any]], finding_refs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    combined: list[dict[str, Any]] = []
+    seen: set[tuple[tuple[str, Any], ...]] = set()
+    for ref in [*report_refs, *finding_refs]:
+        key = tuple(sorted(ref.items()))
+        if key not in seen:
+            seen.add(key)
+            combined.append(ref)
+    return combined
+
+
+def _one_off_summary(category: str, findings: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "category": category,
+        "finding_count": len(findings),
+        "context_ids": sorted({finding["context_id"] for finding in findings}),
+        "findings": findings,
+        "reason": "category did not recur across distinct PR/report contexts",
+    }
+
+
+def _vibeguard_candidate(
+    category: str,
+    findings: list[dict[str, Any]],
+    context_ids: set[str],
+) -> LessonCandidate:
+    worst = max(_SEVERITY_ORDER.get(str(finding["severity"]).lower(), 2) for finding in findings)
+    risk = RiskLevel.HIGH if worst >= _SEVERITY_ORDER["high"] else RiskLevel.MEDIUM
+    report_ids = sorted({finding["report_id"] for finding in findings})
+    event_ids = [finding["finding_id"] for finding in findings]
+    category_label = category.replace("_", " ")
+    return LessonCandidate(
+        id=f"vibeguard-{_slug(category)}-recurring",
+        summary=f"Recurring VibeGuard {category_label} findings across reviewed PRs.",
+        evidence_trace_ids=report_ids,
+        evidence_event_ids=event_ids,
+        observed_problem=(
+            f"VibeGuard reported {len(findings)} deduplicated {category_label} finding(s) "
+            f"across {len(context_ids)} distinct PR/report contexts."
+        ),
+        proposed_lesson=(
+            f"Add a reviewed guardrail or workflow check for recurring VibeGuard "
+            f"{category_label} findings before merging agent-generated changes."
+        ),
+        confidence=0.7,
+        recommended_action_type=RecommendedActionType.GUARDRAIL,
+        risk_level=risk,
+        scope=Scope.PROJECT,
+        evidence_strength=0.75,
+        evidence_summary=(
+            "Repeated VibeGuard findings across distinct contexts are stronger evidence than "
+            "a one-off report; duplicate fingerprints inside a single context are counted once."
+        ),
+        status=LessonStatus.NEEDS_REVIEW,
+        metadata={
+            VIBEGUARD_PROVENANCE_KEY: {
+                "category": category,
+                "occurrence_count": len(findings),
+                "distinct_context_count": len(context_ids),
+                "context_ids": sorted(context_ids),
+                "findings": findings,
+            }
+        },
+    )
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "finding"

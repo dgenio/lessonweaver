@@ -151,6 +151,7 @@ print(context.snippet)
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
+- `lessonweaver import-vibeguard <report.json> [more-report.json ...] [--save]` — import VibeGuard ArtifactSafetyReport findings and create candidates only for repeated categories across distinct PR/report contexts
 - `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
 - `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
 

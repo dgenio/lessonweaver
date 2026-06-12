@@ -37,7 +37,7 @@ from .export import (
 )
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
-from .importers import candidates_from_failure_case
+from .importers import candidates_from_failure_case, candidates_from_vibeguard_reports
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
 from .models import (
@@ -424,6 +424,17 @@ def main(argv: list[str] | None = None) -> int:
         "--save", action="store_true", help="Save candidates to the registry"
     )
 
+    vibeguard_parser = subparsers.add_parser(
+        "import-vibeguard",
+        parents=[dry_run_parent, output_parent],
+        help="Import one or more VibeGuard ArtifactSafetyReport JSON files",
+    )
+    vibeguard_parser.add_argument("report_paths", nargs="+")
+    vibeguard_parser.add_argument("--registry-root")
+    vibeguard_parser.add_argument(
+        "--save", action="store_true", help="Save repeated finding candidates to the registry"
+    )
+
     cluster_parser = subparsers.add_parser(
         "cluster",
         help="Detect candidates across multiple traces and group recurring patterns",
@@ -805,6 +816,24 @@ def _run(args: argparse.Namespace) -> int:
         artifact = _read_json(args.artifact_path)
         candidates = candidates_from_failure_case(artifact)
         return _emit_candidates(candidates, args)
+
+    if args.command == "import-vibeguard":
+        vibeguard_reports = [_read_json(path) for path in args.report_paths]
+        vibeguard_result = candidates_from_vibeguard_reports(vibeguard_reports)
+        if args.save:
+            if args.dry_run:
+                candidate_count = len(vibeguard_result.candidates)
+                print(
+                    f"[dry-run] would save {candidate_count} VibeGuard candidate(s) "
+                    "to the registry",
+                    file=sys.stderr,
+                )
+            else:
+                registry = _registry(args.registry_root)
+                for candidate in vibeguard_result.candidates:
+                    registry.save_candidate(candidate)
+        content = json.dumps(vibeguard_result.to_dict(), indent=2, sort_keys=True)
+        return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "cluster":
         detector = LessonDetector()

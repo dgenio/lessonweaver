@@ -789,6 +789,78 @@ def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> 
     assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"
 
 
+def test_cli_import_vibeguard_reports_repeated_findings(capsys, tmp_path) -> None:
+    report_a = {
+        "tool": "vibeguard",
+        "report_id": "vg-a",
+        "source_refs": [{"type": "pull_request", "id": "pr-1"}],
+        "findings": [
+            {
+                "finding_id": "VG-1",
+                "rule": "secret",
+                "category": "secret_leak",
+                "severity": "high",
+                "path": "a.py",
+                "fingerprint": "fp-1",
+                "remediation": "Move secret to the secret manager.",
+            }
+        ],
+    }
+    report_b = {
+        "tool": "vibeguard",
+        "report_id": "vg-b",
+        "source_refs": [{"type": "pull_request", "id": "pr-2"}],
+        "findings": [
+            {
+                "finding_id": "VG-2",
+                "rule": "secret",
+                "category": "secret_leak",
+                "severity": "medium",
+                "path": "b.py",
+                "fingerprint": "fp-2",
+                "remediation": "Use environment variables.",
+            },
+            {
+                "finding_id": "VG-3",
+                "rule": "timeout",
+                "category": "reliability",
+                "severity": "low",
+                "path": "client.py",
+                "fingerprint": "fp-3",
+            },
+        ],
+    }
+    path_a = tmp_path / "report-a.json"
+    path_b = tmp_path / "report-b.json"
+    path_a.write_text(json.dumps(report_a), encoding="utf-8")
+    path_b.write_text(json.dumps(report_b), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "import-vibeguard",
+            str(path_a),
+            str(path_b),
+            "--save",
+            "--registry-root",
+            str(tmp_path / "registry"),
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert [candidate["id"] for candidate in payload["candidates"]] == [
+        "vibeguard-secret-leak-recurring"
+    ]
+    assert [finding["category"] for finding in payload["one_off_findings"]] == ["reliability"]
+    registry = FileSystemRegistry(tmp_path / "registry")
+    assert (
+        registry.load_candidate("vibeguard-secret-leak-recurring").metadata["vibeguard"][
+            "distinct_context_count"
+        ]
+        == 2
+    )
+
+
 def test_cli_cluster_groups_repeated_pattern(capsys, tmp_path) -> None:
     # Two distinct traces (different trace_ids) carrying the same human-correction
     # pattern must collapse into one cluster of distinct candidates.
