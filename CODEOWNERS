@@ -1,0 +1,14 @@
+# Default maintainer review routing.
+* @dgenio
+
+# Core behavior and public contracts.
+/src/ @dgenio
+/tests/ @dgenio
+/docs/ @dgenio
+/examples/ @dgenio
+
+# Repository governance and automation.
+/.github/ @dgenio
+/AGENTS.md @dgenio
+/CONTRIBUTING.md @dgenio
+/CODE_OF_CONDUCT.md @dgenio
