@@ -73,6 +73,8 @@ changelog; their dates are the dates of the corresponding work landing on
 - `SkillLoader`, stale reporting, and cleanup now depend on a `SkillStore`
   protocol so `FileSystemRegistry` and the in-memory `LessonRegistry` can be
   substituted consistently (#172).
+- `detect --save` and `review-trace` now preserve existing candidates that
+  already have review state; pass `--force` to overwrite them explicitly (#164).
 
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).

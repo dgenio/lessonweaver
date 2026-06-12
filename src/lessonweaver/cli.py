@@ -124,11 +124,42 @@ def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace
         else:
             registry = _registry(args.registry_root)
             for candidate in candidates:
-                registry.save_candidate(candidate)
+                _save_candidate_unless_reviewed(
+                    registry, candidate, force=getattr(args, "force", False)
+                )
     content = json.dumps(
         [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
     )
     return _emit_text(content, output=args.output, dry_run=args.dry_run)
+
+
+def _has_review_state(candidate: LessonCandidate) -> bool:
+    return bool(candidate.metadata.get("review_history")) or candidate.status not in {
+        LessonStatus.CANDIDATE,
+        LessonStatus.NEEDS_REVIEW,
+    }
+
+
+def _save_candidate_unless_reviewed(
+    registry: FileSystemRegistry,
+    candidate: LessonCandidate,
+    *,
+    force: bool = False,
+) -> bool:
+    if not force:
+        try:
+            existing = registry.load_candidate(candidate.id)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None and _has_review_state(existing):
+            print(
+                f"skipped {candidate.id}: existing candidate has review state; "
+                "use --force to overwrite",
+                file=sys.stderr,
+            )
+            return False
+    registry.save_candidate(candidate)
+    return True
 
 
 def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> LessonCandidate:
@@ -426,6 +457,11 @@ def main(argv: list[str] | None = None) -> int:
         "--save", action="store_true", help="Save candidates to the registry"
     )
     detect_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing candidates even when they have review state",
+    )
+    detect_parser.add_argument(
         "--sanitize",
         action="store_true",
         help="Scrub sensitive content (secrets and PII) before detection",
@@ -565,6 +601,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     review_trace_parser.add_argument("--approved-by")
     review_trace_parser.add_argument("--allow-incomplete-review", action="store_true")
+    review_trace_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing candidates even when they have review state",
+    )
     review_trace_parser.add_argument(
         "--target", help="Preview an export of the resulting skill in this format"
     )
@@ -1074,7 +1115,7 @@ def _run(args: argparse.Namespace) -> int:
 
         if not args.dry_run:
             for candidate in candidates:
-                registry.save_candidate(candidate)
+                _save_candidate_unless_reviewed(registry, candidate, force=args.force)
 
         approval: dict[str, str] | None = None
         if focus is not None and args.approve:

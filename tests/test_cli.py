@@ -72,7 +72,6 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     questions = json.loads(capsys.readouterr().out)
     assert any(question["id"] == "decision" for question in questions)
 
-
 def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch) -> None:
     registry_root = tmp_path / "registry"
     monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(registry_root))
@@ -82,6 +81,50 @@ def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch
     assert exit_code == 0
     capsys.readouterr()
     assert FileSystemRegistry(registry_root).load_candidate(_CID).id == _CID
+
+
+def test_cli_detect_save_preserves_reviewed_candidate_without_force(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    before = FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict()
+
+    exit_code = main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict() == before
+
+
+def test_cli_detect_save_force_overwrites_reviewed_candidate(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).status is LessonStatus.APPROVED
+
+    exit_code = main(["detect", _TRACE, "--save", "--force", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+
+    assert exit_code == 0
+    stored = FileSystemRegistry(tmp_path).load_candidate(_CID)
+    assert stored.status is LessonStatus.CANDIDATE
+    assert "review_history" not in stored.metadata
+
+
+def test_cli_detect_save_refreshes_unreviewed_candidate(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    stale = _candidate(_CID, status=LessonStatus.CANDIDATE)
+    stale.summary = "stale summary"
+    registry.save_candidate(stale)
+
+    exit_code = main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+
+    assert exit_code == 0
+    assert registry.load_candidate(_CID).summary != "stale summary"
 
 
 # The full set of base review answers that satisfies the enforced review gate
@@ -1162,6 +1205,22 @@ def test_cli_review_trace_apply_answer_reduces_remaining(capsys, tmp_path) -> No
     assert exit_code == 0
     candidate = json.loads(capsys.readouterr().out)["candidates"][0]
     assert "decision" not in candidate["remaining_questions"]
+
+
+def test_cli_review_trace_preserves_existing_review_state(capsys, tmp_path) -> None:
+    argv = ["review-trace", _TRACE, "--registry-root", str(tmp_path)]
+    for question_id, option_id in _COMPLETE_REVIEW:
+        argv += ["--answer", f"{question_id}={option_id}"]
+    assert main(argv) == 0
+    capsys.readouterr()
+    before = FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict()
+
+    exit_code = main(["review-trace", _TRACE, "--registry-root", str(tmp_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict() == before
 
 
 def test_cli_review_trace_bad_question_id_leaves_no_partial_writes(capsys, tmp_path) -> None:

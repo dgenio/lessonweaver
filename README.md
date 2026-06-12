@@ -149,7 +149,7 @@ print(context.snippet)
 
 ## Commands
 
-- `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
+- `lessonweaver detect <trace.json> [--save] [--force] [--output FILE] [--dry-run]`
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
@@ -174,6 +174,9 @@ questions. Save progress with `interview --session FILE` (a registry-backed cand
 is required so it can be reloaded), record answers into that session with
 `answer --session FILE`, and continue later with `resume-interview`, which lists the
 remaining adaptive questions from the answers recorded so far.
+When `detect --save` or `review-trace` sees an existing candidate with review
+history or a reviewed status, it preserves that stored candidate and prints a
+skip notice; pass `--force` to overwrite intentionally.
 
 Commands return non-zero on bad input and keep stdout clean for JSON consumers.
 Application-level error lines start with `Error:` on stderr; warnings start with `warning:`.
@@ -185,7 +188,7 @@ Malformed argv rejected by argparse uses argparse's standard `usage:`/`error:` o
 | Review/export gate refusal | `1` |
 | Invalid JSON, invalid payload, or malformed command input | `2` |
 
-- `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--redact|--no-redact] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
+- `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--redact|--no-redact] [--dry-run] [--force]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
