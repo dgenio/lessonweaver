@@ -325,6 +325,73 @@ def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> Non
     assert "cannot export as 'guardrail'" in capsys.readouterr().err
 
 
+def test_cli_generate_pr_diff_previews_without_writing(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(action_type=RecommendedActionType.GUARDRAIL))
+    target = tmp_path / "AGENTS.md"
+
+    exit_code = main(
+        [
+            "generate-pr-diff",
+            "cand-1",
+            "--target",
+            "coding-agent",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert not target.exists()
+    out = capsys.readouterr().out
+    assert f"+++ b/{target}" in out
+    assert "lessonweaver:begin skill_id=cand-1" in out
+
+
+def test_cli_generate_pr_diff_write_is_idempotent(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(action_type=RecommendedActionType.GUARDRAIL))
+    target = tmp_path / "AGENTS.md"
+
+    assert (
+        main(
+            [
+                "generate-pr-diff",
+                "cand-1",
+                "--target",
+                "coding-agent",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    assert f"created: {target}" in capsys.readouterr().out
+
+    assert (
+        main(
+            [
+                "generate-pr-diff",
+                "cand-1",
+                "--target",
+                "coding-agent",
+                "--path",
+                str(target),
+                "--registry-root",
+                str(tmp_path),
+                "--write",
+            ]
+        )
+        == 0
+    )
+    assert "no changes" in capsys.readouterr().out
+
+
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     bad = _skill()

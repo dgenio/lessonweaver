@@ -52,6 +52,7 @@ from .models import (
     SkillStatus,
     SkillUsageEvent,
 )
+from .prdiff import apply_file_change, plan_coding_agent_change
 from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry
 from .reporting import SkillReporter
@@ -648,6 +649,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_file_parser.add_argument("--registry-root")
 
+    pr_diff_parser = subparsers.add_parser(
+        "generate-pr-diff",
+        parents=[dry_run_parent],
+        help="Generate PR-ready local file changes for an approved lesson artifact",
+    )
+    pr_diff_parser.add_argument("candidate")
+    pr_diff_parser.add_argument(
+        "--target",
+        choices=["coding-agent"],
+        default="coding-agent",
+        help="Framework target to generate (default: coding-agent)",
+    )
+    pr_diff_parser.add_argument(
+        "--path",
+        default="AGENTS.md",
+        help="Target file to create or update (default: AGENTS.md)",
+    )
+    pr_diff_parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write the merged file (default: preview the diff only)",
+    )
+    pr_diff_parser.add_argument("--registry-root")
+
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
     lint_parser.add_argument("skill")
     lint_parser.add_argument("--registry-root")
@@ -1056,6 +1081,26 @@ def _run(args: argparse.Namespace) -> int:
         if args.dry_run:
             print(f"[dry-run] would write to: {args.path}")
         print(diff_managed_file(existing, merged, args.path), end="")
+        return 0
+
+    if args.command == "generate-pr-diff":
+        candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        try:
+            change = plan_coding_agent_change(candidate, args.path)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        if not change.changed:
+            print(f"no changes: {args.path} already has this artifact block up to date")
+            return 0
+        if args.write and not args.dry_run:
+            will_create = not change.path.exists()
+            apply_file_change(change)
+            print(f"{'created' if will_create else 'updated'}: {args.path}")
+            return 0
+        if args.dry_run:
+            print(f"[dry-run] would write to: {args.path}")
+        print(change.diff, end="")
         return 0
 
     if args.command == "export-skill":
