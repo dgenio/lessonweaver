@@ -10,6 +10,7 @@ from lessonweaver.export import (
     export_copilot_instruction_fragment,
     export_copilot_path_instruction,
     export_copilot_repo_instruction,
+    export_dox_agents_md,
     export_eval_spec_markdown,
     export_guardrail_rule_markdown,
     export_operational_lesson_markdown,
@@ -182,6 +183,40 @@ def test_export_agents_md_fragment_suppresses_empty_negative() -> None:
     skill.does_not_apply_when = []
     rendered = export_agents_md_fragment(skill)
     assert "Do not apply when" not in rendered
+
+
+def test_export_dox_agents_md_profile_snapshot() -> None:
+    rendered = export_dox_agents_md(_make_skill())
+    assert rendered == (
+        "<!-- lessonweaver profile=dox-agents-md skill_id=skill-1 "
+        "version=0.1.0 confidence=0.80 -->\n"
+        "# PR Diff First\n"
+        "\n"
+        "## Purpose\n"
+        "Inspect diff before review.\n"
+        "\n"
+        "## Ownership\n"
+        "- Source: lessonweaver reviewed skill `skill-1`\n"
+        "- Scope: project\n"
+        "- Risk: medium\n"
+        "- Status: draft\n"
+        "- Human review: required before export; do not auto-activate unreviewed lessons.\n"
+        "\n"
+        "## Local Contracts\n"
+        "- Apply when: Reviewing PRs\n"
+        "- Do not apply when: No code changes\n"
+        "\n"
+        "## Work Guidance\n"
+        "- Inspect changed files first\n"
+        "\n"
+        "## Verification\n"
+        "- Avoid: Approve from title only\n"
+        "- Evidence trace: trace-gh-pr-review-001\n"
+        "\n"
+        "## Child Instruction Index\n"
+        "- Add child `AGENTS.md` files for narrower directory contracts when this guidance "
+        "does not apply repo-wide.\n"
+    )
 
 
 def test_export_copilot_repo_instruction_snapshot() -> None:

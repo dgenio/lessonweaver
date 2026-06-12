@@ -28,6 +28,7 @@ from .export import (
     export_copilot_instruction_fragment,
     export_copilot_path_instruction,
     export_copilot_repo_instruction,
+    export_dox_agents_md,
     export_eval_spec_markdown,
     export_guardrail_rule_markdown,
     export_runtime_prompt_snippet,
@@ -377,6 +378,8 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
         return export_claude_md_snippet(skill, redactor=redactor)
     if fmt == "agents-md":
         return export_agents_md_fragment(skill, redactor=redactor)
+    if fmt == "dox-agents-md":
+        return export_dox_agents_md(skill, redactor=redactor)
     if fmt == "codex":
         directory = export_codex_skill_directory(skill, redactor=redactor)
         return json.dumps(directory, indent=2, sort_keys=True)
@@ -575,6 +578,7 @@ def main(argv: list[str] | None = None) -> int:
             "claude-rule",
             "claude-md",
             "agents-md",
+            "dox-agents-md",
             "codex",
             "runtime",
         ],
@@ -626,6 +630,7 @@ def main(argv: list[str] | None = None) -> int:
             "claude-rule",
             "claude-md",
             "agents-md",
+            "dox-agents-md",
             "runtime",
         ],
         default="agents-md",
