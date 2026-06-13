@@ -72,6 +72,9 @@ changelog; their dates are the dates of the corresponding work landing on
   plus the skill-card interchange-format notes for contextweaver ingestion (#92).
 - `docs/assets/demo.sh`, a reproducible ~60-second closed-loop terminal demo, and
   `docs/awesome-list-submissions.md` listing copy (#88).
+- Release automation: generated release-note categories, a CI changelog gate
+  for source changes, metadata-derived package version reporting, wheel smoke
+  checks before publish, and PyPI publish attestations (#162).
 
 ### Changed
 
