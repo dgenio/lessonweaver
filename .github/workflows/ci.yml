@@ -32,3 +32,42 @@ jobs:
         run: mypy src/lessonweaver/
       - name: Run tests
         run: pytest
+      - name: Generate determinism digest
+        run: python scripts/determinism_digest.py --output determinism-${{ matrix.python-version }}.json
+      - name: Upload determinism digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: determinism-${{ matrix.python-version }}
+          path: determinism-${{ matrix.python-version }}.json
+
+  determinism-compare:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: determinism-artifacts
+      - name: Compare matrix determinism digests
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          documents = []
+          for path in sorted(Path("determinism-artifacts").glob("*/determinism-*.json")):
+              documents.append((str(path), json.loads(path.read_text())))
+          if not documents:
+              raise SystemExit("no determinism digest artifacts found")
+
+          expected = documents[0][1]["digest"]
+          mismatches = [
+              f"{path}: {document['digest']}"
+              for path, document in documents
+              if document["digest"] != expected
+          ]
+          if mismatches:
+              raise SystemExit(
+                  "determinism digests differ across matrix legs:\n" + "\n".join(mismatches)
+              )
+          print(f"determinism digest {expected} matched across {len(documents)} matrix legs")
+          PY

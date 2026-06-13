@@ -85,6 +85,18 @@ Each candidate carries a different default `confidence`,
 `recommended_action_type`, and `risk_level`. Detection prefers false negatives
 over noisy guidance.
 
+## Determinism checks
+
+`scripts/determinism_digest.py` runs the core detect → interview → approve →
+export loop twice over every trace in `examples/traces/`, then compares a
+canonical payload. The CI matrix uploads one digest per Python version and a
+final job verifies that all matrix legs agree.
+
+The digest normalizes only timestamp lifecycle fields that are expected to be
+fresh for each run: `created_at`, `updated_at`, `approved_at`, and `expires_at`.
+Candidate content, review questions, approval IDs, and every supported
+`export-skill` format are compared byte-for-byte after that canonicalization.
+
 ## Lesson and skill lifecycles
 
 Lesson status (`LessonStatus`): `candidate` → `needs_review` → `approved` /
