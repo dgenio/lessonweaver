@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .models import LessonCandidate, OperationalLesson, SkillCard
@@ -10,6 +12,37 @@ from .models import LessonCandidate, OperationalLesson, SkillCard
 
 class Redactor(Protocol):
     def redact(self, text: str) -> str: ...
+
+
+SkillExportCallable = Callable[[SkillCard, Redactor | None, str], str | dict[str, str]]
+
+
+@dataclass(frozen=True, slots=True)
+class ExporterSpec:
+    """Registered SkillCard export target."""
+
+    name: str
+    exporter: SkillExportCallable
+    aliases: tuple[str, ...] = ()
+    deprecated_aliases: tuple[str, ...] = ()
+    uses_applies_to: bool = False
+    returns_file_map: bool = False
+    valid_for_file: bool = True
+
+    def export(
+        self, skill: SkillCard, redactor: Redactor | None = None, applies_to: str = "**"
+    ) -> str | dict[str, str]:
+        return self.exporter(skill, redactor, applies_to)
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedExporter:
+    """Resolved export format, including alias metadata for callers."""
+
+    requested_name: str
+    canonical_name: str
+    spec: ExporterSpec
+    deprecated_alias: str | None = None
 
 
 def _text(value: str, redactor: Redactor | None) -> str:
@@ -381,3 +414,146 @@ def export_workflow_recommendation_markdown(
         [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
     )
     return "\n".join(lines).strip() + "\n"
+
+
+def _markdown_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_skillcard_markdown(skill, redactor=redactor)
+
+
+def _json_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_skillcard_json(skill, redactor=redactor)
+
+
+def _copilot_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_copilot_instruction_fragment(skill, redactor=redactor)
+
+
+def _copilot_repo_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_copilot_repo_instruction(skill, redactor=redactor)
+
+
+def _copilot_path_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    return export_copilot_path_instruction(skill, applies_to, redactor=redactor)
+
+
+def _claude_fragment_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_claude_skill_fragment(skill, redactor=redactor)
+
+
+def _claude_skill_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_claude_skill_md(skill, redactor=redactor)
+
+
+def _claude_rule_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_claude_rule_fragment(skill, redactor=redactor)
+
+
+def _claude_md_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_claude_md_snippet(skill, redactor=redactor)
+
+
+def _agents_md_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_agents_md_fragment(skill, redactor=redactor)
+
+
+def _codex_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> dict[str, str]:
+    del applies_to
+    return export_codex_skill_directory(skill, redactor=redactor)
+
+
+def _runtime_exporter(skill: SkillCard, redactor: Redactor | None, applies_to: str) -> str:
+    del applies_to
+    return export_runtime_prompt_snippet(skill, redactor=redactor)
+
+
+EXPORTER_REGISTRY: dict[str, ExporterSpec] = {
+    "markdown": ExporterSpec("markdown", _markdown_exporter),
+    "json": ExporterSpec("json", _json_exporter, valid_for_file=False),
+    "copilot": ExporterSpec("copilot", _copilot_exporter, aliases=("copilot_instruction",)),
+    "copilot-repo": ExporterSpec("copilot-repo", _copilot_repo_exporter),
+    "copilot-path": ExporterSpec("copilot-path", _copilot_path_exporter, uses_applies_to=True),
+    "claude-fragment": ExporterSpec(
+        "claude-fragment",
+        _claude_fragment_exporter,
+        deprecated_aliases=("claude", "claude_skill"),
+    ),
+    "claude-skill": ExporterSpec("claude-skill", _claude_skill_exporter),
+    "claude-rule": ExporterSpec("claude-rule", _claude_rule_exporter),
+    "claude-md": ExporterSpec("claude-md", _claude_md_exporter),
+    "agents-md": ExporterSpec("agents-md", _agents_md_exporter),
+    "codex": ExporterSpec("codex", _codex_exporter, returns_file_map=True, valid_for_file=False),
+    "runtime": ExporterSpec("runtime", _runtime_exporter),
+}
+
+EXPORT_FORMAT_CHOICES: tuple[str, ...] = tuple(EXPORTER_REGISTRY)
+EXPORT_FILE_FORMAT_CHOICES: tuple[str, ...] = tuple(
+    name for name, spec in EXPORTER_REGISTRY.items() if spec.valid_for_file
+)
+
+
+def _accepted_format_choices(*, file_only: bool = False) -> tuple[str, ...]:
+    choices: list[str] = []
+    registry = (
+        {name: EXPORTER_REGISTRY[name] for name in EXPORT_FILE_FORMAT_CHOICES}
+        if file_only
+        else EXPORTER_REGISTRY
+    )
+    for name, spec in registry.items():
+        choices.append(name)
+        choices.extend(spec.aliases)
+        choices.extend(spec.deprecated_aliases)
+    return tuple(dict.fromkeys(choices))
+
+
+EXPORT_FORMAT_INPUT_CHOICES: tuple[str, ...] = _accepted_format_choices()
+EXPORT_FILE_FORMAT_INPUT_CHOICES: tuple[str, ...] = _accepted_format_choices(file_only=True)
+
+
+def resolve_export_format(format_name: str) -> ResolvedExporter:
+    """Resolve a canonical export format or accepted alias."""
+
+    if format_name in EXPORTER_REGISTRY:
+        return ResolvedExporter(
+            requested_name=format_name,
+            canonical_name=format_name,
+            spec=EXPORTER_REGISTRY[format_name],
+        )
+    for canonical_name, spec in EXPORTER_REGISTRY.items():
+        if format_name in spec.aliases:
+            return ResolvedExporter(
+                requested_name=format_name,
+                canonical_name=canonical_name,
+                spec=spec,
+            )
+        if format_name in spec.deprecated_aliases:
+            return ResolvedExporter(
+                requested_name=format_name,
+                canonical_name=canonical_name,
+                spec=spec,
+                deprecated_alias=format_name,
+            )
+    raise ValueError(f"unknown export format: {format_name}")
+
+
+def export_skill(
+    skill: SkillCard,
+    format_name: str,
+    redactor: Redactor | None = None,
+    applies_to: str = "**",
+) -> str:
+    """Export a SkillCard using the registered format map."""
+
+    resolved = resolve_export_format(format_name)
+    output = resolved.spec.export(skill, redactor=redactor, applies_to=applies_to)
+    if isinstance(output, dict):
+        return json.dumps(output, indent=2, sort_keys=True)
+    return output

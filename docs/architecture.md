@@ -125,8 +125,8 @@ Keeping them separate makes the human-review gate explicit and auditable.
   `LessonDetector.detect` (`detection.py`); add true-positive, false-positive,
   and edge-case tests. Keep it conservative.
 - **New export format** — add an `export_<format>_<target>` function to
-  `export.py`, wire it into the CLI `--format` choices only when users call it
-  directly, and add a snapshot-style test.
+  `export.py`, register one `ExporterSpec` in `EXPORTER_REGISTRY`, and add a
+  snapshot-style test. CLI choices and dispatch are generated from the registry.
 - **New adapter example** — add `examples/<framework>_runtime_loader/` using
   `try/except ImportError`; never add the framework to core dependencies.
 

@@ -19,21 +19,13 @@ from .detection import LessonDetector
 from .detection_eval import DetectionCorpus, run_detection_eval
 from .diagnostics import explain_load
 from .export import (
-    export_agents_md_fragment,
-    export_claude_md_snippet,
-    export_claude_rule_fragment,
-    export_claude_skill_fragment,
-    export_claude_skill_md,
-    export_codex_skill_directory,
-    export_copilot_instruction_fragment,
-    export_copilot_path_instruction,
-    export_copilot_repo_instruction,
+    EXPORT_FILE_FORMAT_INPUT_CHOICES,
+    EXPORT_FORMAT_INPUT_CHOICES,
     export_eval_spec_markdown,
     export_guardrail_rule_markdown,
-    export_runtime_prompt_snippet,
-    export_skillcard_json,
-    export_skillcard_markdown,
+    export_skill,
     export_workflow_recommendation_markdown,
+    resolve_export_format,
 )
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
@@ -357,30 +349,14 @@ def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict
 
 def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "**") -> str:
     redactor = SimpleRedactor() if redact else None
-    if fmt == "markdown":
-        return export_skillcard_markdown(skill, redactor=redactor)
-    if fmt == "json":
-        return export_skillcard_json(skill, redactor=redactor)
-    if fmt in {"copilot", "copilot_instruction"}:
-        return export_copilot_instruction_fragment(skill, redactor=redactor)
-    if fmt == "copilot-repo":
-        return export_copilot_repo_instruction(skill, redactor=redactor)
-    if fmt == "copilot-path":
-        return export_copilot_path_instruction(skill, applies_to, redactor=redactor)
-    if fmt in {"claude", "claude_skill"}:
-        return export_claude_skill_fragment(skill, redactor=redactor)
-    if fmt == "claude-skill":
-        return export_claude_skill_md(skill, redactor=redactor)
-    if fmt == "claude-rule":
-        return export_claude_rule_fragment(skill, redactor=redactor)
-    if fmt == "claude-md":
-        return export_claude_md_snippet(skill, redactor=redactor)
-    if fmt == "agents-md":
-        return export_agents_md_fragment(skill, redactor=redactor)
-    if fmt == "codex":
-        directory = export_codex_skill_directory(skill, redactor=redactor)
-        return json.dumps(directory, indent=2, sort_keys=True)
-    return export_runtime_prompt_snippet(skill, redactor=redactor)
+    resolved = resolve_export_format(fmt)
+    if resolved.deprecated_alias is not None:
+        print(
+            f"Warning: deprecated export format alias '{resolved.deprecated_alias}' "
+            f"resolved to '{resolved.canonical_name}'",
+            file=sys.stderr,
+        )
+    return export_skill(skill, fmt, redactor=redactor, applies_to=applies_to)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -539,7 +515,9 @@ def main(argv: list[str] | None = None) -> int:
     review_trace_parser.add_argument("--approved-by")
     review_trace_parser.add_argument("--allow-incomplete-review", action="store_true")
     review_trace_parser.add_argument(
-        "--target", help="Preview an export of the resulting skill in this format"
+        "--target",
+        choices=EXPORT_FORMAT_INPUT_CHOICES,
+        help="Preview an export of the resulting skill in this format",
     )
     review_trace_parser.add_argument("--applies-to", default="**")
     review_trace_parser.add_argument("--redact", action="store_true")
@@ -562,22 +540,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_parser.add_argument(
         "--format",
-        choices=[
-            "markdown",
-            "json",
-            "copilot",
-            "copilot_instruction",
-            "copilot-repo",
-            "copilot-path",
-            "claude",
-            "claude_skill",
-            "claude-skill",
-            "claude-rule",
-            "claude-md",
-            "agents-md",
-            "codex",
-            "runtime",
-        ],
+        choices=EXPORT_FORMAT_INPUT_CHOICES,
         default="markdown",
     )
     export_parser.add_argument(
@@ -616,18 +579,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_file_parser.add_argument(
         "--format",
-        choices=[
-            "markdown",
-            "copilot",
-            "copilot-repo",
-            "copilot-path",
-            "claude",
-            "claude-skill",
-            "claude-rule",
-            "claude-md",
-            "agents-md",
-            "runtime",
-        ],
+        choices=EXPORT_FILE_FORMAT_INPUT_CHOICES,
         default="agents-md",
     )
     export_file_parser.add_argument(
