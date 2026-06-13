@@ -51,7 +51,8 @@ How each conservative detection signal would be recognized:
 
 OTel spans may carry full user messages and model outputs. Import **must** route
 content through the pre-mining sanitizer
-([`TraceSanitizer`](../../src/lessonweaver/sanitization.py), issue #46) before
+([`TraceSanitizer`](https://github.com/dgenio/lessonweaver/blob/main/src/lessonweaver/sanitization.py),
+issue #46) before
 the content lands in any `TraceEvent`, and respect `SensitivityLevel` so
 high-sensitivity content is redacted before storage. Import-time redaction is
 required, not optional, because OTel exports are often collected centrally.

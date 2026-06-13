@@ -46,6 +46,11 @@ dev = [
   "build>=1.0",
   "twine>=6.1",
 ]
+docs = [
+  "mkdocs-material",
+  "mkdocstrings[python]",
+  "mike",
+]
 
 [project.scripts]
 lessonweaver = "lessonweaver.cli:main"

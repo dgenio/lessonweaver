@@ -46,13 +46,13 @@ detection on it:
 lessonweaver detect examples/traces/voice_slot_correction.json
 ```
 
-[`examples/traces/voice_slot_correction.json`](../../examples/traces/voice_slot_correction.json)
+[`examples/traces/voice_slot_correction.json`](https://github.com/dgenio/lessonweaver/blob/main/examples/traces/voice_slot_correction.json)
 is a concrete voice trace: the agent mishears both the time and the location, the
 user corrects it, and detection produces one `human_correction` candidate.
 
 ## Conversational repair skill
 
-[`examples/skills/voice_slot_repair.md`](../../examples/skills/voice_slot_repair.md)
+[`examples/skills/voice_slot_repair.md`](https://github.com/dgenio/lessonweaver/blob/main/examples/skills/voice_slot_repair.md)
 is an example reviewed skill for slot correction. It repairs only the corrected
 slot and confirms in a single short sentence to respect the latency budget.
 

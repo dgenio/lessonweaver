@@ -29,7 +29,7 @@ followed by the `human_correction` that resolved it. Use the bundled example:
 lessonweaver detect examples/traces/repo_check_finding.json
 ```
 
-[`examples/traces/repo_check_finding.json`](../../examples/traces/repo_check_finding.json)
+[`examples/traces/repo_check_finding.json`](https://github.com/dgenio/lessonweaver/blob/main/examples/traces/repo_check_finding.json)
 records a `LW-SECRET-001` finding (hardcoded credential) and the human correction
 to load the value from the environment. It produces exactly one `human_correction`
 candidate — the failing-then-passing gate is intentionally *not* modelled as a
