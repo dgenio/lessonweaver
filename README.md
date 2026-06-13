@@ -185,6 +185,9 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status>`
+  - Automations can stage governed recommendations with
+    `PromotionPolicy` / `evaluate_promotion`; see
+    [policy-gated promotion](docs/promotion-policy.md).
 - `lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json` — reproduce the public detection benchmark scorecard and fail if the recorded results drift.
 
 Closed-loop effectiveness reports are available through the library API; see
@@ -212,6 +215,10 @@ Closed-loop effectiveness reports are available through the library API; see
   approved skill: `approve` refuses to run until the required (adaptive) review
   questions are answered. `--allow-incomplete-review` overrides the gate and
   records the bypass in metadata.
+- Policy-gated promotion supports dry-run automation for explicitly permitted
+  low-risk cases while forcing human review for high-risk, broad-scope,
+  sensitive, conflicting, or activation-bound changes. Decisions are auditable
+  and carry rollback metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
 - `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
@@ -284,6 +291,7 @@ any sibling. The Mermaid source is in
 - [Ecosystem positioning](docs/ecosystem.md) — integration boundaries
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
+- [Policy-gated promotion](docs/promotion-policy.md) — deterministic promotion decisions, dry-run automation, audit, and rollback metadata
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
 - [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)

@@ -77,6 +77,12 @@ from .models import (
     TraceEventType,
 )
 from .privacy import SimpleRedactor
+from .promotion_policy import (
+    PromotionDecision,
+    PromotionPolicy,
+    apply_promotion_decision,
+    evaluate_promotion,
+)
 from .registry import FileSystemRegistry, LessonRegistry
 from .reporting import SkillReporter
 from .retrieval import (
@@ -127,6 +133,8 @@ __all__ = [
     "LoadedSkill",
     "LoadingPolicy",
     "OperationalLesson",
+    "PromotionDecision",
+    "PromotionPolicy",
     "RecommendedActionType",
     "RetrievalDiagnostics",
     "RetrievalQuery",
@@ -163,10 +171,12 @@ __all__ = [
     "ValidationExample",
     "ValidationResult",
     "ValidationSuite",
+    "apply_promotion_decision",
     "apply_review_answer",
     "can_promote_skill",
     "candidates_from_failure_case",
     "diff_managed_file",
+    "evaluate_promotion",
     "explain_load",
     "export_agents_md_fragment",
     "export_claude_md_snippet",
