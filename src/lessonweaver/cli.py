@@ -8,6 +8,7 @@ import sys
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,24 @@ def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def _json_envelope(command: str, result: object) -> dict[str, object]:
+    return {"command": command, "result": result}
+
+
+def _package_version() -> str:
+    try:
+        return importlib_metadata.version("lessonweaver")
+    except importlib_metadata.PackageNotFoundError:
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        try:
+            for line in pyproject.read_text(encoding="utf-8").splitlines():
+                if line.startswith("version = "):
+                    return line.split("=", 1)[1].strip().strip('"')
+        except OSError:
+            return "0+unknown"
+    return "0+unknown"
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -116,7 +135,11 @@ def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace
             for candidate in candidates:
                 registry.save_candidate(candidate)
     content = json.dumps(
-        [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
+        _json_envelope(args.command, [candidate.to_dict() for candidate in candidates])
+        if getattr(args, "json", False)
+        else [candidate.to_dict() for candidate in candidates],
+        indent=2,
+        sort_keys=True,
     )
     return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
@@ -386,6 +409,11 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print the installed lessonweaver package version and exit",
+    )
 
     dry_run_parent = argparse.ArgumentParser(add_help=False)
     dry_run_parent.add_argument(
@@ -395,12 +423,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     output_parent = argparse.ArgumentParser(add_help=False)
     output_parent.add_argument("--output", help="Write output to this file instead of stdout")
+    json_parent = argparse.ArgumentParser(add_help=False)
+    json_parent.add_argument(
+        "--json",
+        action="store_true",
+        help='Wrap machine-readable output in a {"command": ..., "result": ...} envelope',
+    )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")
 
     detect_parser = subparsers.add_parser(
         "detect",
-        parents=[dry_run_parent, output_parent],
+        parents=[dry_run_parent, output_parent, json_parent],
         help="Detect lesson candidates from a trace JSON",
     )
     detect_parser.add_argument("trace_path")
@@ -649,16 +683,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_file_parser.add_argument("--registry-root")
 
-    lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
+    lint_parser = subparsers.add_parser("lint", parents=[json_parent], help="Lint a SkillCard")
     lint_parser.add_argument("skill")
     lint_parser.add_argument("--registry-root")
 
     analyze_parser = subparsers.add_parser(
-        "analyze-skills", help="Analyze a directory of skill JSON files"
+        "analyze-skills",
+        parents=[json_parent],
+        help="Analyze a directory of skill JSON files",
     )
     analyze_parser.add_argument("skills_dir")
 
-    retrieve_parser = subparsers.add_parser("retrieve", help="Retrieve relevant active skills")
+    retrieve_parser = subparsers.add_parser(
+        "retrieve", parents=[json_parent], help="Retrieve relevant active skills"
+    )
     retrieve_parser.add_argument("task")
     retrieve_parser.add_argument("--registry-root")
     retrieve_parser.add_argument("--scope", default="")
@@ -687,6 +725,7 @@ def main(argv: list[str] | None = None) -> int:
 
     explain_load_parser = subparsers.add_parser(
         "explain-load",
+        parents=[json_parent],
         help="Explain which skills load for a task and why (loaded, skipped, budget, overlaps)",
     )
     explain_load_parser.add_argument("task")
@@ -760,7 +799,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cleanup_parser = subparsers.add_parser(
         "cleanup-skills",
-        parents=[dry_run_parent],
+        parents=[dry_run_parent, json_parent],
         help="Report (and optionally apply) cleanup for stale, noisy, and overlapping skills",
     )
     cleanup_parser.add_argument("--registry-root")
@@ -774,6 +813,11 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    if args.version:
+        print(f"lessonweaver {_package_version()}")
+        return 0
+    if args.command is None:
+        parser.error("the following arguments are required: command")
 
     try:
         return _run(args)
@@ -1105,11 +1149,15 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "lint":
         skill = _load_skill_ref(args.skill, _registry(args.registry_root))
         lint_findings = SkillLinter().lint(skill)
-        for lint_finding in lint_findings:
-            print(
-                f"[{lint_finding.severity.value.upper()}] "
-                f"{lint_finding.rule_id}: {lint_finding.message}"
-            )
+        lint_payload = [lint_finding.to_dict() for lint_finding in lint_findings]
+        if args.json:
+            _print_json(_json_envelope(args.command, lint_payload))
+        else:
+            for lint_finding in lint_findings:
+                print(
+                    f"[{lint_finding.severity.value.upper()}] "
+                    f"{lint_finding.rule_id}: {lint_finding.message}"
+                )
         return (
             1
             if any(lint_finding.severity is LintSeverity.ERROR for lint_finding in lint_findings)
@@ -1119,12 +1167,16 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "analyze-skills":
         skills = _load_skill_cards_from_dir(args.skills_dir)
         analysis_findings = SkillAnalyzer().analyze(skills)
-        for analysis_finding in analysis_findings:
-            print(
-                f"[{analysis_finding.finding_type}] "
-                f"{analysis_finding.skill_id_a} <-> {analysis_finding.skill_id_b}: "
-                f"{analysis_finding.reason} ({analysis_finding.confidence:.2f})"
-            )
+        analysis_payload = [analysis_finding.to_dict() for analysis_finding in analysis_findings]
+        if args.json:
+            _print_json(_json_envelope(args.command, analysis_payload))
+        else:
+            for analysis_finding in analysis_findings:
+                print(
+                    f"[{analysis_finding.finding_type}] "
+                    f"{analysis_finding.skill_id_a} <-> {analysis_finding.skill_id_b}: "
+                    f"{analysis_finding.reason} ({analysis_finding.confidence:.2f})"
+                )
         return 0
 
     if args.command == "retrieve":
@@ -1138,15 +1190,16 @@ def _run(args: argparse.Namespace) -> int:
                 max_results=args.max,
             ),
         )
+        retrieve_payload = [
+            {
+                "skill_id": result.skill.id,
+                "score": result.score,
+                "match_reason": result.match_reason,
+            }
+            for result in results
+        ]
         _print_json(
-            [
-                {
-                    "skill_id": result.skill.id,
-                    "score": result.score,
-                    "match_reason": result.match_reason,
-                }
-                for result in results
-            ]
+            _json_envelope(args.command, retrieve_payload) if args.json else retrieve_payload
         )
         return 0
 
@@ -1204,7 +1257,8 @@ def _run(args: argparse.Namespace) -> int:
             inclusion_level=InclusionLevel(args.inclusion_level),
             include_snippet=args.snippet,
         )
-        _print_json(diagnostics.to_dict())
+        explain_payload = diagnostics.to_dict()
+        _print_json(_json_envelope(args.command, explain_payload) if args.json else explain_payload)
         return 0
 
     if args.command == "validate-skill":
@@ -1261,7 +1315,8 @@ def _run(args: argparse.Namespace) -> int:
         applied: list[str] = []
         if args.write and not args.dry_run:
             applied = cleaner.apply(registry, actions, now=moment)
-        _print_json({"actions": [action.to_dict() for action in actions], "applied": applied})
+        cleanup_payload = {"actions": [action.to_dict() for action in actions], "applied": applied}
+        _print_json(_json_envelope(args.command, cleanup_payload) if args.json else cleanup_payload)
         return 0
 
     return 1

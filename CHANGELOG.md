@@ -30,6 +30,9 @@ changelog; their dates are the dates of the corresponding work landing on
   - `cleanup-skills` — aggregate stale, low-confidence, never-used, noisy, and
     overlapping skills into recommended actions; `--write` deprecates expired
     skills through the governed lifecycle (#112).
+- `stable CLI JSON envelopes` for `detect`, `lint`, `analyze-skills`, `retrieve`,
+  `explain-load`, and `cleanup-skills`, plus package-metadata-backed
+  `lessonweaver --version` and a scripting contract reference (#154).
 
 ### Changed
 
