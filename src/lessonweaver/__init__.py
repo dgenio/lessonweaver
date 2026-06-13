@@ -45,6 +45,12 @@ from .importers import (
     TraceImporter,
     candidates_from_failure_case,
 )
+from .improvement_inbox import (
+    AgentImprovementInbox,
+    AgentImprovementInboxBuilder,
+    AgentImprovementInboxItem,
+    record_improvement_inbox_action,
+)
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintFinding, LintSeverity, SkillLinter
 from .loader import SkillLoader
@@ -93,6 +99,9 @@ from .validation import (
 
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
+    "AgentImprovementInbox",
+    "AgentImprovementInboxBuilder",
+    "AgentImprovementInboxItem",
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",
@@ -181,6 +190,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "record_improvement_inbox_action",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",
