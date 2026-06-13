@@ -261,9 +261,7 @@ def test_loading_policy_from_dict_accepts_legacy_token_budget_key() -> None:
 
 
 def test_loading_policy_from_dict_prefers_character_budget_key() -> None:
-    policy = LoadingPolicy.from_dict(
-        {"max_budget_chars": 800, "max_token_budget": 1000}
-    )
+    policy = LoadingPolicy.from_dict({"max_budget_chars": 800, "max_token_budget": 1000})
     assert policy.max_budget_chars == 800
 
 

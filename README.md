@@ -1,6 +1,7 @@
 # lessonweaver
 
 [![CI](https://github.com/dgenio/lessonweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/dgenio/lessonweaver/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/dgenio/lessonweaver/badge)](https://securityscorecards.dev/viewer/?uri=github.com/dgenio/lessonweaver)
 [![PyPI](https://img.shields.io/pypi/v/lessonweaver.svg)](https://pypi.org/project/lessonweaver/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
