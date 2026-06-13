@@ -16,7 +16,7 @@ from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
-from .detection_eval import DetectionCorpus, run_detection_eval
+from .detection_eval import DetectionCorpus, run_clustered_detection_eval, run_detection_eval
 from .diagnostics import explain_load
 from .export import (
     export_agents_md_fragment,
@@ -457,6 +457,11 @@ def main(argv: list[str] | None = None) -> int:
         type=float,
         help="Exit non-zero if recall falls below this floor (CI gate)",
     )
+    eval_detection_parser.add_argument(
+        "--with-clustering",
+        action="store_true",
+        help="Report recall with and without clustering repeated weak signals",
+    )
 
     interview_parser = subparsers.add_parser(
         "interview",
@@ -822,6 +827,21 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "eval-detection":
         corpus = DetectionCorpus.from_file(args.corpus_path)
+        if args.with_clustering:
+            clustered_report = run_clustered_detection_eval(corpus)
+            _print_json(clustered_report.to_dict())
+            if (
+                args.min_recall is not None
+                and clustered_report.recall_with_clustering < args.min_recall
+            ):
+                print(
+                    f"Error: clustered detection recall "
+                    f"{clustered_report.recall_with_clustering:.3f} is below the required "
+                    f"minimum {args.min_recall:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         report = run_detection_eval(corpus)
         _print_json(report.to_dict())
         if args.min_precision is not None and report.precision < args.min_precision:

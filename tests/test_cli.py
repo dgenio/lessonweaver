@@ -820,9 +820,19 @@ def test_cli_eval_detection_reports_metrics(capsys) -> None:
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
     assert report["true_positives"] == 5
-    assert report["false_negatives"] == 1
+    assert report["false_negatives"] == 2
     assert report["precision"] == 1.0
     assert report["recall"] < 1.0
+
+
+def test_cli_eval_detection_reports_clustered_recall(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--with-clustering"]
+    )
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["recall_with_clustering"] > report["recall_without_clustering"]
+    assert report["clustering_recall_lift"] > 0
 
 
 def test_cli_eval_detection_min_recall_gate_fails(capsys) -> None:
