@@ -39,22 +39,27 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
    python -c "import zipfile,glob; w=glob.glob('dist/*.whl')[0]; print('lessonweaver/py.typed' in zipfile.ZipFile(w).namelist())"
    ```
    This must print `True`.
-5. **(Optional) Smoke-test on TestPyPI:**
+5. **Install the built wheel locally and smoke-test the CLI:**
+   ```bash
+   python -m pip install --force-reinstall dist/*.whl
+   lessonweaver --help
+   ```
+6. **(Optional) Smoke-test on TestPyPI:**
    ```bash
    twine upload --repository testpypi dist/*
    python -m pip install --index-url https://test.pypi.org/simple/ lessonweaver
    lessonweaver --help
    ```
-6. **Commit and tag** the version bump and changelog on `main`:
+7. **Commit and tag** the version bump and changelog on `main`:
    ```bash
    git commit -am "release: vX.Y.Z"
    git tag vX.Y.Z
    git push origin main --tags
    ```
-7. **Publish the GitHub Release** for the `vX.Y.Z` tag with the changelog notes.
+8. **Publish the GitHub Release** for the `vX.Y.Z` tag with the changelog notes.
    Publishing the release triggers `publish.yml`, which builds and uploads to
    PyPI.
-8. **Verify the release** is live:
+9. **Verify the release** is live:
    ```bash
    python -m pip install lessonweaver
    lessonweaver --help
