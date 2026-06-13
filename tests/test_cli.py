@@ -485,7 +485,8 @@ def test_cli_detect_invalid_json_returns_two(capsys, tmp_path) -> None:
     assert exit_code == 2
     err = capsys.readouterr().err
     assert "invalid JSON" in err
-    assert "line" in err and "column" in err
+    assert "line" in err
+    assert "column" in err
 
 
 def test_cli_export_skill_output_writes_file(capsys, tmp_path) -> None:
@@ -1047,7 +1048,9 @@ def test_cli_load_explain_flag_emits_diagnostics(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     diag = json.loads(capsys.readouterr().out)
-    assert "loaded" in diag and "budget" in diag and "skipped" in diag
+    assert "loaded" in diag
+    assert "budget" in diag
+    assert "skipped" in diag
 
 
 # --- cleanup-skills (#112) --------------------------------------------------
