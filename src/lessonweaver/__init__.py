@@ -8,6 +8,7 @@ from .detection import LessonDetector
 from .detection_eval import (
     DetectionCase,
     DetectionCorpus,
+    DetectionEvalPatternMetrics,
     DetectionEvalReport,
     DetectionEvalResult,
     run_detection_eval,
@@ -99,6 +100,7 @@ __all__ = [
     "CompiledContext",
     "DetectionCase",
     "DetectionCorpus",
+    "DetectionEvalPatternMetrics",
     "DetectionEvalReport",
     "DetectionEvalResult",
     "DictTraceImporter",

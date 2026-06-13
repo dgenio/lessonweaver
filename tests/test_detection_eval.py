@@ -1,5 +1,6 @@
 """Tests for the detection-quality corpus and precision/recall harness."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,8 @@ from lessonweaver.detection_eval import (
 )
 
 CORPUS_PATH = "examples/detection_corpus/corpus.json"
+BENCHMARK_CORPUS_PATH = "benchmark/v1/corpus.json"
+BENCHMARK_RESULTS_PATH = "benchmark/v1/results.json"
 
 
 def test_bundled_corpus_matches_baseline_scorecard() -> None:
@@ -24,6 +27,70 @@ def test_bundled_corpus_matches_baseline_scorecard() -> None:
     assert report.precision == pytest.approx(1.0)
     assert report.recall == pytest.approx(5 / 6)
     assert report.f1 == pytest.approx(2 * (5 / 6) / (1 + 5 / 6))
+
+
+def test_public_benchmark_v1_matches_checked_in_results() -> None:
+    corpus = DetectionCorpus.from_file(BENCHMARK_CORPUS_PATH)
+    expected_results = json.loads(Path(BENCHMARK_RESULTS_PATH).read_text(encoding="utf-8"))
+
+    report = run_detection_eval(corpus)
+
+    assert corpus.corpus_id == "lessonweaver-detection-benchmark-v1"
+    assert report.total_cases >= 20
+    assert {case.pattern for case in corpus.cases} >= {
+        "metadata_flag",
+        "human_correction",
+        "failed_evaluation",
+        "workflow_step",
+        "error_retry",
+        "tool_fallback",
+        "corrected_outcome",
+        "recurring_unflagged",
+        "no_candidate",
+    }
+    assert report.to_dict() == expected_results
+
+
+def test_eval_report_includes_per_signal_metrics() -> None:
+    corpus = DetectionCorpus.from_dict(
+        {
+            "corpus_id": "per-signal",
+            "cases": [
+                {
+                    "case_id": "metadata-positive",
+                    "should_detect": True,
+                    "pattern": "metadata_flag",
+                    "trace": {
+                        "trace_id": "metadata-positive",
+                        "source": "unit-test",
+                        "task": "Review flagged trace",
+                        "events": [{"id": "1", "type": "final_answer", "content": "done"}],
+                        "outcome": "success",
+                        "metadata": {"lesson_candidate": True},
+                    },
+                },
+                {
+                    "case_id": "clean-negative",
+                    "should_detect": False,
+                    "pattern": "no_candidate",
+                    "trace": {
+                        "trace_id": "clean-negative",
+                        "source": "unit-test",
+                        "task": "Greet",
+                        "events": [{"id": "1", "type": "final_answer", "content": "hello"}],
+                        "outcome": "success",
+                    },
+                },
+            ],
+        }
+    )
+
+    metrics = run_detection_eval(corpus).to_dict()["by_pattern"]
+
+    assert metrics["metadata_flag"]["true_positives"] == 1
+    assert metrics["metadata_flag"]["precision"] == pytest.approx(1.0)
+    assert metrics["metadata_flag"]["recall"] == pytest.approx(1.0)
+    assert metrics["no_candidate"]["true_negatives"] == 1
 
 
 def test_known_gap_case_is_a_false_negative() -> None:

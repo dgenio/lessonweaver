@@ -57,3 +57,8 @@ reflects that the detector never fires on the benign cases.
 
 `tests/test_detection_eval.py` locks these numbers so a change that quietly
 regresses detection quality fails CI.
+
+For the versioned public benchmark, current results, annotation rules, and the
+contribution path for sanitized traces, see
+[`benchmark/v1`](../../benchmark/v1/README.md) and
+[`docs/detection-benchmark.md`](../../docs/detection-benchmark.md).
