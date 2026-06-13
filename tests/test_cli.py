@@ -147,9 +147,13 @@ def test_cli_approve_allow_incomplete_records_override(capsys, tmp_path) -> None
     assert exit_code == 0
     capsys.readouterr()
     skill = FileSystemRegistry(tmp_path).load_skill(f"skill-{_CID}")
+    candidate = FileSystemRegistry(tmp_path).load_candidate(_CID)
     override = skill.metadata["incomplete_review_override"]
     assert override["approved_by"] == "reviewer"
     assert "decision" in override["unanswered_questions"]
+    assert candidate.review_override is not None
+    assert candidate.review_override.approved_by == "reviewer"
+    assert "decision" in candidate.review_override.unanswered_questions
 
 
 def test_cli_answer_unknown_question_returns_error(capsys, tmp_path) -> None:

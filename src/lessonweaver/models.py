@@ -115,6 +115,37 @@ class ExportFormat(str, Enum):
     CODEX_DIRECTORY = "codex_directory"
 
 
+@dataclass(slots=True)
+class ReviewOverride:
+    unanswered_questions: list[str]
+    approved_by: str | None
+    approved_at: datetime
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ReviewOverride:
+        approved_at = _parse_datetime(data.get("approved_at"), default=_utc_now())
+        assert approved_at is not None
+        return cls(
+            unanswered_questions=list(data.get("unanswered_questions", [])),
+            approved_by=data.get("approved_by"),
+            approved_at=approved_at,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "unanswered_questions": self.unanswered_questions,
+            "approved_by": self.approved_by,
+            "approved_at": _datetime_to_str(self.approved_at),
+        }
+
+
+_LEGACY_REVIEW_EFFECT_METADATA_KEYS = {
+    "_applies_when_hint",
+    "_approval_required",
+    "_workflow_determinism",
+}
+
+
 # Ordering used to compare risk levels (LOW < MEDIUM < HIGH).
 _RISK_LEVEL_ORDER: dict[RiskLevel, int] = {
     RiskLevel.LOW: 1,
@@ -207,6 +238,9 @@ class LessonCandidate:
     updated_at: datetime = field(default_factory=_utc_now)
     approved_at: datetime | None = None
     expires_at: datetime | None = None
+    review_answers: list[ReviewAnswer] = field(default_factory=list)
+    review_effects: dict[str, str] = field(default_factory=dict)
+    review_override: ReviewOverride | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -215,6 +249,23 @@ class LessonCandidate:
         updated_at = _parse_datetime(data.get("updated_at"), default=created_at)
         created_at = _require_datetime(created_at, "created_at")
         updated_at = _require_datetime(updated_at, "updated_at")
+        metadata = dict(data.get("metadata", {}))
+        review_answers = _review_answers_from_data(
+            data.get("review_answers", metadata.pop("review_history", []))
+        )
+        _apply_legacy_review_notes(review_answers, metadata)
+        review_effects = {
+            str(key): str(value) for key, value in dict(data.get("review_effects", {})).items()
+        }
+        for key in _LEGACY_REVIEW_EFFECT_METADATA_KEYS:
+            if key in metadata:
+                review_effects[key.removeprefix("_")] = str(metadata.pop(key))
+        override_data = data.get(
+            "review_override", metadata.pop("incomplete_review_override", None)
+        )
+        review_override = (
+            ReviewOverride.from_dict(override_data) if isinstance(override_data, dict) else None
+        )
         return cls(
             id=str(data["id"]),
             summary=str(data["summary"]),
@@ -237,7 +288,10 @@ class LessonCandidate:
             updated_at=updated_at,
             approved_at=_parse_datetime(data.get("approved_at")),
             expires_at=_parse_datetime(data.get("expires_at")),
-            metadata=dict(data.get("metadata", {})),
+            review_answers=review_answers,
+            review_effects=review_effects,
+            review_override=review_override,
+            metadata=metadata,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -261,6 +315,11 @@ class LessonCandidate:
             "updated_at": _datetime_to_str(self.updated_at),
             "approved_at": _datetime_to_str(self.approved_at),
             "expires_at": _datetime_to_str(self.expires_at),
+            "review_answers": [answer.to_dict() for answer in self.review_answers],
+            "review_effects": self.review_effects,
+            "review_override": (
+                self.review_override.to_dict() if self.review_override is not None else None
+            ),
             "metadata": self.metadata,
         }
 
@@ -336,6 +395,38 @@ class ReviewAnswer:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _review_answers_from_data(value: Any) -> list[ReviewAnswer]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("review_answers must be a list")
+    answers: list[ReviewAnswer] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("review_answers entries must be objects")
+        answers.append(ReviewAnswer.from_dict(item))
+    return answers
+
+
+def _apply_legacy_review_notes(
+    review_answers: list[ReviewAnswer], metadata: dict[str, Any]
+) -> None:
+    notes: dict[str, str] = {}
+    for key in list(metadata):
+        if key.startswith("review_note_"):
+            notes[key.removeprefix("review_note_")] = str(metadata.pop(key))
+    if not notes:
+        return
+    for index, answer in enumerate(review_answers):
+        note = notes.get(answer.question_id)
+        if note and not answer.free_text:
+            review_answers[index] = ReviewAnswer(
+                answer.question_id,
+                answer.chosen_option_id,
+                note,
+            )
 
 
 @dataclass(slots=True)

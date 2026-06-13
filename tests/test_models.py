@@ -13,6 +13,7 @@ from lessonweaver.models import (
     RecommendedActionType,
     ReviewAnswer,
     ReviewOption,
+    ReviewOverride,
     ReviewQuestion,
     RiskLevel,
     Scope,
@@ -92,6 +93,77 @@ def test_review_answer_round_trip() -> None:
 def test_lesson_candidate_round_trip_with_metadata() -> None:
     candidate = _candidate()
     assert LessonCandidate.from_dict(candidate.to_dict()).to_dict() == candidate.to_dict()
+
+
+def test_lesson_candidate_round_trip_with_typed_review_state() -> None:
+    candidate = _candidate()
+    candidate.review_answers = [ReviewAnswer("scope", "project", "Use in this repo.")]
+    candidate.review_effects = {"approval_required": "explicit"}
+    candidate.review_override = ReviewOverride(
+        unanswered_questions=["decision"],
+        approved_by="reviewer",
+        approved_at=NOW,
+    )
+
+    data = candidate.to_dict()
+    loaded = LessonCandidate.from_dict(data)
+
+    assert loaded.review_answers == candidate.review_answers
+    assert loaded.review_effects == {"approval_required": "explicit"}
+    assert loaded.review_override == candidate.review_override
+    assert "review_history" not in loaded.metadata
+    assert "incomplete_review_override" not in loaded.metadata
+
+
+def test_lesson_candidate_migrates_legacy_review_metadata() -> None:
+    data = _candidate().to_dict()
+    data.pop("review_answers")
+    data.pop("review_effects")
+    data.pop("review_override")
+    data["metadata"] = {
+        "source": "legacy",
+        "review_history": [
+            {"question_id": "scope", "chosen_option_id": "project", "free_text": ""},
+            {
+                "question_id": "risk_level",
+                "chosen_option_id": "high",
+                "free_text": "User-visible failure.",
+            },
+        ],
+        "review_note_scope": "Project only.",
+        "_approval_required": "explicit",
+        "_source": "adapter",
+        "incomplete_review_override": {
+            "unanswered_questions": ["decision"],
+            "approved_by": "reviewer",
+            "approved_at": NOW.isoformat(),
+        },
+    }
+
+    candidate = LessonCandidate.from_dict(data)
+
+    assert [answer.question_id for answer in candidate.review_answers] == [
+        "scope",
+        "risk_level",
+    ]
+    assert candidate.review_answers[0].free_text == "Project only."
+    assert candidate.review_answers[1].free_text == "User-visible failure."
+    assert candidate.review_effects == {"approval_required": "explicit"}
+    assert candidate.review_override == ReviewOverride(
+        unanswered_questions=["decision"],
+        approved_by="reviewer",
+        approved_at=NOW,
+    )
+    assert candidate.metadata == {"source": "legacy", "_source": "adapter"}
+    assert "review_history" not in candidate.to_dict()["metadata"]
+
+
+def test_lesson_candidate_rejects_invalid_review_answers() -> None:
+    data = _candidate().to_dict()
+    data["review_answers"] = ["not-an-object"]
+
+    with pytest.raises(ValueError, match="review_answers"):
+        LessonCandidate.from_dict(data)
 
 
 def test_lesson_candidate_from_dict_normalizes_naive_datetimes_to_utc() -> None:
