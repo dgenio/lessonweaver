@@ -31,8 +31,8 @@ lessonweaver converts AI-agent execution traces into reviewed, reusable operatio
 
 ## Adding a Detection Signal
 
-1. Add the smallest deterministic rule to `LessonDetector` in `detection.py`.
-2. Call it from `LessonDetector.detect()`.
+1. Add the smallest deterministic `DetectionSignal` class to `detection.py`.
+2. Register it in `DEFAULT_DETECTION_SIGNALS` in the intended order.
 3. Add unit tests for the true positive, false positive prevention, and edge cases.
 4. Keep detection conservative; prefer false negatives over false positives.
 
