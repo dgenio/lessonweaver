@@ -46,9 +46,13 @@ dev = [
   "build>=1.0",
   "twine>=6.1",
 ]
+mcp = [
+  "mcp>=1.9",
+]
 
 [project.scripts]
 lessonweaver = "lessonweaver.cli:main"
+lessonweaver-mcp = "lessonweaver.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
