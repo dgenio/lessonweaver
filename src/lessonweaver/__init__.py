@@ -81,6 +81,7 @@ from .retrieval import (
     SkillRetriever,
     SkippedSkill,
 )
+from .runtime import RuntimeLessonQuery, RuntimeLessonRetriever
 from .sanitization import SanitizationRule, TraceSanitizer
 from .traces import load_trace_bundle, validate_trace_dict
 from .validation import (
@@ -129,6 +130,8 @@ __all__ = [
     "ReviewQuestion",
     "ReviewSession",
     "RiskLevel",
+    "RuntimeLessonQuery",
+    "RuntimeLessonRetriever",
     "SanitizationRule",
     "Scope",
     "SensitivityLevel",

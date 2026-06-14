@@ -144,6 +144,9 @@ context = loader.load_for_task(
 print(context.snippet)
 ```
 
+Adapters that need ranked lesson objects instead of a compiled prompt can use
+`RuntimeLessonRetriever`; see [runtime retrieval](docs/runtime-retrieval.md).
+
 ## Commands
 
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
