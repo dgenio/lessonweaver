@@ -109,6 +109,8 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
 ```
 
 Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
+The registry is governed operational memory, not generic chat memory; see
+[governed memory](docs/governed-memory.md).
 For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md).
 For a complete worked example with traces, an approved skill, and a validation
 suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
