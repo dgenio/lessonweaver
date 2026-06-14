@@ -4,6 +4,9 @@ lessonweaver is a governed, deterministic pipeline that turns agent execution
 traces into reviewed, reusable operational guidance. There are **no LLM calls**
 in the core and **no skill activation without human review**.
 
+The reasoning behind durable architecture choices is recorded in
+[Architecture Decision Records](adr/README.md).
+
 ## Core abstractions
 
 - **`TraceBundle`** — a captured agent session (id, source, task, ordered

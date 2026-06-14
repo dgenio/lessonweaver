@@ -6,6 +6,8 @@ review and merge.
 
 Read [AGENTS.md](AGENTS.md) for the full agent/contributor rules and
 [docs/architecture.md](docs/architecture.md) for how the pieces fit together.
+Significant architecture changes should add or supersede an
+[Architecture Decision Record](docs/adr/README.md).
 
 ## Project principles
 
