@@ -53,7 +53,7 @@ def default_redaction_rules() -> list[SanitizationRule]:
         ),
         SanitizationRule(
             name="api_key",
-            pattern=r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*\S+",
+            pattern=r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*(?!\[REDACTED\b)\S+",
             replacement="[REDACTED by api_key]",
         ),
         SanitizationRule(
@@ -70,7 +70,7 @@ def default_redaction_rules() -> list[SanitizationRule]:
             name="generic_token_assignment",
             pattern=(
                 r"(?i)(?:access[_-]?token|client[_-]?secret|secret|token)"
-                r"\s*[:=]\s*\S+"
+                r"\s*[:=]\s*(?!\[REDACTED\b)\S+"
             ),
             replacement="[REDACTED by generic_token_assignment]",
         ),

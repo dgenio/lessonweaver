@@ -19,6 +19,11 @@ SENSITIVE_CASES = [
         "Auth [REDACTED by bearer_token]",
     ),
     ("api key", "api_key: sk-abc123", "[REDACTED by api_key]"),
+    (
+        "composed assignment marker",
+        "api_key: admin@example.com",
+        "api_key: [REDACTED by email]",
+    ),
     ("aws key", "AKIAABCDEFGHIJKLMNOP", "[REDACTED by aws_access_key_id]"),
     (
         "jwt",
