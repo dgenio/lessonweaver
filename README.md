@@ -166,7 +166,8 @@ is required so it can be reloaded), record answers into that session with
 remaining adaptive questions from the answers recorded so far.
 
 Commands return non-zero on bad input and keep stdout clean for JSON consumers.
-Error lines start with `Error:` on stderr; warnings start with `warning:`.
+Application-level error lines start with `Error:` on stderr; warnings start with `warning:`.
+Malformed argv rejected by argparse uses argparse's standard `usage:`/`error:` output.
 
 | Failure class | Exit code |
 | --- | --- |
