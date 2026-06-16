@@ -109,11 +109,12 @@ class LessonCluster:
 class LessonClusterer:
     """Group similar lesson candidates so recurring patterns stand out.
 
-    Candidates are processed in canonical id order. A candidate joins the first
-    existing cluster whose seed it meets ``threshold`` Jaccard similarity with;
-    otherwise it seeds a new cluster. Comparing against each cluster's stable
-    seed (rather than every member) keeps the result a deterministic function of
-    candidate content, candidate ids, and ``threshold``.
+    Candidates are processed in canonical order by id, summary,
+    observed_problem, confidence, and evidence strength. A candidate joins the
+    first existing cluster whose seed it meets ``threshold`` Jaccard similarity
+    with; otherwise it seeds a new cluster. Comparing against each cluster's
+    stable seed (rather than every member) keeps the result a deterministic
+    function of candidate content, candidate ids, and ``threshold``.
     """
 
     def __init__(self, threshold: float = DEFAULT_SIMILARITY_THRESHOLD) -> None:
