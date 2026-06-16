@@ -1,5 +1,6 @@
 """Tests for the lesson/skill registry."""
 
+import json
 import os
 
 import pytest
@@ -150,12 +151,44 @@ def test_filesystem_registry_list_skips_non_object_json_by_default(capsys, tmp_p
     assert "must contain a JSON object" in err
 
 
+def test_filesystem_registry_list_skips_missing_required_fields_by_default(
+    capsys, tmp_path
+) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill("good"))
+    registry.skills_dir.mkdir(parents=True, exist_ok=True)
+    (registry.skills_dir / "missing-name.json").write_text(
+        json.dumps({"id": "missing-name"}),
+        encoding="utf-8",
+    )
+
+    skills = registry.list_skills()
+    err = capsys.readouterr().err
+
+    assert [skill.id for skill in skills] == ["good"]
+    assert "warning:" in err
+    assert "missing-name.json" in err
+    assert "'name'" in err
+
+
 def test_filesystem_registry_list_strict_rejects_invalid_json(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.skills_dir.mkdir(parents=True)
     (registry.skills_dir / "bad.json").write_text("{", encoding="utf-8")
 
     with pytest.raises(ValueError, match="contains invalid JSON"):
+        registry.list_skills(strict=True)
+
+
+def test_filesystem_registry_list_strict_rejects_missing_required_fields(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.skills_dir.mkdir(parents=True)
+    (registry.skills_dir / "missing-name.json").write_text(
+        json.dumps({"id": "missing-name"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(KeyError, match="name"):
         registry.list_skills(strict=True)
 
 

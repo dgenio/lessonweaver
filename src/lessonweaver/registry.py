@@ -192,7 +192,7 @@ class FileSystemRegistry:
                 continue
             try:
                 items.append(factory(payload))
-            except ValueError as exc:
+            except (ValueError, KeyError, TypeError) as exc:
                 if strict:
                     raise
                 _warn_skipped_registry_file(path, exc)
@@ -216,5 +216,5 @@ def _validate_id(object_id: str) -> None:
         raise ValueError(f"unsafe registry id: {object_id!r}")
 
 
-def _warn_skipped_registry_file(path: Path, error: ValueError) -> None:
+def _warn_skipped_registry_file(path: Path, error: Exception) -> None:
     print(f"warning: skipped registry file {path}: {error}", file=sys.stderr)
