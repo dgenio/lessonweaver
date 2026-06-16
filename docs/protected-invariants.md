@@ -23,9 +23,8 @@ use in agent workflows.
   `LessonCandidate` input, but activation still flows through review,
   `OperationalLesson`, `SkillCard`, linting, and governed promotion. No feature
   may silently mark generated guidance active.
-- **Export remains diff-first.** Exporters render text. `filemerge.py` previews
-  managed-block diffs and never writes files implicitly; callers write only
-  after an explicit user action.
+- **Export remains explicit.** Exporters render text and never write files
+  implicitly; callers write only after an explicit user action.
 - **Trace and registry data stays auditable.** Model fields are stable unless a
   migration is provided, and registry writes remain explicit JSON artifacts that
   reviewers can inspect.
@@ -57,9 +56,6 @@ ML and LLM features must be optional layers:
 - **The filesystem registry is the durable reference implementation.**
   Alternative registries can be added after scalability evidence, but the JSON
   filesystem path remains the inspectable baseline.
-- **Managed file merging stays idempotent and previewable.** `filemerge.py`
-  must continue to update sentinel-delimited blocks without clobbering
-  hand-written content.
 - **Simple dataclasses remain the contract surface.** Replacing the domain
   model with a framework-specific schema or runtime object graph would make
   artifacts harder to audit and migrate.
