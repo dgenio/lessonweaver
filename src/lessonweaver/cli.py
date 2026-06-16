@@ -76,6 +76,10 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     return payload
 
 
+def _write_json(path: str | Path, payload: dict[str, Any]) -> None:
+    Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -1168,8 +1172,12 @@ def _run(args: argparse.Namespace) -> int:
                 "approved_at": now.isoformat(),
                 "export_format": args.format,
             }
-            if not Path(args.candidate).exists() and not args.dry_run:
-                registry.save_candidate(candidate)
+            if not args.dry_run:
+                candidate_path = Path(args.candidate)
+                if candidate_path.exists():
+                    _write_json(candidate_path, candidate.to_dict())
+                else:
+                    registry.save_candidate(candidate)
         redactor = SimpleRedactor() if args.redact else None
         if args.format == "eval":
             content = export_eval_spec_markdown(candidate, redactor=redactor)

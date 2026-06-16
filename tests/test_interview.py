@@ -3,6 +3,7 @@ import pytest
 from lessonweaver.interview import (
     LessonInterviewer,
     apply_review_answer,
+    is_review_complete,
     load_session,
     remaining_review_questions,
     save_session,
@@ -167,6 +168,20 @@ def test_remaining_review_questions_uses_persisted_review_history() -> None:
         "applicability",
         "negative_conditions",
     ]
+
+
+def test_is_review_complete_uses_persisted_review_history() -> None:
+    candidate = _candidate("gate-complete")
+    candidate.metadata["review_history"] = [
+        {"question_id": "scope", "chosen_option_id": "project", "free_text": ""},
+        {"question_id": "action_type", "chosen_option_id": "skill", "free_text": ""},
+        {"question_id": "risk_level", "chosen_option_id": "low", "free_text": ""},
+        {"question_id": "applicability", "chosen_option_id": "always", "free_text": ""},
+        {"question_id": "negative_conditions", "chosen_option_id": "none", "free_text": ""},
+        {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""},
+    ]
+
+    assert is_review_complete(candidate)
 
 
 def test_follow_up_answer_is_stored_in_metadata() -> None:

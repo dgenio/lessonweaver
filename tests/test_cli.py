@@ -484,6 +484,32 @@ def test_cli_export_lesson_allow_incomplete_records_override(capsys, tmp_path) -
     assert "decision" in override["unanswered_questions"]
 
 
+def test_cli_export_lesson_allow_incomplete_records_override_for_path(
+    capsys, tmp_path
+) -> None:
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(_candidate(status=LessonStatus.APPROVED).to_dict()),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "export-lesson",
+            str(candidate_path),
+            "--format",
+            "eval",
+            "--allow-incomplete-review",
+        ]
+    )
+
+    assert exit_code == 0
+    capsys.readouterr()
+    persisted = json.loads(candidate_path.read_text(encoding="utf-8"))
+    override = persisted["metadata"]["incomplete_review_override"]
+    assert "decision" in override["unanswered_questions"]
+
+
 def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(_reviewed_candidate(RecommendedActionType.EVAL))
