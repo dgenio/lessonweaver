@@ -10,6 +10,14 @@ entries below were reconstructed from the repository history to seed the
 changelog; their dates are the dates of the corresponding work landing on
 `main`, not PyPI release dates.
 
+## [Unreleased]
+
+### Added
+
+- Detection corpus metric floors are documented, and clustering regression
+  coverage now asserts input-order invariance and threshold-boundary behavior
+  (#282).
+
 ## [0.4.0] - 2026-06-16
 
 ### Added

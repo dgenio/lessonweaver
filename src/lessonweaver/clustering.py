@@ -5,7 +5,8 @@ across many traces produces many isolated candidates and a reviewer has to spot
 the repetition by hand. ``LessonClusterer`` groups candidates by normalized word
 overlap (Jaccard) of their ``summary`` + ``observed_problem`` text, so a
 recurring pattern surfaces as a single cluster with a higher occurrence count.
-Deterministic by construction: no embeddings, no model calls, no randomness.
+Deterministic by construction: no embeddings, no model calls, no randomness,
+and candidate order does not affect the output.
 """
 
 from __future__ import annotations
@@ -73,6 +74,16 @@ def _is_stronger(candidate: LessonCandidate, current: LessonCandidate) -> bool:
     return candidate.id < current.id
 
 
+def _candidate_sort_key(candidate: LessonCandidate) -> tuple[str, str, str, float, float]:
+    return (
+        candidate.id,
+        candidate.summary,
+        candidate.observed_problem,
+        candidate.confidence,
+        candidate.evidence_strength,
+    )
+
+
 @dataclass(slots=True)
 class LessonCluster:
     """A group of lesson candidates judged to describe the same recurring pattern."""
@@ -98,10 +109,11 @@ class LessonCluster:
 class LessonClusterer:
     """Group similar lesson candidates so recurring patterns stand out.
 
-    A candidate joins the first existing cluster whose seed it meets
-    ``threshold`` Jaccard similarity with; otherwise it seeds a new cluster.
-    Comparing against each cluster's stable seed (rather than every member) keeps
-    the result a deterministic function of input order and ``threshold``.
+    Candidates are processed in canonical id order. A candidate joins the first
+    existing cluster whose seed it meets ``threshold`` Jaccard similarity with;
+    otherwise it seeds a new cluster. Comparing against each cluster's stable
+    seed (rather than every member) keeps the result a deterministic function of
+    candidate content, candidate ids, and ``threshold``.
     """
 
     def __init__(self, threshold: float = DEFAULT_SIMILARITY_THRESHOLD) -> None:
@@ -112,7 +124,7 @@ class LessonClusterer:
     def cluster(self, candidates: list[LessonCandidate]) -> list[LessonCluster]:
         clusters: list[LessonCluster] = []
         seed_tokens: list[set[str]] = []
-        for candidate in candidates:
+        for candidate in sorted(candidates, key=_candidate_sort_key):
             tokens = _candidate_tokens(candidate)
             placed = False
             for index, existing in enumerate(clusters):

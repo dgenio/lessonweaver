@@ -88,6 +88,10 @@ Each candidate carries a different default `confidence`,
 `recommended_action_type`, and `risk_level`. Detection prefers false negatives
 over noisy guidance.
 
+Detection quality is measured against the bundled corpus in
+`examples/detection_corpus/`. The current baseline scorecard is precision 1.00,
+recall 0.833, and F1 0.909; tests lock these metrics so regressions are visible.
+
 ## Lesson and skill lifecycles
 
 Lesson status (`LessonStatus`): `candidate` → `needs_review` → `approved` /
