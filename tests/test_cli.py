@@ -269,6 +269,7 @@ def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     assert exit_code == 0
     assert "# PR Diff First" in capsys.readouterr().out
 
+
 def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_sensitive_skill())
@@ -296,6 +297,19 @@ def test_cli_export_skill_missing_ref_mentions_path_and_registry(capsys, tmp_pat
     assert "could not resolve skill" in err
     assert f"path '{missing}' does not exist" in err
     assert f"registry id '{missing}' was not found" in err
+
+
+def test_cli_export_skill_preserves_invalid_registry_diagnostic(capsys, tmp_path) -> None:
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "skill-1.json").write_text("{", encoding="utf-8")
+
+    exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "registry file contains invalid JSON" in err
+    assert "could not resolve skill" not in err
 
 
 def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
@@ -383,6 +397,34 @@ def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None
     )
     assert exit_code == 0
     assert "admin@example.com" in capsys.readouterr().out
+
+
+def test_cli_export_lesson_missing_ref_mentions_path_and_registry(capsys, tmp_path) -> None:
+    missing = tmp_path / "missing-candidate.json"
+    exit_code = main(
+        ["export-lesson", str(missing), "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "could not resolve candidate" in err
+    assert f"path '{missing}' does not exist" in err
+    assert f"registry id '{missing}' was not found" in err
+
+
+def test_cli_export_lesson_preserves_invalid_registry_diagnostic(capsys, tmp_path) -> None:
+    candidates_dir = tmp_path / "candidates"
+    candidates_dir.mkdir()
+    (candidates_dir / "cand-1.json").write_text("[]", encoding="utf-8")
+
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "registry file must contain a JSON object" in err
+    assert "could not resolve candidate" not in err
 
 
 def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
