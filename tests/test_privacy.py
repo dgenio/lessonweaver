@@ -10,8 +10,9 @@ from lessonweaver.privacy import SimpleRedactor
 
 @SENSITIVE_CASES_PARAM
 def test_simple_redactor_uses_shared_sensitive_cases(
-    _case_name: str, raw: str, expected: str
+    case_name: str, raw: str, expected: str
 ) -> None:
+    assert case_name
     assert SimpleRedactor().redact(raw) == expected
 
 

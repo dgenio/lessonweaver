@@ -20,7 +20,8 @@ def _bundle(content: str | None) -> TraceBundle:
 
 
 @SENSITIVE_CASES_PARAM
-def test_default_rules_use_shared_sensitive_cases(_case_name: str, raw: str, expected: str) -> None:
+def test_default_rules_use_shared_sensitive_cases(case_name: str, raw: str, expected: str) -> None:
+    assert case_name
     assert TraceSanitizer().sanitize(_bundle(raw)).events[0].content == expected
 
 

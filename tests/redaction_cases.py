@@ -43,7 +43,7 @@ SAFE_CASES = [
 
 
 SENSITIVE_CASES_PARAM = pytest.mark.parametrize(
-    ("_case_name", "raw", "expected"),
+    ("case_name", "raw", "expected"),
     SENSITIVE_CASES,
     ids=[case[0] for case in SENSITIVE_CASES],
 )
