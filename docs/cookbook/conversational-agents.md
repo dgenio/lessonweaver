@@ -51,7 +51,14 @@ Expected review result excerpt:
 }
 ```
 
-Export the approved skill as a runtime prompt snippet:
+Promote the approved skill before runtime use so loaders include it:
+
+```bash
+lessonweaver promote-skill skill-trace-chatbot-policy-001-failed-eval active \
+  --registry-root /tmp/lw-chatbot-cookbook
+```
+
+Export the active skill as a runtime prompt snippet:
 
 ```bash
 lessonweaver export-skill skill-trace-chatbot-policy-001-failed-eval \
@@ -70,7 +77,7 @@ Do not apply when: When the task is unrelated to the observed trace context.
 Required behaviors: Possible reusable pattern: add stronger retrieval/version checks before answering.
 ```
 
-A chatbot runtime can load reviewed skills before serving a policy task:
+A chatbot runtime can load active reviewed skills before serving a policy task:
 
 ```python
 from lessonweaver import FileSystemRegistry, SkillLoader
