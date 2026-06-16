@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from lessonweaver.cli import build_parser
@@ -12,6 +13,7 @@ OUTPUT = ROOT / "docs" / "reference" / "cli.md"
 
 
 def render_cli_reference(parser: argparse.ArgumentParser | None = None) -> str:
+    os.environ["COLUMNS"] = "88"
     parser = parser or build_parser()
     subparsers = _subparsers(parser)
     lines = [

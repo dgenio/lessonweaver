@@ -75,9 +75,8 @@ usage: lessonweaver approve [-h] [--dry-run] [--registry-root REGISTRY_ROOT]
 
 
 ```text
-usage: lessonweaver cleanup-skills [-h] [--dry-run]
-                                   [--registry-root REGISTRY_ROOT] [--now NOW]
-                                   [--write]
+usage: lessonweaver cleanup-skills [-h] [--dry-run] [--registry-root REGISTRY_ROOT]
+                                   [--now NOW] [--write]
 ```
 
 | Argument | Help |
@@ -108,8 +107,7 @@ usage: lessonweaver cluster [-h] [--threshold THRESHOLD] [--sanitize]
 
 ```text
 usage: lessonweaver detect [-h] [--dry-run] [--output OUTPUT]
-                           [--registry-root REGISTRY_ROOT] [--save]
-                           [--sanitize]
+                           [--registry-root REGISTRY_ROOT] [--save] [--sanitize]
                            trace_path
 ```
 
@@ -148,9 +146,8 @@ usage: lessonweaver eval-detection [-h] [--min-precision MIN_PRECISION]
 
 ```text
 usage: lessonweaver explain-load [-h] [--registry-root REGISTRY_ROOT]
-                                 [--agent-type AGENT_TYPE]
-                                 [--tools [TOOLS ...]] [--scope SCOPE]
-                                 [--risk-level RISK_LEVEL]
+                                 [--agent-type AGENT_TYPE] [--tools [TOOLS ...]]
+                                 [--scope SCOPE] [--risk-level RISK_LEVEL]
                                  [--budget-chars BUDGET_CHARS]
                                  [--max-skills MAX_SKILLS]
                                  [--inclusion-level {none,name_only,summary,full,full_with_checklist}]
@@ -179,9 +176,8 @@ usage: lessonweaver explain-load [-h] [--registry-root REGISTRY_ROOT]
 ```text
 usage: lessonweaver export-file [-h] [--dry-run] --path PATH
                                 [--format {markdown,copilot,copilot-repo,copilot-path,claude,claude-skill,claude-rule,claude-md,agents-md,runtime}]
-                                [--applies-to APPLIES_TO]
-                                [--redact | --no-redact] [--write]
-                                [--registry-root REGISTRY_ROOT]
+                                [--applies-to APPLIES_TO] [--redact | --no-redact]
+                                [--write] [--registry-root REGISTRY_ROOT]
                                 skill
 ```
 
@@ -248,8 +244,7 @@ usage: lessonweaver export-skill [-h] [--dry-run] [--output OUTPUT] [--json]
 
 ```text
 usage: lessonweaver import-failure-case [-h] [--dry-run] [--output OUTPUT]
-                                        [--registry-root REGISTRY_ROOT]
-                                        [--save]
+                                        [--registry-root REGISTRY_ROOT] [--save]
                                         artifact_path
 ```
 
@@ -299,8 +294,7 @@ usage: lessonweaver lint [-h] [--registry-root REGISTRY_ROOT] skill
 usage: lessonweaver load [-h] [--registry-root REGISTRY_ROOT]
                          [--agent-type AGENT_TYPE] [--tools [TOOLS ...]]
                          [--scope SCOPE] [--risk-level RISK_LEVEL]
-                         [--budget-chars BUDGET_CHARS]
-                         [--max-skills MAX_SKILLS]
+                         [--budget-chars BUDGET_CHARS] [--max-skills MAX_SKILLS]
                          [--inclusion-level {none,name_only,summary,full,full_with_checklist}]
                          [--explain]
                          task
@@ -324,10 +318,9 @@ usage: lessonweaver load [-h] [--registry-root REGISTRY_ROOT]
 
 
 ```text
-usage: lessonweaver log-usage [-h] [--skill-version SKILL_VERSION]
-                              [--outcome OUTCOME] [--positive | --negative]
-                              [--notes NOTES] [--id EVENT_ID]
-                              [--registry-root REGISTRY_ROOT]
+usage: lessonweaver log-usage [-h] [--skill-version SKILL_VERSION] [--outcome OUTCOME]
+                              [--positive | --negative] [--notes NOTES]
+                              [--id EVENT_ID] [--registry-root REGISTRY_ROOT]
                               skill_id task_context
 ```
 
@@ -364,8 +357,7 @@ usage: lessonweaver promote-skill [-h] [--registry-root REGISTRY_ROOT]
 
 
 ```text
-usage: lessonweaver report-stale [-h] [--registry-root REGISTRY_ROOT]
-                                 [--now NOW]
+usage: lessonweaver report-stale [-h] [--registry-root REGISTRY_ROOT] [--now NOW]
 ```
 
 | Argument | Help |
@@ -378,8 +370,7 @@ usage: lessonweaver report-stale [-h] [--registry-root REGISTRY_ROOT]
 
 
 ```text
-usage: lessonweaver resume-interview [-h] [--dry-run]
-                                     [--registry-root REGISTRY_ROOT]
+usage: lessonweaver resume-interview [-h] [--dry-run] [--registry-root REGISTRY_ROOT]
                                      session_path
 ```
 
@@ -394,9 +385,8 @@ usage: lessonweaver resume-interview [-h] [--dry-run]
 
 
 ```text
-usage: lessonweaver retrieve [-h] [--registry-root REGISTRY_ROOT]
-                             [--scope SCOPE] [--risk-level RISK_LEVEL]
-                             [--max MAX]
+usage: lessonweaver retrieve [-h] [--registry-root REGISTRY_ROOT] [--scope SCOPE]
+                             [--risk-level RISK_LEVEL] [--max MAX]
                              task
 ```
 
@@ -413,15 +403,13 @@ usage: lessonweaver retrieve [-h] [--registry-root REGISTRY_ROOT]
 
 
 ```text
-usage: lessonweaver review-trace [-h] [--dry-run]
-                                 [--registry-root REGISTRY_ROOT]
-                                 [--candidate CANDIDATE]
-                                 [--answer QUESTION=OPTION]
+usage: lessonweaver review-trace [-h] [--dry-run] [--registry-root REGISTRY_ROOT]
+                                 [--candidate CANDIDATE] [--answer QUESTION=OPTION]
                                  [--free-text QUESTION=TEXT] [--approve]
                                  [--approved-by APPROVED_BY]
                                  [--allow-incomplete-review] [--target TARGET]
-                                 [--applies-to APPLIES_TO]
-                                 [--redact | --no-redact] [--sanitize]
+                                 [--applies-to APPLIES_TO] [--redact | --no-redact]
+                                 [--sanitize]
                                  trace_path
 ```
 
