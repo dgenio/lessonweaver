@@ -484,9 +484,7 @@ def test_cli_export_lesson_allow_incomplete_records_override(capsys, tmp_path) -
     assert "decision" in override["unanswered_questions"]
 
 
-def test_cli_export_lesson_allow_incomplete_records_override_for_path(
-    capsys, tmp_path
-) -> None:
+def test_cli_export_lesson_allow_incomplete_records_override_for_path(capsys, tmp_path) -> None:
     candidate_path = tmp_path / "candidate.json"
     candidate_path.write_text(
         json.dumps(_candidate(status=LessonStatus.APPROVED).to_dict()),
