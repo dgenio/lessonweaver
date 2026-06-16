@@ -58,7 +58,7 @@ from .registry import FileSystemRegistry
 from .reporting import SkillReporter
 from .retrieval import RetrievalQuery, SkillRetriever
 from .sanitization import TraceSanitizer
-from .traces import load_trace_bundle
+from .traces import load_trace_bundle, validate_trace_issues
 from .validation import ValidationSuite, run_validation_suite
 
 
@@ -724,6 +724,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Registry root containing the skills/ directory (default: ~/.lessonweaver/registry)",
     )
 
+    validate_trace_parser = subparsers.add_parser(
+        "validate-trace",
+        help="Validate a trace JSON file against the published trace contract",
+    )
+    validate_trace_parser.add_argument("trace_path")
+
     promote_parser = subparsers.add_parser(
         "promote-skill", help="Promote a skill through the governed lifecycle"
     )
@@ -1223,6 +1229,16 @@ def _run(args: argparse.Namespace) -> int:
         result = run_validation_suite(suite, skills)
         _print_json(result.to_dict())
         return 0 if result.failed == 0 else 1
+
+    if args.command == "validate-trace":
+        payload = _read_json(args.trace_path)
+        issues = validate_trace_issues(payload)
+        if issues:
+            for issue in issues:
+                print(f"{issue.path}: {issue.message}", file=sys.stderr)
+            return 2
+        print(f"valid trace: {args.trace_path}")
+        return 0
 
     if args.command == "promote-skill":
         registry = _registry(args.registry_root)

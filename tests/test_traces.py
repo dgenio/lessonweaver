@@ -3,7 +3,7 @@ import json
 import pytest
 
 from lessonweaver.detection import LessonDetector
-from lessonweaver.traces import load_trace_bundle, validate_trace_dict
+from lessonweaver.traces import load_trace_bundle, validate_trace_dict, validate_trace_issues
 
 
 def test_validate_trace_dict_accepts_valid_trace() -> None:
@@ -17,6 +17,27 @@ def test_validate_trace_dict_accepts_valid_trace() -> None:
         }
     )
     assert errors == []
+
+
+def test_validate_trace_issues_report_json_pointer_paths() -> None:
+    issues = validate_trace_issues(
+        {
+            "trace_id": "",
+            "events": [
+                {"id": "", "type": "unknown"},
+                {"id": "e1", "type": "user_message"},
+                {"id": "e1", "type": "final_answer"},
+            ],
+        }
+    )
+    by_path = {issue.path: issue.message for issue in issues}
+    assert by_path["/trace_id"] == "field 'trace_id' must be non-empty"
+    assert by_path["/source"] == "missing required field: source"
+    assert by_path["/task"] == "missing required field: task"
+    assert by_path["/outcome"] == "missing required field: outcome"
+    assert by_path["/events/0/id"] == "missing non-empty id"
+    assert by_path["/events/0/type"] == "unknown type 'unknown'"
+    assert by_path["/events/2/id"] == "event 'e1': duplicate id"
 
 
 def test_load_trace_bundle_missing_required_field(tmp_path) -> None:

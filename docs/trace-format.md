@@ -2,6 +2,19 @@
 
 lessonweaver traces are JSON objects that describe one agent run. Unknown fields are ignored so producers can add metadata without breaking older readers.
 
+The normative JSON Schema for producers is
+[`schemas/trace.schema.json`](../schemas/trace.schema.json). Skill cards are
+specified separately in
+[`schemas/skill-card.schema.json`](../schemas/skill-card.schema.json).
+Validate a trace before detection with:
+
+```bash
+lessonweaver validate-trace trace.json
+```
+
+`validate-trace` uses the stdlib-only loader rules and prints every violation
+with a JSON-pointer path, for example `/events/0/type: unknown type 'custom'`.
+
 ## Top-Level Fields
 
 | Field | Required | Type | Description |
