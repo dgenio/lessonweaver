@@ -384,6 +384,16 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
+def _redact_packet(value: Any, redactor: SimpleRedactor) -> Any:
+    if isinstance(value, str):
+        return redactor.redact(value)
+    if isinstance(value, list):
+        return [_redact_packet(item, redactor) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_packet(item, redactor) for key, item in value.items()}
+    return value
+
+
 def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--redact",
@@ -1087,6 +1097,8 @@ def _run(args: argparse.Namespace) -> int:
             "candidates": [_review_packet(candidate, args) for candidate in reviewed],
             "approval": approval,
         }
+        if args.redact:
+            packet = _redact_packet(packet, SimpleRedactor())
         _print_json(packet)
         return 0
 

@@ -1074,9 +1074,10 @@ def test_cli_review_trace_target_redacts_by_default(capsys, tmp_path) -> None:
         ["review-trace", str(trace_path), "--registry-root", str(tmp_path), "--target", "agents-md"]
     )
     assert exit_code == 0
-    preview = json.loads(capsys.readouterr().out)["candidates"][0]["export_preview"]
+    out = capsys.readouterr().out
+    preview = json.loads(out)["candidates"][0]["export_preview"]
     assert "[REDACTED]" in preview["content"]
-    assert "admin@example.com" not in preview["content"]
+    assert "admin@example.com" not in out
 
 
 def test_cli_review_trace_target_no_redact_emits_raw_preview(capsys, tmp_path) -> None:
