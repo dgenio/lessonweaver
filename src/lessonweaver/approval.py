@@ -55,6 +55,13 @@ def _review_answers(candidate: LessonCandidate) -> list[ReviewAnswer]:
     return [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
 
 
+def _review_decision(candidate: LessonCandidate) -> str | None:
+    for answer in reversed(_review_answers(candidate)):
+        if answer.question_id == "decision":
+            return answer.chosen_option_id
+    return None
+
+
 def remaining_review_questions(candidate: LessonCandidate) -> list[str]:
     """Return required guided-review question ids that still need answers."""
 
@@ -140,6 +147,8 @@ def approve_candidate(
     remaining = remaining_review_questions(candidate)
     if remaining and not allow_incomplete:
         raise IncompleteReviewError(candidate.id, remaining)
+    if _review_decision(candidate) not in {None, "approve"}:
+        raise IncompleteReviewError(candidate.id, ["decision"])
 
     moment = now or _utc_now()
     metadata = dict(candidate.metadata)

@@ -86,6 +86,25 @@ def test_approve_candidate_blocks_incomplete_review() -> None:
     assert candidate.status is LessonStatus.CANDIDATE
 
 
+@pytest.mark.parametrize("decision", ["reject", "needs_review", "other"])
+def test_approve_candidate_blocks_non_approve_review_decisions(decision: str) -> None:
+    candidate = _candidate()
+    for question_id, option_id in [
+        ("scope", "project"),
+        ("action_type", "skill"),
+        ("risk_level", "low"),
+        ("applicability", "always"),
+        ("negative_conditions", "none"),
+        ("decision", decision),
+    ]:
+        candidate = _answer(candidate, question_id, option_id)
+
+    with pytest.raises(IncompleteReviewError) as exc:
+        approve_candidate(candidate, approved_by="reviewer", allow_incomplete=True)
+
+    assert exc.value.unanswered_questions == ["decision"]
+
+
 def test_approve_candidate_returns_domain_objects_without_persisting() -> None:
     candidate = _complete_review(_candidate())
     result = approve_candidate(candidate, approved_by="reviewer", name="Diff First")
