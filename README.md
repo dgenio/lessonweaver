@@ -202,8 +202,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   records the bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
-- `SimpleRedactor` is a best-effort safety net before export, not a compliance
-  control.
+- `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
+  rules before export and pre-mining sanitization. Redaction markers identify
+  the matching rule, for example `[REDACTED by email]`. This is a safety net,
+  not a compliance control.
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
 
