@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from lessonweaver.detection import LessonDetector
 from lessonweaver.models import TraceEventType
 from lessonweaver.recorder import TraceRecorder, record
 from lessonweaver.traces import load_trace_bundle
@@ -77,3 +78,24 @@ def test_recorder_event_ids_are_stable_for_identical_call_sequences() -> None:
         return [event.id for event in recorder.to_bundle().events]
 
     assert build() == build() == ["e1", "e2", "e3"]
+
+
+def test_recorder_tool_results_preserve_fallback_detection_signals() -> None:
+    recorder = TraceRecorder("trace-tool-fallback", "unit-test", "Use API fallback")
+    recorder.tool_call("api_a")
+    recorder.tool_result("api_a", success=False)
+    recorder.tool_call("api_b")
+    recorder.tool_result("api_b", success=True)
+    recorder.final_answer("done")
+    recorder.set_outcome("success")
+
+    bundle = recorder.to_bundle()
+    candidates = LessonDetector().detect(bundle)
+
+    assert bundle.events[0].type is TraceEventType.TOOL_CALL
+    assert bundle.events[0].success is False
+    assert bundle.events[0].status == "failed"
+    assert bundle.events[2].type is TraceEventType.TOOL_CALL
+    assert bundle.events[2].success is True
+    assert bundle.events[2].status == "success"
+    assert any("tool failure followed by successful alternative" in c.summary for c in candidates)

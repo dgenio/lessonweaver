@@ -97,11 +97,21 @@ class TraceRecorder:
     ) -> TraceEvent:
         event_metadata = dict(metadata or {})
         event_metadata.setdefault("tool_name", tool_name)
+        status = "success" if success is True else "failed" if success is False else None
+        if success is not None or status is not None:
+            for event in reversed(self._events):
+                if event.type is not TraceEventType.TOOL_CALL:
+                    continue
+                if event.metadata.get("tool_name") != tool_name:
+                    continue
+                event.success = success
+                event.status = status
+                break
         return self.event(
             TraceEventType.TOOL_RESULT,
             content or f"tool result: {tool_name}",
             success=success,
-            status="success" if success is True else "failed" if success is False else None,
+            status=status,
             metadata=event_metadata,
         )
 
