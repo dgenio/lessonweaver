@@ -38,6 +38,37 @@ def test_private_key_redacts_full_block() -> None:
     assert out == "key:\n[REDACTED by private_key]\nok"
 
 
+def test_default_rules_redact_aws_access_key_ids() -> None:
+    text = "aws_access_key_id=AKIAIOSFODNN7EXAMPLE"
+    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
+    assert out == "aws_access_key_id=[REDACTED by aws_access_key_id]"
+
+
+def test_default_rules_redact_aws_secret_access_keys() -> None:
+    text = "aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
+    assert out == "aws_secret_access_key=[REDACTED by aws_secret_access_key]"
+
+
+def test_default_rules_redact_generic_key_value_secrets() -> None:
+    text = "api_key=sk_live_1234567890abcdef token: ghp_1234567890abcdef password='hunter2'"
+    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
+    assert out == (
+        "api_key=[REDACTED by generic_secret] token: [REDACTED by generic_secret] "
+        "password=[REDACTED by generic_secret]"
+    )
+
+
+def test_default_rules_redact_jwts() -> None:
+    text = (
+        "jwt eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+        "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    )
+    out = TraceSanitizer().sanitize(_bundle(text)).events[0].content
+    assert out == "jwt [REDACTED by jwt]"
+
+
 def test_sanitize_returns_new_bundle_and_leaves_input_unchanged() -> None:
     original = _bundle("ping me at a.user@example.com")
     sanitized = TraceSanitizer().sanitize(original)
@@ -53,8 +84,12 @@ def test_none_content_is_preserved() -> None:
 
 
 def test_clean_content_is_untouched() -> None:
-    sanitized = TraceSanitizer().sanitize(_bundle("nothing sensitive here"))
-    assert sanitized.events[0].content == "nothing sensitive here"
+    text = (
+        "nothing sensitive here; token budget is 2000, aws region is us-east-1, "
+        "and password policy requires rotation"
+    )
+    sanitized = TraceSanitizer().sanitize(_bundle(text))
+    assert sanitized.events[0].content == text
 
 
 def test_custom_rules_only() -> None:

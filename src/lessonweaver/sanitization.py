@@ -38,8 +38,8 @@ class TraceSanitizer:
     """Scrub sensitive content from a :class:`TraceBundle` before mining.
 
     Construct with custom rules, or use :meth:`default_rules` for the built-in
-    email / bearer-token / private-key patterns. :meth:`sanitize` returns a new
-    bundle and never mutates its input.
+    email / bearer-token / private-key / common secret patterns. :meth:`sanitize`
+    returns a new bundle and never mutates its input.
     """
 
     def __init__(self, rules: list[SanitizationRule] | None = None) -> None:
@@ -57,6 +57,29 @@ class TraceSanitizer:
                 name="bearer_token",
                 pattern=r"Bearer\s+[A-Za-z0-9._\-]{20,}",
                 replacement="[REDACTED by bearer_token]",
+            ),
+            SanitizationRule(
+                name="aws_access_key_id",
+                pattern=r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b",
+                replacement="[REDACTED by aws_access_key_id]",
+            ),
+            SanitizationRule(
+                name="aws_secret_access_key",
+                pattern=r"(?i)\b(aws_secret_access_key\s*[:=]\s*)['\"]?[A-Za-z0-9/+=]{40}['\"]?",
+                replacement=r"\1[REDACTED by aws_secret_access_key]",
+            ),
+            SanitizationRule(
+                name="generic_secret",
+                pattern=(
+                    r"(?i)\b(api[_-]?key|token|password|secret)\b"
+                    r"(\s*[:=]\s*)['\"]?[A-Za-z0-9][A-Za-z0-9._/\-+=]{5,}['\"]?"
+                ),
+                replacement=r"\1\2[REDACTED by generic_secret]",
+            ),
+            SanitizationRule(
+                name="jwt",
+                pattern=r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b",
+                replacement="[REDACTED by jwt]",
             ),
             SanitizationRule(
                 name="private_key",
