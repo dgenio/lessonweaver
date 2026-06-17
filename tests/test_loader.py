@@ -90,12 +90,12 @@ def test_loader_policy_max_skills_caps_results(tmp_path) -> None:
     assert len(context.included_skills) == 1
 
 
-def test_loader_policy_token_budget_caps_compilation(tmp_path) -> None:
+def test_loader_policy_character_budget_caps_compilation(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill("a", "PR A", "x" * 200))
     registry.save_skill(_skill("b", "PR B", "y" * 200))
 
-    context = SkillLoader(registry, policy=LoadingPolicy(max_token_budget=12)).load_for_task(
+    context = SkillLoader(registry, policy=LoadingPolicy(max_budget_chars=12)).load_for_task(
         "Review this PR", budget_chars=2000, max_skills=2
     )
     assert len(context.snippet) <= 12
