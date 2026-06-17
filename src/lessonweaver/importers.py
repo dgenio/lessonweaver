@@ -20,7 +20,7 @@ the sibling*, and they live in ``examples/interop_adapters/``. See
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from .detection import LessonDetector
 from .models import LessonCandidate, TraceBundle, TraceEvent, TraceEventType
@@ -85,7 +85,7 @@ class ClaudeCodeTraceImporter:
 
     _SCHEMA_MARKER = "claude-code"
 
-    _TYPE_MAP: dict[str, TraceEventType] = {
+    _TYPE_MAP: ClassVar[dict[str, TraceEventType]] = {
         "assistant": TraceEventType.ASSISTANT_MESSAGE,
         "assistant_message": TraceEventType.ASSISTANT_MESSAGE,
         "correction": TraceEventType.HUMAN_CORRECTION,
@@ -112,7 +112,7 @@ class ClaudeCodeTraceImporter:
         "workflow_step": TraceEventType.WORKFLOW_STEP,
     }
 
-    _KNOWN_EVENT_KEYS = {
+    _KNOWN_EVENT_KEYS: ClassVar[set[str]] = {
         "content",
         "event",
         "id",
