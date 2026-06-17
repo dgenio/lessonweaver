@@ -79,6 +79,24 @@ def test_governed_memory_snapshot_survives_registry_reload_with_provenance(tmp_p
     assert snapshot.to_dict()["records"][0]["reviewed"] is True
 
 
+def test_governed_memory_snapshot_preserves_linked_skill_evidence(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    lesson = _lesson()
+    lesson.evidence_trace_ids = ["trace-lesson"]
+    skill = _skill()
+    skill.metadata["candidate_id"] = lesson.candidate_id
+    skill.evidence_trace_ids = ["trace-skill", "trace-lesson"]
+    registry.save_lesson(lesson)
+    registry.save_skill(skill)
+
+    snapshot = build_governed_memory_snapshot(registry)
+
+    [record] = snapshot.records
+    assert record.skill_id == "skill-1"
+    assert record.evidence_trace_ids == ["trace-lesson", "trace-skill"]
+    assert snapshot.evidence_trace_ids == ["trace-lesson", "trace-skill"]
+
+
 def test_governed_memory_snapshot_reports_lifecycle_and_evidence_gaps(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     lesson = _lesson()

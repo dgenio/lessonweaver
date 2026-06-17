@@ -96,6 +96,10 @@ def build_governed_memory_snapshot(registry: FileSystemRegistry) -> GovernedMemo
 
 
 def _lesson_record(lesson: OperationalLesson, skill: SkillCard | None) -> GovernedMemoryRecord:
+    evidence_trace_ids = _merge_ids(
+        lesson.evidence_trace_ids,
+        skill.evidence_trace_ids if skill else [],
+    )
     return GovernedMemoryRecord(
         lesson_id=lesson.lesson_id,
         skill_id=skill.id if skill else None,
@@ -104,9 +108,21 @@ def _lesson_record(lesson: OperationalLesson, skill: SkillCard | None) -> Govern
         lifecycle=f"lesson:{lesson.status.value}",
         risk_level=lesson.risk_level.value,
         scope=lesson.scope.value,
-        evidence_trace_ids=list(lesson.evidence_trace_ids),
+        evidence_trace_ids=evidence_trace_ids,
         evidence_event_ids=list(lesson.evidence_event_ids),
     )
+
+
+def _merge_ids(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for item in group:
+            if item in seen:
+                continue
+            seen.add(item)
+            merged.append(item)
+    return merged
 
 
 def _skill_record(skill: SkillCard) -> GovernedMemoryRecord:
