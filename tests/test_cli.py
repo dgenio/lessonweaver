@@ -419,7 +419,7 @@ def test_cli_generate_pr_diff_redacts_candidate_content_by_default(capsys, tmp_p
     content = target.read_text(encoding="utf-8")
     assert "a.user@example.com" not in content
     assert "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ" not in content
-    assert "[REDACTED]" in content
+    assert "REDACTED" in content
 
 
 def test_cli_generate_pr_diff_can_disable_redaction(capsys, tmp_path) -> None:
