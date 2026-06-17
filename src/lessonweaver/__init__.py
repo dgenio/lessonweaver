@@ -40,10 +40,14 @@ from .filemerge import (
 from .governance import can_promote_skill, promote_skill
 from .importers import (
     FAILURE_CASE_PROVENANCE_KEY,
+    VIBEGUARD_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
     TraceImporter,
+    VibeguardImportResult,
+    VibeguardReportImporter,
     candidates_from_failure_case,
+    candidates_from_vibeguard_reports,
 )
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintFinding, LintSeverity, SkillLinter
@@ -93,6 +97,7 @@ from .validation import (
 
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
+    "VIBEGUARD_PROVENANCE_KEY",
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",
@@ -154,9 +159,12 @@ __all__ = [
     "ValidationExample",
     "ValidationResult",
     "ValidationSuite",
+    "VibeguardImportResult",
+    "VibeguardReportImporter",
     "apply_review_answer",
     "can_promote_skill",
     "candidates_from_failure_case",
+    "candidates_from_vibeguard_reports",
     "diff_managed_file",
     "explain_load",
     "export_agents_md_fragment",

@@ -44,10 +44,25 @@ The failed evaluation and the human correction each produce a conservative
 candidate you can review and, if the pattern recurs, promote into a reviewed
 lesson.
 
+For VibeGuard's report-level output, prefer the first-class importer:
+
+```bash
+lessonweaver import-vibeguard \
+  examples/interop_adapters/sample_vibeguard_report_pr101.json \
+  examples/interop_adapters/sample_vibeguard_report_pr102.json
+```
+
+`import-vibeguard` preserves finding ids, rules, categories, severities, paths,
+fingerprints, remediation text, and source refs. It deduplicates repeated
+fingerprints within the same PR/report context, reports one-off categories in the
+summary, and creates review candidates only when a category recurs across
+distinct contexts.
+
 ## What this is not
 
 - **Not a hard integration.** lessonweaver takes no dependency on any sibling
-  tool; the mapping lives in your script or in `examples/`, never in core.
+  tool; even first-class report importers map plain JSON without importing the
+  sibling package.
 - **Not automatic promotion.** A single finding is evidence, not a skill. Human
   review remains required. See
   [when not to create a skill](when-not-to-create-a-skill.md).

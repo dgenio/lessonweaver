@@ -1,0 +1,39 @@
+{
+  "schema": "weaver-stack/artifact-safety-report@1",
+  "tool": "vibeguard",
+  "report_id": "vg-report-pr-101",
+  "source_refs": [
+    {
+      "type": "pull_request",
+      "id": "pr-101"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "VG-101-SECRET",
+      "rule": "secret-in-config",
+      "category": "secret_leak",
+      "severity": "high",
+      "path": "src/config.py",
+      "fingerprint": "secret-config-pr101",
+      "message": "Hardcoded secret detected in config loader.",
+      "remediation": "Move the secret into an environment variable or secret manager.",
+      "source_refs": [
+        {
+          "type": "diff",
+          "id": "src/config.py:12"
+        }
+      ]
+    },
+    {
+      "finding_id": "VG-101-TIMEOUT",
+      "rule": "missing-timeout",
+      "category": "reliability",
+      "severity": "medium",
+      "path": "src/client.py",
+      "fingerprint": "timeout-client-pr101",
+      "message": "External HTTP call has no timeout.",
+      "remediation": "Add a bounded request timeout."
+    }
+  ]
+}

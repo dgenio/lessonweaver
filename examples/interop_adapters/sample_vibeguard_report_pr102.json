@@ -1,0 +1,29 @@
+{
+  "schema": "weaver-stack/artifact-safety-report@1",
+  "tool": "vibeguard",
+  "report_id": "vg-report-pr-102",
+  "source_refs": [
+    {
+      "type": "pull_request",
+      "id": "pr-102"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "VG-102-SECRET",
+      "rule": "secret-in-config",
+      "category": "secret_leak",
+      "severity": "critical",
+      "path": "settings.py",
+      "fingerprint": "secret-settings-pr102",
+      "message": "Hardcoded credential detected in generated settings.",
+      "remediation": "Load credentials from the deployment secret manager.",
+      "source_refs": [
+        {
+          "type": "diff",
+          "id": "settings.py:7"
+        }
+      ]
+    }
+  ]
+}

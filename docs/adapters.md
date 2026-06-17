@@ -33,6 +33,7 @@ importing the source system. They map a dict onto the schema.
 | --- | --- | --- |
 | `DictTraceImporter` | canonical lessonweaver trace JSON | `load_trace_bundle` delegates to it |
 | `FailureCaseImporter` | replayable failure case artifact | governed path for issue #82 |
+| `VibeguardReportImporter` | VibeGuard `ArtifactSafetyReport` / native report JSON | preserves finding provenance and only promotes repeated categories through `import-vibeguard` |
 
 `DictTraceImporter` makes the canonical loader a special case of the protocol:
 `load_trace_bundle` reads the JSON file, then calls `import_trace`.
@@ -55,8 +56,9 @@ When writing an adapter for a new format:
 4. **Preserve provenance.** Put source-specific identifiers in `metadata` (on
    the bundle and/or events). Unknown source fields can be dropped or carried in
    `metadata`; lessonweaver ignores unknown keys.
-5. **Keep it optional.** Concrete adapters for external systems live in
-   `examples/`, never in core (see [interoperability](interoperability.md)).
+5. **Keep it optional.** Experimental adapters for external systems live in
+   `examples/`; stable plain-JSON report formats may get a first-class core
+   importer when they stay dependency-free (see [interoperability](interoperability.md)).
 
 ### Required vs optional bundle fields
 
@@ -92,7 +94,8 @@ resulting candidate by `candidates_from_failure_case`. See
 
 - **OpenTelemetry** spans — design sketched in
   [`design/opentelemetry-import.md`](design/opentelemetry-import.md).
-- **Sibling tools** — agent-kernel ActionTrace, ChainWeaver flow-failure, and
-  vibeguard finding adapters live in
-  [`examples/interop_adapters/`](../examples/interop_adapters/).
+- **Sibling tools** — agent-kernel ActionTrace and ChainWeaver flow-failure
+  adapters live in [`examples/interop_adapters/`](../examples/interop_adapters/).
+  VibeGuard reports have a first-class import command, with single-finding
+  adapter examples kept there for lightweight interop demonstrations.
 - Claude Code hooks, Pipecat post-call JSON, CI logs.
