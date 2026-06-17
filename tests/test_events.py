@@ -194,6 +194,22 @@ def test_retrieval_and_loader_emit_skill_events(tmp_path: Path) -> None:
     } == set(context.omitted_skills)
 
 
+def test_loader_does_not_emit_budget_events_for_intentional_omissions(tmp_path: Path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill("selected"))
+
+    with emitter.capture() as load_events:
+        context = SkillLoader(registry).load_for_task(
+            "Review this pull request",
+            inclusion_level="none",
+        )
+
+    assert context.omitted_skills == ["selected"]
+    assert not any(
+        event.event_type is LifecycleEventType.SKILL_OMITTED_BUDGET for event in load_events
+    )
+
+
 def test_export_and_validation_emit_lifecycle_events() -> None:
     skill = _skill()
     with emitter.capture() as export_events:

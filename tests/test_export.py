@@ -1,6 +1,9 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
+from lessonweaver.events import LifecycleEventType, emitter
 from lessonweaver.export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -29,6 +32,11 @@ from lessonweaver.models import (
 from lessonweaver.privacy import SimpleRedactor
 
 NOW = datetime(2026, 5, 26, 12, 0, tzinfo=timezone.utc)
+
+
+class ExplodingRedactor:
+    def redact(self, text: str) -> str:
+        raise RuntimeError("redaction failed")
 
 
 def _make_skill() -> SkillCard:
@@ -160,8 +168,16 @@ def test_export_redactor_integration() -> None:
     skill.description = "Contact admin@example.com with api_key: sk-test-value"
     rendered = export_skillcard_markdown(skill, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "api_key" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "sk-test-value" not in rendered
+    assert "[REDACTED by email]" in rendered
+    assert "[REDACTED by api_key]" in rendered
+
+
+def test_export_does_not_emit_event_when_redaction_fails() -> None:
+    with emitter.capture() as events, pytest.raises(RuntimeError, match="redaction failed"):
+        export_skillcard_markdown(_make_skill(), redactor=ExplodingRedactor())
+
+    assert not any(event.event_type is LifecycleEventType.SKILL_EXPORTED for event in events)
 
 
 def test_export_agents_md_fragment_snapshot() -> None:
@@ -325,4 +341,4 @@ def test_export_lesson_redactor_integration() -> None:
     candidate.observed_problem = "Leaked admin@example.com during review."
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "[REDACTED by email]" in rendered

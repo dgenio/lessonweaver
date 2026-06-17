@@ -35,6 +35,12 @@ class SkillLoader:
         max_skills: int = 10,
         inclusion_level: str = "summary",
     ) -> CompiledContext:
+        """Load matching skills into a compiled context.
+
+        ``budget_chars`` and any policy cap are measured in characters. This
+        deliberately matches :class:`SkillCompiler`, which uses ``len(...)``
+        rather than a tokenizer-dependent token counter.
+        """
         # When a policy is present it owns load governance: its limits act as
         # ceilings over the per-call arguments, and it has already decided which
         # lifecycle states are eligible. Retrieval must therefore not re-apply
@@ -45,7 +51,7 @@ class SkillLoader:
         effective_budget = budget_chars
         if self.policy is not None:
             effective_max_skills = min(max_skills, self.policy.max_skills)
-            effective_budget = min(budget_chars, self.policy.max_token_budget)
+            effective_budget = min(budget_chars, self.policy.max_budget_chars)
 
         query = RetrievalQuery(
             task=task,
@@ -60,20 +66,22 @@ class SkillLoader:
         if self.policy is not None:
             skills = self.policy.filter(skills)
         results = self.retriever.retrieve(skills, query)
+        default_inclusion = InclusionLevel(inclusion_level)
         context = self.compiler.compile(
             results,
             budget_chars=effective_budget,
-            default_inclusion=InclusionLevel(inclusion_level),
+            default_inclusion=default_inclusion,
         )
-        for skill_id in context.omitted_skills:
-            emitter.emit(
-                LifecycleEvent(
-                    LifecycleEventType.SKILL_OMITTED_BUDGET,
-                    skill_id,
-                    {
-                        "budget_chars": effective_budget,
-                        "total_chars": context.total_chars,
-                    },
+        if default_inclusion is not InclusionLevel.NONE:
+            for skill_id in context.omitted_skills:
+                emitter.emit(
+                    LifecycleEvent(
+                        LifecycleEventType.SKILL_OMITTED_BUDGET,
+                        skill_id,
+                        {
+                            "budget_chars": effective_budget,
+                            "total_chars": context.total_chars,
+                        },
+                    )
                 )
-            )
         return context
