@@ -55,8 +55,18 @@ When writing an adapter for a new format:
 4. **Preserve provenance.** Put source-specific identifiers in `metadata` (on
    the bundle and/or events). Unknown source fields can be dropped or carried in
    `metadata`; lessonweaver ignores unknown keys.
-5. **Keep it optional.** Concrete adapters for external systems live in
+5. **Sanitize before mining when needed.** Run `detect --sanitize`, or pass the
+   imported bundle through `TraceSanitizer`, whenever source traces may contain
+   secrets or PII. This happens before detection, so redaction affects the
+   candidates, review questions, and registry entries produced from the trace.
+   Export-time redaction is later and cannot undo sensitive content that shaped
+   mining.
+6. **Keep it optional.** Concrete adapters for external systems live in
    `examples/`, never in core (see [interoperability](interoperability.md)).
+
+Sanitization is pattern-based and best-effort. Protect raw traces at the source,
+and add custom `SanitizationRule`s for domain-specific secrets that the default
+rules cannot recognize.
 
 ### Required vs optional bundle fields
 
