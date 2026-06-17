@@ -851,6 +851,41 @@ def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
     assert exit_code == 0
 
 
+def test_cli_eval_detection_compare_results_passes(capsys) -> None:
+    exit_code = main(
+        [
+            "eval-detection",
+            "benchmark/v1/corpus.json",
+            "--compare-results",
+            "benchmark/v1/results.json",
+        ]
+    )
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["corpus_id"] == "lessonweaver-detection-benchmark-v1"
+
+
+def test_cli_eval_detection_compare_results_fails(capsys, tmp_path) -> None:
+    stale_results = tmp_path / "results.json"
+    stale_results.write_text(
+        json.dumps({"corpus_id": "lessonweaver-detection-benchmark-v1", "total_cases": 0}),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "eval-detection",
+            "benchmark/v1/corpus.json",
+            "--compare-results",
+            str(stale_results),
+        ]
+    )
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "recorded detection benchmark results differ" in err
+
+
 def test_cli_eval_detection_with_clustering_preserves_precision_gate(capsys, tmp_path) -> None:
     corpus_path = tmp_path / "corpus.json"
     corpus_path.write_text(
