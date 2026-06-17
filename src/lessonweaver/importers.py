@@ -221,6 +221,7 @@ class OpenCodeTraceImporter:
             if not isinstance(raw_event, dict):
                 raise ValueError(f"OpenCode event {index} must be an event object.")
             events.append(self._event_from_dict(trace_id, index, raw_event))
+        self._propagate_tool_results(events)
 
         outcome = str(source.get("outcome") or self._infer_outcome(events))
         bundle = TraceBundle(
@@ -267,6 +268,37 @@ class OpenCodeTraceImporter:
 
     def _metadata(self, source: dict[str, Any], known_keys: set[str]) -> dict[str, Any]:
         return {key: value for key, value in source.items() if key not in known_keys}
+
+    def _propagate_tool_results(self, events: list[TraceEvent]) -> None:
+        calls_by_id = {
+            event.id: event for event in events if event.type is TraceEventType.TOOL_CALL
+        }
+        last_call: TraceEvent | None = None
+        for event in events:
+            if event.type is TraceEventType.TOOL_CALL:
+                last_call = event
+                continue
+            if event.type is not TraceEventType.TOOL_RESULT:
+                continue
+
+            linked_call = self._linked_tool_call(event, calls_by_id) or last_call
+            if linked_call is None:
+                continue
+            if event.success is False or event.status == "failed":
+                linked_call.success = False
+                linked_call.status = "failed"
+            elif event.success is True:
+                linked_call.success = True
+                linked_call.status = linked_call.status or event.status
+
+    def _linked_tool_call(
+        self, event: TraceEvent, calls_by_id: dict[str, TraceEvent]
+    ) -> TraceEvent | None:
+        for key in ("tool_call_id", "tool_use_id", "call_id"):
+            value = event.metadata.get(key)
+            if isinstance(value, str) and value in calls_by_id:
+                return calls_by_id[value]
+        return None
 
     def _infer_outcome(self, events: list[TraceEvent]) -> str:
         if any(event.type is TraceEventType.HUMAN_CORRECTION for event in events):

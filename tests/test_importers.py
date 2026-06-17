@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lessonweaver.detection import LessonDetector
 from lessonweaver.importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
@@ -177,6 +178,41 @@ def test_opencode_importer_normalizes_to_valid_trace_bundle() -> None:
     assert bundle.events[2].success is False
     assert bundle.events[3].content == "You must inspect the diff before approving."
     assert validate_trace_dict(bundle.to_dict()) == []
+
+
+def test_opencode_failed_tool_result_enables_fallback_detection() -> None:
+    bundle = OpenCodeTraceImporter().import_trace(
+        {
+            "source": "opencode",
+            "session_id": "oc-tool-fallback",
+            "task": "Find auth config",
+            "events": [
+                {"id": "call-1", "type": "tool_call", "tool": "read", "input": "auth.py"},
+                {
+                    "id": "result-1",
+                    "type": "tool_result",
+                    "tool_call_id": "call-1",
+                    "output": "No match found",
+                    "success": False,
+                },
+                {"id": "call-2", "type": "tool_call", "tool": "read", "input": "login.py"},
+                {
+                    "id": "result-2",
+                    "type": "tool_result",
+                    "tool_call_id": "call-2",
+                    "output": "Found match",
+                    "success": True,
+                },
+            ],
+        }
+    )
+
+    candidates = LessonDetector().detect(bundle)
+
+    assert bundle.events[0].success is False
+    assert bundle.events[0].status == "failed"
+    assert bundle.events[2].success is True
+    assert [candidate.id for candidate in candidates] == ["oc-tool-fallback-tool-fallback"]
 
 
 def test_opencode_importer_preserves_safe_unknown_fields_in_metadata() -> None:
