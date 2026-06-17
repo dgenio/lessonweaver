@@ -38,6 +38,8 @@ SENSITIVE_CASES = [
 SAFE_CASES = [
     "No sensitive pattern here.",
     "Token budget is a planning term, not a secret.",
+    "secret: it was the butler in the library.",
+    "token: budget is a planning term, not a credential.",
     "Contact the admin team without embedding an address.",
 ]
 

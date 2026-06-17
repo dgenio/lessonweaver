@@ -70,7 +70,8 @@ def default_redaction_rules() -> list[SanitizationRule]:
             name="generic_token_assignment",
             pattern=(
                 r"(?i)(?:access[_-]?token|client[_-]?secret|secret|token)"
-                r"\s*[:=]\s*(?!\[REDACTED\b)\S+"
+                r"\s*[:=]\s*(?!\[REDACTED\b)"
+                r"(?=[A-Za-z0-9._-]{8,}\b)(?=[A-Za-z0-9._-]*[0-9._-])[A-Za-z0-9._-]+"
             ),
             replacement="[REDACTED by generic_token_assignment]",
         ),
