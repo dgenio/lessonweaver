@@ -46,10 +46,13 @@ def test_trace_recorder_emits_valid_ordered_events_with_stable_ids(tmp_path) -> 
 def test_record_context_manager_saves_exception_trace(tmp_path) -> None:
     out = tmp_path / "trace.json"
 
-    with pytest.raises(RuntimeError, match="boom"):
+    def raise_inside_recording() -> None:
         with record("unit-test", "Run risky tool", trace_id="trace-error", output=out) as recorder:
             recorder.user_message("run it")
             raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        raise_inside_recording()
 
     bundle = load_trace_bundle(out)
     assert bundle.trace_id == "trace-error"
