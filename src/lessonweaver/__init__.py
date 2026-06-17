@@ -6,13 +6,16 @@ from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import (
+    ClusteredDetectionEvalReport,
     DetectionCase,
     DetectionCorpus,
     DetectionEvalReport,
     DetectionEvalResult,
+    run_clustered_detection_eval,
     run_detection_eval,
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
+from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
 from .export import (
     EXPORT_FILE_FORMAT_CHOICES,
     EXPORT_FILE_FORMAT_INPUT_CHOICES,
@@ -101,10 +104,16 @@ from .validation import (
 )
 
 __all__ = [
+    "EXPORTER_REGISTRY",
+    "EXPORT_FILE_FORMAT_CHOICES",
+    "EXPORT_FILE_FORMAT_INPUT_CHOICES",
+    "EXPORT_FORMAT_CHOICES",
+    "EXPORT_FORMAT_INPUT_CHOICES",
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",
+    "ClusteredDetectionEvalReport",
     "CompiledContext",
     "DetectionCase",
     "DetectionCorpus",
@@ -113,11 +122,6 @@ __all__ = [
     "DictTraceImporter",
     "ExportArtifact",
     "ExportFormat",
-    "EXPORTER_REGISTRY",
-    "EXPORT_FILE_FORMAT_CHOICES",
-    "EXPORT_FILE_FORMAT_INPUT_CHOICES",
-    "EXPORT_FORMAT_CHOICES",
-    "EXPORT_FORMAT_INPUT_CHOICES",
     "ExporterSpec",
     "FailureCaseImporter",
     "FileSystemRegistry",
@@ -136,10 +140,10 @@ __all__ = [
     "LoadingPolicy",
     "OperationalLesson",
     "RecommendedActionType",
+    "ResolvedExporter",
     "RetrievalDiagnostics",
     "RetrievalQuery",
     "RetrievalResult",
-    "ResolvedExporter",
     "ReviewAnswer",
     "ReviewOption",
     "ReviewQuestion",
@@ -153,6 +157,8 @@ __all__ = [
     "SkillCard",
     "SkillCleaner",
     "SkillCompiler",
+    "SkillEffectivenessReport",
+    "SkillEffectivenessReporter",
     "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
@@ -199,6 +205,7 @@ __all__ = [
     "merge_managed_block",
     "promote_skill",
     "resolve_export_format",
+    "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",

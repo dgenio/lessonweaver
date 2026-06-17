@@ -1,6 +1,8 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from lessonweaver.export import (
     EXPORT_FILE_FORMAT_CHOICES,
     EXPORT_FORMAT_CHOICES,
@@ -128,7 +130,7 @@ def test_export_skillcard_json() -> None:
 
 
 def test_exporter_registry_defines_skill_choices_and_file_choices() -> None:
-    assert EXPORT_FORMAT_CHOICES == tuple(EXPORTER_REGISTRY)
+    assert tuple(EXPORTER_REGISTRY) == EXPORT_FORMAT_CHOICES
     assert "codex" in EXPORT_FORMAT_CHOICES
     assert "codex" not in EXPORT_FILE_FORMAT_CHOICES
     assert all(EXPORTER_REGISTRY[name].valid_for_file for name in EXPORT_FILE_FORMAT_CHOICES)
@@ -143,12 +145,8 @@ def test_exporter_registry_resolves_deprecated_aliases() -> None:
 
 
 def test_exporter_registry_rejects_unknown_format() -> None:
-    try:
+    with pytest.raises(ValueError, match="unknown export format"):
         resolve_export_format("not-a-format")
-    except ValueError as exc:
-        assert "unknown export format" in str(exc)
-    else:
-        raise AssertionError("unknown formats must not fall back to runtime")
 
 
 def test_export_copilot_instruction_fragment() -> None:
@@ -188,8 +186,9 @@ def test_export_redactor_integration() -> None:
     skill.description = "Contact admin@example.com with api_key: sk-test-value"
     rendered = export_skillcard_markdown(skill, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "api_key" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "sk-test-value" not in rendered
+    assert "[REDACTED by email]" in rendered
+    assert "[REDACTED by api_key]" in rendered
 
 
 def test_export_agents_md_fragment_snapshot() -> None:
@@ -353,4 +352,4 @@ def test_export_lesson_redactor_integration() -> None:
     candidate.observed_problem = "Leaked admin@example.com during review."
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "[REDACTED by email]" in rendered
