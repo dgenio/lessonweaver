@@ -463,6 +463,31 @@ def test_cli_promote_skill_updates_rollout_metadata(capsys, tmp_path) -> None:
     assert payload["rollout"]["review_date"] == "2026-06-02T12:00:00+00:00"
 
 
+def test_cli_promote_skill_allows_rollout_only_updates(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+
+    exit_code = main(
+        [
+            "promote-skill",
+            "skill-1",
+            "experimental",
+            "--registry-root",
+            str(tmp_path),
+            "--rollout-status",
+            "canary",
+            "--rollout-percentage",
+            "25",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "experimental"
+    assert payload["rollout"]["status"] == "canary"
+    assert payload["rollout"]["percentage"] == 25
+
+
 def test_cli_log_usage_records_event(capsys, tmp_path) -> None:
     exit_code = main(
         [

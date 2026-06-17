@@ -1266,7 +1266,9 @@ def _run(args: argparse.Namespace) -> int:
         registry = _registry(args.registry_root)
         skill = registry.load_skill(args.skill_id)
         try:
-            promoted = promote_skill(skill, SkillStatus(args.target))
+            target_status = SkillStatus(args.target)
+            rollout_only_update = target_status is skill.status and _has_rollout_args(args)
+            promoted = skill if rollout_only_update else promote_skill(skill, target_status)
             if _has_rollout_args(args):
                 promoted = update_rollout_metadata(
                     promoted,
