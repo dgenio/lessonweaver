@@ -164,6 +164,61 @@ def export_agents_md_fragment(skill: SkillCard, redactor: Redactor | None = None
     return "\n".join(lines).strip() + "\n"
 
 
+def export_dox_agents_md(skill: SkillCard, redactor: Redactor | None = None) -> str:
+    """Render a SkillCard as a Dox-compatible hierarchical AGENTS.md section.
+
+    The output is plain Markdown and carries no Dox runtime dependency. It keeps
+    the review provenance visible so teams can place the section at the nearest
+    durable project boundary without implying unreviewed self-activation.
+    """
+    lines = [
+        (
+            "<!-- lessonweaver profile=dox-agents-md "
+            f"skill_id={skill.id} version={_text(skill.version, redactor)} "
+            f"confidence={skill.confidence:.2f} -->"
+        ),
+        f"# {_text(skill.name, redactor)}",
+        "",
+        "## Purpose",
+        _text(skill.description, redactor),
+        "",
+        "## Ownership",
+        f"- Source: lessonweaver reviewed skill `{skill.id}`",
+        f"- Scope: {skill.scope.value}",
+        f"- Risk: {skill.risk_level.value}",
+        f"- Status: {skill.status.value}",
+        "- Human review: required before export; do not auto-activate unreviewed lessons.",
+    ]
+    lines.extend(
+        [
+            "",
+            "## Local Contracts",
+            f"- Apply when: {'; '.join(_list(skill.applies_when, redactor))}",
+        ]
+    )
+    if skill.does_not_apply_when:
+        lines.append(
+            f"- Do not apply when: {'; '.join(_list(skill.does_not_apply_when, redactor))}"
+        )
+    _section(lines, "Work Guidance", _list(skill.instructions, redactor))
+    verification = [f"Avoid: {item}" for item in _list(skill.anti_patterns, redactor)]
+    verification.extend(
+        f"Evidence trace: {_text(trace_id, redactor)}" for trace_id in skill.evidence_trace_ids
+    )
+    _section(lines, "Verification", verification)
+    lines.extend(
+        [
+            "",
+            "## Child Instruction Index",
+            (
+                "- Add child `AGENTS.md` files for narrower directory contracts when this "
+                "guidance does not apply repo-wide."
+            ),
+        ]
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
 def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a repository-wide GitHub Copilot instruction block.
 

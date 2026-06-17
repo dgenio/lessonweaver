@@ -151,7 +151,7 @@ print(context.snippet)
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
-- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
+- `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|dox-agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
 - `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
 
 Shared output flags: `--output FILE` writes the result to a file instead of stdout;
@@ -194,6 +194,7 @@ Closed-loop effectiveness reports are available through the library API; see
 | Generic runtime prompt snippets | Supported |
 | Codex skill directory export | Supported (`codex`) |
 | AGENTS.md fragment export | Supported (`agents-md`) |
+| Dox-compatible hierarchical AGENTS.md section | Supported (`dox-agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
@@ -278,7 +279,7 @@ any sibling. The Mermaid source is in
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
-- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
+- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md), [Dox-compatible AGENTS.md](docs/integrations/dox-agents-md.md)
 - [Interoperability](docs/interoperability.md)
 - [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)

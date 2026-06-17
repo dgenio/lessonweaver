@@ -244,6 +244,25 @@ def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
     assert "### PR Diff First" in out
 
 
+def test_cli_export_skill_dox_agents_md(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        [
+            "export-skill",
+            "skill-1",
+            "--format",
+            "dox-agents-md",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "<!-- lessonweaver profile=dox-agents-md skill_id=skill-1" in out
+    assert "## Child Instruction Index" in out
+
+
 def test_cli_export_skill_copilot_path_applies_to(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
