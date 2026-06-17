@@ -6,10 +6,11 @@ import argparse
 import json
 import sys
 import uuid
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from .analysis import SkillAnalyzer
 from .cleanup import SkillCleaner
@@ -60,6 +61,11 @@ from .retrieval import RetrievalQuery, SkillRetriever
 from .sanitization import TraceSanitizer
 from .traces import load_trace_bundle
 from .validation import ValidationSuite, run_validation_suite
+
+
+class _CompletionSpec(TypedDict):
+    options: list[str]
+    choice_options: dict[str, list[str]]
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:
@@ -119,6 +125,188 @@ def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace
         [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
     )
     return _emit_text(content, output=args.output, dry_run=args.dry_run)
+
+
+def _completion_script(parser: argparse.ArgumentParser, shell: str) -> str:
+    specs = _completion_specs(parser)
+    if shell == "bash":
+        return _bash_completion_script(specs)
+    if shell == "zsh":
+        return _zsh_completion_script(specs)
+    if shell == "fish":
+        return _fish_completion_script(specs)
+    raise ValueError(f"unsupported shell: {shell}")
+
+
+def _completion_specs(parser: argparse.ArgumentParser) -> dict[str, _CompletionSpec]:
+    subparsers = _subparser_action(parser)
+    specs: dict[str, _CompletionSpec] = {}
+    for command, command_parser in subparsers.choices.items():
+        options = _option_strings(command_parser)
+        choice_options: dict[str, list[str]] = {}
+        for action in command_parser._actions:
+            if not action.option_strings or action.choices is None:
+                continue
+            choices = [str(choice) for choice in action.choices]
+            for option in action.option_strings:
+                if option.startswith("--"):
+                    choice_options[option] = choices
+        specs[command] = {"options": options, "choice_options": choice_options}
+    return specs
+
+
+def _subparser_action(parser: argparse.ArgumentParser) -> argparse._SubParsersAction:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return action
+    raise ValueError("parser has no subcommands")
+
+
+def _option_strings(parser: argparse.ArgumentParser) -> list[str]:
+    options: set[str] = set()
+    for action in parser._actions:
+        options.update(action.option_strings)
+    return sorted(options)
+
+
+def _bash_completion_script(specs: dict[str, _CompletionSpec]) -> str:
+    commands = _words(specs.keys())
+    command_cases = []
+    for command, spec in sorted(specs.items()):
+        options = _words(spec["options"])
+        choice_cases = _bash_choice_cases(spec["choice_options"])
+        command_cases.append(
+            "\n".join(
+                [
+                    f"    {command})",
+                    '      case "$prev" in',
+                    choice_cases,
+                    "      esac",
+                    f'      COMPREPLY=( $(compgen -W "{options}" -- "$cur") )',
+                    "      return",
+                    "      ;;",
+                ]
+            )
+        )
+    return "\n".join(
+        [
+            "# bash completion for lessonweaver",
+            "_lessonweaver_complete() {",
+            "  local cur prev command",
+            "  COMPREPLY=()",
+            '  cur="${COMP_WORDS[COMP_CWORD]}"',
+            '  prev="${COMP_WORDS[COMP_CWORD-1]}"',
+            "  if [[ $COMP_CWORD -eq 1 ]]; then",
+            f'    COMPREPLY=( $(compgen -W "{commands}" -- "$cur") )',
+            "    return",
+            "  fi",
+            '  command="${COMP_WORDS[1]}"',
+            '  case "$command" in',
+            *command_cases,
+            "  esac",
+            "}",
+            "complete -F _lessonweaver_complete lessonweaver",
+            "",
+        ]
+    )
+
+
+def _bash_choice_cases(choice_options: dict[str, list[str]]) -> str:
+    cases = []
+    for option, choices in sorted(choice_options.items()):
+        cases.extend(
+            [
+                f"        {option})",
+                f'          COMPREPLY=( $(compgen -W "{_words(choices)}" -- "$cur") )',
+                "          return",
+                "          ;;",
+            ]
+        )
+    return "\n".join(cases) if cases else "        *) ;;"
+
+
+def _zsh_completion_script(specs: dict[str, _CompletionSpec]) -> str:
+    commands = _words(specs.keys())
+    command_cases = []
+    for command, spec in sorted(specs.items()):
+        options = _words(spec["options"])
+        choice_cases = _zsh_choice_cases(spec["choice_options"])
+        command_cases.append(
+            "\n".join(
+                [
+                    f"    {command})",
+                    '      case "${words[CURRENT-1]}" in',
+                    choice_cases,
+                    "      esac",
+                    f"      compadd -- {options}",
+                    "      ;;",
+                ]
+            )
+        )
+    return "\n".join(
+        [
+            "#compdef lessonweaver",
+            "# zsh completion for lessonweaver",
+            "_lessonweaver() {",
+            "  if (( CURRENT == 2 )); then",
+            f"    compadd -- {commands}",
+            "    return",
+            "  fi",
+            "  local command=${words[2]}",
+            '  case "$command" in',
+            *command_cases,
+            "  esac",
+            "}",
+            '_lessonweaver "$@"',
+            "",
+        ]
+    )
+
+
+def _zsh_choice_cases(choice_options: dict[str, list[str]]) -> str:
+    cases = []
+    for option, choices in sorted(choice_options.items()):
+        cases.extend(
+            [
+                f"        {option})",
+                f"          compadd -- {_words(choices)}",
+                "          return",
+                "          ;;",
+            ]
+        )
+    return "\n".join(cases) if cases else "        *) ;;"
+
+
+def _fish_completion_script(specs: dict[str, _CompletionSpec]) -> str:
+    lines = [
+        "# fish completion for lessonweaver",
+        "complete -c lessonweaver -f",
+    ]
+    for command in sorted(specs):
+        lines.append(f"complete -c lessonweaver -n '__fish_use_subcommand' -a '{command}'")
+    for command, spec in sorted(specs.items()):
+        for option in spec["options"]:
+            if not str(option).startswith("--"):
+                continue
+            option_name = str(option)[2:]
+            choices = spec["choice_options"].get(option, [])
+            if choices:
+                lines.append(
+                    "complete -c lessonweaver "
+                    f"-n '__fish_seen_subcommand_from {command}' -l {option_name} "
+                    f"-a '{_words(choices)}'"
+                )
+            else:
+                lines.append(
+                    "complete -c lessonweaver "
+                    f"-n '__fish_seen_subcommand_from {command}' -l {option_name}"
+                )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _words(values: Iterable[object]) -> str:
+    return " ".join(str(value) for value in values)
 
 
 def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> LessonCandidate:
@@ -384,7 +572,7 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
-def main(argv: list[str] | None = None) -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lessonweaver")
 
     dry_run_parent = argparse.ArgumentParser(add_help=False)
@@ -773,6 +961,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Apply the safe automated subset (deprecate expired skills through the lifecycle)",
     )
 
+    completions_parser = subparsers.add_parser(
+        "completions",
+        help="Print shell completion scripts for bash, zsh, or fish",
+    )
+    completions_parser.add_argument("--shell", choices=["bash", "zsh", "fish"], required=True)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
     args = parser.parse_args(argv)
 
     try:
@@ -795,6 +994,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run(args: argparse.Namespace) -> int:
+    if args.command == "completions":
+        return _emit_text(
+            _completion_script(_build_parser(), args.shell),
+            output=None,
+            dry_run=False,
+        )
+
     if args.command == "detect":
         bundle = load_trace_bundle(args.trace_path)
         if args.sanitize:
