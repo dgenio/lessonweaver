@@ -1,0 +1,14 @@
+- id: lessonweaver-lint
+  name: lessonweaver skill lint
+  description: Lint LessonWeaver JSON and Markdown skill files.
+  entry: lessonweaver lint
+  language: python
+  files: (?x)(^|/)(skills?/.*\.(json|md|markdown)|.*skill.*\.json)$
+
+- id: lessonweaver-drift
+  name: lessonweaver managed instruction drift check
+  description: Fail when configured instruction files differ from exported managed blocks.
+  entry: lessonweaver export-file --check
+  language: python
+  pass_filenames: false
+  files: (^|/)(AGENTS\.md|CLAUDE\.md|\.github/copilot-instructions\.md)$

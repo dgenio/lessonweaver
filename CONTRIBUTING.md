@@ -29,14 +29,15 @@ Significant architecture changes should add or supersede an
 pip install -e ".[dev]"
 
 # Lint, format check, type check, tests — the same checks CI runs
+pre-commit run --all-files
 ruff check src/ tests/
 ruff format --check src/ tests/
 mypy src/lessonweaver/
 pytest
 ```
 
-CI runs lint, type check, and tests on Python 3.10, 3.11, and 3.12. Run the
-commands above locally before opening a PR so there are no surprises.
+CI runs pre-commit, lint, type check, and tests on Python 3.10, 3.11, and 3.12.
+Run the commands above locally before opening a PR so there are no surprises.
 
 ## Where to contribute
 

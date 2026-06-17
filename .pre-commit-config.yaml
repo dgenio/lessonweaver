@@ -1,0 +1,42 @@
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check src/ tests/
+        language: system
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format check
+        entry: ruff format --check src/ tests/
+        language: system
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy
+        entry: mypy src/lessonweaver/
+        language: system
+        pass_filenames: false
+
+      - id: lessonweaver-lint
+        name: lessonweaver skill lint
+        entry: lessonweaver lint
+        language: system
+        files: ^(examples/skills/.*\.(md|markdown)|examples/coding_agent_pr_review/skill\.json)$
+
+      - id: lessonweaver-drift
+        name: lessonweaver managed instruction drift check
+        entry: lessonweaver export-file
+        language: system
+        pass_filenames: false
+        stages: [manual]
+        args:
+          - examples/coding_agent_pr_review/skill.json
+          - --path
+          - AGENTS.md
+          - --format
+          - agents-md
+          - --check
