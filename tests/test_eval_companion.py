@@ -10,6 +10,7 @@ from lessonweaver.models import (
     RiskLevel,
     Scope,
 )
+from lessonweaver.privacy import SimpleRedactor
 
 NOW = datetime(2026, 6, 14, 12, 0, tzinfo=timezone.utc)
 
@@ -87,3 +88,24 @@ def test_eval_companion_pack_rejects_unreviewed_or_skill_candidates() -> None:
         )
     with pytest.raises(ValueError, match="eval companion"):
         export_eval_companion_pack([_candidate("skill-1", RecommendedActionType.SKILL)])
+
+
+def test_eval_companion_pack_rejects_unsafe_candidate_ids() -> None:
+    with pytest.raises(ValueError, match="unsafe candidate id"):
+        export_eval_companion_pack([_candidate("../outside", RecommendedActionType.EVAL)])
+
+
+def test_eval_companion_pack_redacts_metadata_readme_and_paths() -> None:
+    candidate = _candidate("eval-admin@example.com", RecommendedActionType.EVAL)
+    candidate.approved_by = "reviewer@example.com"
+    candidate.evidence_trace_ids = ["trace-Bearer abcdefghijklmnopqrstuvwxyz123456"]
+    candidate.evidence_event_ids = ["event-admin@example.com"]
+
+    pack = export_eval_companion_pack([candidate], redactor=SimpleRedactor())
+
+    serialized = "\n".join([*pack.keys(), pack["README.md"], pack["metadata.json"]])
+    assert "admin@example.com" not in serialized
+    assert "reviewer@example.com" not in serialized
+    assert "Bearer abcdefghijklmnopqrstuvwxyz123456" not in serialized
+    assert "[REDACTED]" in serialized
+    assert "evals/[REDACTED].md" in pack

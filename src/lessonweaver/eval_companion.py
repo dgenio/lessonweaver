@@ -36,9 +36,11 @@ def export_eval_companion_pack(
     for candidate in candidates:
         _validate_candidate(candidate)
         directory, exporter = _EXPORTERS[candidate.recommended_action_type]
-        path = f"{directory}/{candidate.id}.md"
+        candidate_id = _redact_text(candidate.id, redactor)
+        _validate_candidate_id(candidate_id)
+        path = f"{directory}/{candidate_id}.md"
         artifacts[path] = exporter(candidate, redactor=redactor)
-        metadata.append(_metadata(candidate, path))
+        metadata.append(_metadata(candidate, candidate_id, path, redactor))
 
     artifacts["README.md"] = _readme(metadata)
     artifacts["metadata.json"] = json.dumps(
@@ -61,18 +63,48 @@ def _validate_candidate(candidate: LessonCandidate) -> None:
         )
 
 
-def _metadata(candidate: LessonCandidate, path: str) -> dict[str, object]:
+def _validate_candidate_id(candidate_id: str) -> None:
+    if (
+        not candidate_id
+        or "/" in candidate_id
+        or "\\" in candidate_id
+        or ".." in candidate_id
+        or "\x00" in candidate_id
+    ):
+        raise ValueError(f"unsafe candidate id for eval companion export: {candidate_id!r}")
+
+
+def _redact_text(value: str, redactor: Redactor | None) -> str:
+    return redactor.redact(value) if redactor is not None else value
+
+
+def _redact_optional_text(value: str | None, redactor: Redactor | None) -> str | None:
+    if value is None:
+        return None
+    return _redact_text(value, redactor)
+
+
+def _redact_list(values: list[str], redactor: Redactor | None) -> list[str]:
+    return [_redact_text(value, redactor) for value in values]
+
+
+def _metadata(
+    candidate: LessonCandidate,
+    candidate_id: str,
+    path: str,
+    redactor: Redactor | None,
+) -> dict[str, object]:
     return {
-        "candidate_id": candidate.id,
+        "candidate_id": candidate_id,
         "path": path,
         "action_type": candidate.recommended_action_type.value,
         "status": candidate.status.value,
-        "approved_by": candidate.approved_by,
+        "approved_by": _redact_optional_text(candidate.approved_by, redactor),
         "risk_level": candidate.risk_level.value,
         "scope": candidate.scope.value,
         "confidence": candidate.confidence,
-        "evidence_trace_ids": list(candidate.evidence_trace_ids),
-        "evidence_event_ids": list(candidate.evidence_event_ids),
+        "evidence_trace_ids": _redact_list(candidate.evidence_trace_ids, redactor),
+        "evidence_event_ids": _redact_list(candidate.evidence_event_ids, redactor),
     }
 
 
