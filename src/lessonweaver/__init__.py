@@ -6,13 +6,16 @@ from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import (
+    ClusteredDetectionEvalReport,
     DetectionCase,
     DetectionCorpus,
     DetectionEvalReport,
     DetectionEvalResult,
+    run_clustered_detection_eval,
     run_detection_eval,
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
+from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -97,6 +100,7 @@ __all__ = [
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",
+    "ClusteredDetectionEvalReport",
     "CompiledContext",
     "DetectionCase",
     "DetectionCorpus",
@@ -138,6 +142,8 @@ __all__ = [
     "SkillCard",
     "SkillCleaner",
     "SkillCompiler",
+    "SkillEffectivenessReport",
+    "SkillEffectivenessReporter",
     "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
@@ -185,6 +191,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",
