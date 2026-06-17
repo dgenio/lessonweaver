@@ -263,6 +263,28 @@ def test_cli_export_skill_copilot_path_applies_to(capsys, tmp_path) -> None:
     assert 'applyTo: "src/**/*.py"' in capsys.readouterr().out
 
 
+def test_cli_export_skill_cursor_rule_applies_to(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    exit_code = main(
+        [
+            "export-skill",
+            "skill-1",
+            "--format",
+            "cursor",
+            "--applies-to",
+            "src/**/*.py",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert out.startswith("---\n")
+    assert 'globs: "src/**/*.py"' in out
+    assert "alwaysApply: false" in out
+
+
 def test_cli_export_skill_codex_is_json_directory(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())

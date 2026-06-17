@@ -137,6 +137,10 @@ def test_export_artifact_round_trip() -> None:
     assert ExportArtifact.from_dict(artifact.to_dict()).to_dict() == artifact.to_dict()
 
 
+def test_export_format_cursor_exists() -> None:
+    assert ExportFormat.CURSOR_RULE.value == "cursor"
+
+
 def test_skillcard_round_trip_includes_sensitivity() -> None:
     skill = _skill()
     data = SkillCard.from_dict(skill.to_dict()).to_dict()

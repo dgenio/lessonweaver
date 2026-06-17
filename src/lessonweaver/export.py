@@ -210,6 +210,41 @@ def export_copilot_path_instruction(
     return "\n".join(lines).strip() + "\n"
 
 
+def export_cursor_rule(
+    skill: SkillCard,
+    applies_to_glob: str = "",
+    redactor: Redactor | None = None,
+) -> str:
+    """Render a SkillCard as a Cursor project rule (.cursor/rules/*.mdc)."""
+    description = _text(skill.description, redactor)
+    lines = [
+        "---",
+        f"description: {json.dumps(description)}",
+    ]
+    if applies_to_glob:
+        lines.append(f"globs: {json.dumps(applies_to_glob)}")
+    lines.extend(
+        [
+            "alwaysApply: false",
+            "---",
+            "",
+            f"# {_text(skill.name, redactor)}",
+            "",
+            description,
+        ]
+    )
+    _section(lines, "When to apply", _list(skill.applies_when, redactor))
+    _section(lines, "When NOT to apply", _list(skill.does_not_apply_when, redactor))
+    _section(lines, "Instructions", _list(skill.instructions, redactor))
+    _section(lines, "Anti-patterns", _list(skill.anti_patterns, redactor))
+    _section(
+        lines,
+        "Evidence",
+        [f"trace: {_text(trace_id, redactor)}" for trace_id in skill.evidence_trace_ids],
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
 def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a Claude Code SKILL.md document.
 

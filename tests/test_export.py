@@ -10,6 +10,7 @@ from lessonweaver.export import (
     export_copilot_instruction_fragment,
     export_copilot_path_instruction,
     export_copilot_repo_instruction,
+    export_cursor_rule,
     export_eval_spec_markdown,
     export_guardrail_rule_markdown,
     export_operational_lesson_markdown,
@@ -219,6 +220,46 @@ def test_export_copilot_path_instruction_default_glob_and_suppression() -> None:
 def test_export_copilot_path_instruction_escapes_unsafe_glob() -> None:
     rendered = export_copilot_path_instruction(_make_skill(), 'src/"weird"/**')
     assert 'applyTo: "src/\\"weird\\"/**"' in rendered
+
+
+def test_export_cursor_rule_snapshot() -> None:
+    rendered = export_cursor_rule(_make_skill(), "src/**/*.py")
+    assert rendered == (
+        "---\n"
+        'description: "Inspect diff before review."\n'
+        'globs: "src/**/*.py"\n'
+        "alwaysApply: false\n"
+        "---\n"
+        "\n"
+        "# PR Diff First\n"
+        "\n"
+        "Inspect diff before review.\n"
+        "\n"
+        "## When to apply\n"
+        "- Reviewing PRs\n"
+        "\n"
+        "## When NOT to apply\n"
+        "- No code changes\n"
+        "\n"
+        "## Instructions\n"
+        "- Inspect changed files first\n"
+        "\n"
+        "## Anti-patterns\n"
+        "- Approve from title only\n"
+        "\n"
+        "## Evidence\n"
+        "- trace: trace-gh-pr-review-001\n"
+    )
+
+
+def test_export_cursor_rule_omits_empty_globs_and_redacts() -> None:
+    skill = _make_skill()
+    skill.description = "Ask admin@example.com for api_key: sk-test-value"
+    rendered = export_cursor_rule(skill, "", redactor=SimpleRedactor())
+    assert "globs:" not in rendered
+    assert "admin@example.com" not in rendered
+    assert "api_key" not in rendered
+    assert "[REDACTED]" in rendered
 
 
 def test_export_claude_skill_md_snapshot() -> None:

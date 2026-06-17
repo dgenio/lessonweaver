@@ -28,6 +28,7 @@ from .export import (
     export_copilot_instruction_fragment,
     export_copilot_path_instruction,
     export_copilot_repo_instruction,
+    export_cursor_rule,
     export_eval_spec_markdown,
     export_guardrail_rule_markdown,
     export_runtime_prompt_snippet,
@@ -368,6 +369,8 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
         return export_copilot_repo_instruction(skill, redactor=redactor)
     if fmt == "copilot-path":
         return export_copilot_path_instruction(skill, applies_to, redactor=redactor)
+    if fmt == "cursor":
+        return export_cursor_rule(skill, applies_to, redactor=redactor)
     if fmt in {"claude", "claude_skill"}:
         return export_claude_skill_fragment(skill, redactor=redactor)
     if fmt == "claude-skill":
@@ -570,6 +573,7 @@ def main(argv: list[str] | None = None) -> int:
             "copilot_instruction",
             "copilot-repo",
             "copilot-path",
+            "cursor",
             "claude",
             "claude_skill",
             "claude-skill",
@@ -622,6 +626,7 @@ def main(argv: list[str] | None = None) -> int:
             "copilot",
             "copilot-repo",
             "copilot-path",
+            "cursor",
             "claude",
             "claude-skill",
             "claude-rule",

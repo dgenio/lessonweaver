@@ -110,6 +110,7 @@ class ExportFormat(str, Enum):
     MARKDOWN = "markdown"
     JSON = "json"
     COPILOT_INSTRUCTION = "copilot_instruction"
+    CURSOR_RULE = "cursor"
     CLAUDE_SKILL = "claude_skill"
     RUNTIME_SNIPPET = "runtime_snippet"
     CODEX_DIRECTORY = "codex_directory"
