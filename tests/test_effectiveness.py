@@ -32,13 +32,14 @@ def _usage(
     event_id: str,
     *,
     positive: bool | None,
+    skill_version: str = "0.1.0",
     outcome: str | None = None,
     notes: str | None = None,
 ) -> SkillUsageEvent:
     return SkillUsageEvent(
         id=event_id,
         skill_id=skill_id,
-        skill_version="0.1.0",
+        skill_version=skill_version,
         task_context="same failure family",
         loaded_at=NOW,
         outcome=outcome,
@@ -80,6 +81,47 @@ def test_effectiveness_report_recommends_revise_for_repeated_failures(tmp_path) 
     assert report.signal == "repeated_failure"
     assert report.recommendation == "revise"
     assert report.evidence_event_ids == ["u1", "u2"]
+
+
+def test_effectiveness_report_filters_usage_to_current_skill_version(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    skill = _skill("skill-versioned")
+    skill.version = "0.2.0"
+    registry.save_skill(skill)
+    registry.save_usage_event(
+        _usage("skill-versioned", "old-failure", positive=False, skill_version="0.1.0")
+    )
+    registry.save_usage_event(
+        _usage(
+            "skill-versioned",
+            "current-success",
+            positive=True,
+            skill_version="0.2.0",
+            outcome="resolved",
+        )
+    )
+
+    report = SkillEffectivenessReporter().report(registry, now=NOW)[0]
+
+    assert report.skill_version == "0.2.0"
+    assert report.total_usages == 1
+    assert report.positive_outcomes == 1
+    assert report.negative_outcomes == 0
+    assert report.evidence_event_ids == ["current-success"]
+
+
+def test_effectiveness_report_does_not_call_single_failure_repeated(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill("skill-single-failure"))
+    registry.save_usage_event(
+        _usage("skill-single-failure", "u1", positive=False, outcome="corrected_by_human")
+    )
+
+    report = SkillEffectivenessReporter().report(registry, now=NOW)[0]
+
+    assert report.signal == "insufficient_evidence"
+    assert report.recommendation == "review"
+    assert report.negative_outcomes == 1
 
 
 def test_effectiveness_report_recommends_deprecate_for_possible_regression(tmp_path) -> None:

@@ -62,7 +62,14 @@ class SkillEffectivenessReporter:
         for skill in registry.list_skills():
             if skill.status is not SkillStatus.ACTIVE:
                 continue
-            usage = sorted(usage_by_skill.get(skill.id, []), key=lambda event: event.loaded_at)
+            usage = sorted(
+                (
+                    event
+                    for event in usage_by_skill.get(skill.id, [])
+                    if event.skill_version == skill.version
+                ),
+                key=lambda event: event.loaded_at,
+            )
             reports.append(
                 _build_report(
                     skill_id=skill.id,
@@ -114,8 +121,6 @@ def _classify(
         return "improvement", "keep"
     if len(positives) > len(negatives):
         return "improvement", "keep"
-    if negatives:
-        return "repeated_failure", "revise"
     return "insufficient_evidence", "review"
 
 
