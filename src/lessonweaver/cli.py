@@ -21,7 +21,7 @@ from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
-from .detection_eval import DetectionCorpus, run_detection_eval
+from .detection_eval import DetectionCorpus, run_clustered_detection_eval, run_detection_eval
 from .diagnostics import explain_load
 from .export import (
     export_agents_md_fragment,
@@ -50,6 +50,7 @@ from .models import (
     LessonStatus,
     RecommendedActionType,
     ReviewAnswer,
+    ReviewQuestion,
     ReviewSession,
     SkillCard,
     SkillStatus,
@@ -130,7 +131,7 @@ def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> Les
     return registry.load_candidate(candidate_ref)
 
 
-def _find_review_question(candidate: LessonCandidate, question_id: str):
+def _find_review_question(candidate: LessonCandidate, question_id: str) -> ReviewQuestion | None:
     """Find a review question by id across both base and adaptive follow-up questions."""
     interviewer = LessonInterviewer()
     for question in interviewer.build_questions(candidate):
@@ -345,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     detect_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     failure_case_parser = subparsers.add_parser(
@@ -373,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     cluster_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     eval_detection_parser = subparsers.add_parser(
@@ -390,6 +391,11 @@ def main(argv: list[str] | None = None) -> int:
         "--min-recall",
         type=float,
         help="Exit non-zero if recall falls below this floor (CI gate)",
+    )
+    eval_detection_parser.add_argument(
+        "--with-clustering",
+        action="store_true",
+        help="Report recall with and without clustering repeated weak signals",
     )
 
     interview_parser = subparsers.add_parser(
@@ -481,7 +487,7 @@ def main(argv: list[str] | None = None) -> int:
     review_trace_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     export_parser = subparsers.add_parser(
@@ -756,6 +762,33 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "eval-detection":
         corpus = DetectionCorpus.from_file(args.corpus_path)
+        if args.with_clustering:
+            clustered_report = run_clustered_detection_eval(corpus)
+            _print_json(clustered_report.to_dict())
+            if (
+                args.min_precision is not None
+                and clustered_report.base_report is not None
+                and clustered_report.base_report.precision < args.min_precision
+            ):
+                print(
+                    f"Error: detection precision "
+                    f"{clustered_report.base_report.precision:.3f} is below the required "
+                    f"minimum {args.min_precision:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            if (
+                args.min_recall is not None
+                and clustered_report.recall_with_clustering < args.min_recall
+            ):
+                print(
+                    f"Error: clustered detection recall "
+                    f"{clustered_report.recall_with_clustering:.3f} is below the required "
+                    f"minimum {args.min_recall:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         report = run_detection_eval(corpus)
         _print_json(report.to_dict())
         if args.min_precision is not None and report.precision < args.min_precision:
@@ -948,23 +981,22 @@ def _run(args: argparse.Namespace) -> int:
                 registry.save_candidate(candidate)
 
         approval: dict[str, str] | None = None
-        if focus is not None:
-            if args.approve:
-                approval, missing = _do_approve(
-                    focus,
-                    registry,
-                    approved_by=args.approved_by,
-                    allow_incomplete=args.allow_incomplete_review,
-                    dry_run=args.dry_run,
+        if focus is not None and args.approve:
+            approval, missing = _do_approve(
+                focus,
+                registry,
+                approved_by=args.approved_by,
+                allow_incomplete=args.allow_incomplete_review,
+                dry_run=args.dry_run,
+            )
+            if approval is None:
+                print(
+                    f"Error: cannot approve '{focus.id}': review is incomplete; unanswered "
+                    f"required questions: {', '.join(missing)}. Answer them with --answer, "
+                    f"or pass --allow-incomplete-review to override.",
+                    file=sys.stderr,
                 )
-                if approval is None:
-                    print(
-                        f"Error: cannot approve '{focus.id}': review is incomplete; unanswered "
-                        f"required questions: {', '.join(missing)}. Answer them with --answer, "
-                        f"or pass --allow-incomplete-review to override.",
-                        file=sys.stderr,
-                    )
-                    return 1
+                return 1
 
         reviewed = [focus] if focus is not None else candidates
         packet = {
