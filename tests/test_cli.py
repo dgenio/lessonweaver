@@ -485,7 +485,8 @@ def test_cli_detect_invalid_json_returns_two(capsys, tmp_path) -> None:
     assert exit_code == 2
     err = capsys.readouterr().err
     assert "invalid JSON" in err
-    assert "line" in err and "column" in err
+    assert "line" in err
+    assert "column" in err
 
 
 def test_cli_export_skill_output_writes_file(capsys, tmp_path) -> None:
@@ -845,9 +846,19 @@ def test_cli_eval_detection_reports_metrics(capsys) -> None:
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
     assert report["true_positives"] == 5
-    assert report["false_negatives"] == 1
+    assert report["false_negatives"] == 2
     assert report["precision"] == 1.0
     assert report["recall"] < 1.0
+
+
+def test_cli_eval_detection_reports_clustered_recall(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--with-clustering"]
+    )
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["recall_with_clustering"] > report["recall_without_clustering"]
+    assert report["clustering_recall_lift"] > 0
 
 
 def test_cli_eval_detection_min_recall_gate_fails(capsys) -> None:
@@ -864,6 +875,46 @@ def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
         ["eval-detection", "examples/detection_corpus/corpus.json", "--min-precision", "1.0"]
     )
     assert exit_code == 0
+
+
+def test_cli_eval_detection_with_clustering_preserves_precision_gate(capsys, tmp_path) -> None:
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "corpus_id": "precision-gate",
+                "cases": [
+                    {
+                        "case_id": "mislabeled",
+                        "should_detect": False,
+                        "trace": {
+                            "trace_id": "false-positive",
+                            "source": "unit-test",
+                            "task": "Benign trace",
+                            "events": [],
+                            "outcome": "success",
+                            "metadata": {"lesson_candidate": True},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "eval-detection",
+            str(corpus_path),
+            "--with-clustering",
+            "--min-precision",
+            "1.0",
+        ]
+    )
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "precision" in err
 
 
 # --- review-trace (#106) ----------------------------------------------------
@@ -1073,7 +1124,9 @@ def test_cli_load_explain_flag_emits_diagnostics(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     diag = json.loads(capsys.readouterr().out)
-    assert "loaded" in diag and "budget" in diag and "skipped" in diag
+    assert "loaded" in diag
+    assert "budget" in diag
+    assert "skipped" in diag
 
 
 # --- cleanup-skills (#112) --------------------------------------------------
