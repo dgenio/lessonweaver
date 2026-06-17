@@ -102,8 +102,10 @@ between these.
   `exported`, `deprecated`).
 - **Skill status** — Lifecycle state of a skill. Enum: `SkillStatus` (`draft`,
   `approved`, `experimental`, `active`, `rejected`, `deprecated`).
-- **Redaction** — Best-effort removal of obvious secrets/PII before export.
-  Class: `SimpleRedactor` (`privacy.py`). A safety net, not a compliance control.
+- **Redaction** — Best-effort removal of obvious secrets/PII before export or
+  pre-mining sanitization. `SimpleRedactor` and `TraceSanitizer` share one rule
+  set and emit markers such as `[REDACTED by email]`. A safety net, not a
+  compliance control.
 
 ## Registry
 
