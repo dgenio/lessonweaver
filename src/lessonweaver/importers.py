@@ -19,7 +19,7 @@ the sibling*, and they live in ``examples/interop_adapters/``. See
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from .detection import LessonDetector
 from .models import LessonCandidate, TraceBundle, TraceEvent, TraceEventType
@@ -175,7 +175,7 @@ class OpenCodeTraceImporter:
     evidence back to the original plugin payload.
     """
 
-    _TYPE_MAP: dict[str, TraceEventType] = {
+    _TYPE_MAP: ClassVar[dict[str, TraceEventType]] = {
         "assistant": TraceEventType.ASSISTANT_MESSAGE,
         "assistant_message": TraceEventType.ASSISTANT_MESSAGE,
         "correction": TraceEventType.HUMAN_CORRECTION,
@@ -187,8 +187,24 @@ class OpenCodeTraceImporter:
         "user": TraceEventType.USER_MESSAGE,
         "user_message": TraceEventType.USER_MESSAGE,
     }
-    _TOP_LEVEL_KEYS = {"events", "outcome", "schema", "session_id", "source", "task", "trace_id"}
-    _EVENT_KEYS = {"content", "id", "message", "output", "status", "success", "type"}
+    _TOP_LEVEL_KEYS: ClassVar[set[str]] = {
+        "events",
+        "outcome",
+        "schema",
+        "session_id",
+        "source",
+        "task",
+        "trace_id",
+    }
+    _EVENT_KEYS: ClassVar[set[str]] = {
+        "content",
+        "id",
+        "message",
+        "output",
+        "status",
+        "success",
+        "type",
+    }
 
     def __init__(self, *, sanitize: bool = True) -> None:
         self.sanitize = sanitize
