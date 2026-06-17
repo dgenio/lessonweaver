@@ -15,6 +15,7 @@ from .detection_eval import (
     run_detection_eval,
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
+from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -140,6 +141,8 @@ __all__ = [
     "SkillCard",
     "SkillCleaner",
     "SkillCompiler",
+    "SkillEffectivenessReport",
+    "SkillEffectivenessReporter",
     "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
