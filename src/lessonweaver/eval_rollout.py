@@ -72,6 +72,10 @@ def validate_artifact_for_rollout(
     skills: list[SkillCard] | None = None,
 ) -> SkillEvalResult:
     """Validate a skill with a suite before rollout or promotion."""
+    if suite.skill_id != skill.id:
+        raise ValueError(
+            f"eval suite targets skill_id '{suite.skill_id}', but artifact is '{skill.id}'"
+        )
     validation_skills = skills or [skill]
     return run_validation_suite(suite, validation_skills)
 

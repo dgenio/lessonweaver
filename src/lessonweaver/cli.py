@@ -1264,7 +1264,7 @@ def _run(args: argparse.Namespace) -> int:
         registry = _registry(args.registry_root)
         try:
             suite = generate_eval_suite_for_skill(_load_skill_ref(args.artifact, registry))
-        except FileNotFoundError:
+        except (FileNotFoundError, KeyError, ValueError):
             candidate = _load_candidate_ref(args.artifact, registry)
             suite = generate_eval_suite_for_candidate(candidate, skill_id=args.skill_id)
         _print_json(suite.to_dict())

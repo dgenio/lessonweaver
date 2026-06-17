@@ -1,6 +1,9 @@
+import pytest
+
 from lessonweaver.eval_rollout import (
     generate_eval_suite_for_candidate,
     generate_eval_suite_for_skill,
+    promote_artifact_with_eval,
 )
 from lessonweaver.models import (
     LessonCandidate,
@@ -11,6 +14,7 @@ from lessonweaver.models import (
     SkillCard,
     SkillStatus,
 )
+from lessonweaver.validation import ValidationExample, ValidationSuite
 
 
 def _skill(status: SkillStatus = SkillStatus.EXPERIMENTAL) -> SkillCard:
@@ -64,3 +68,26 @@ def test_generate_eval_suite_for_candidate_uses_expected_skill_id() -> None:
     assert suite.examples[0].task == "Inspect changed files before drawing review conclusions."
     assert suite.examples[0].expected_skill_id == "skill-cand-1"
     assert suite.examples[1].should_load is False
+
+
+def test_promote_artifact_rejects_eval_suite_for_other_skill() -> None:
+    suite = ValidationSuite(
+        suite_id="suite-other",
+        skill_id="other-skill",
+        examples=[
+            ValidationExample(
+                example_id="pos",
+                task="Review pull requests",
+                should_load=True,
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="targets skill_id 'other-skill'"):
+        promote_artifact_with_eval(
+            _skill(),
+            SkillStatus.ACTIVE,
+            suite=suite,
+            require_eval_pass=True,
+            skills=[_skill(), _skill(status=SkillStatus.ACTIVE)],
+        )
