@@ -84,7 +84,7 @@ def _eligible(skill: SkillCard, query: RuntimeLessonQuery) -> bool:
     if skill.status not in _RUNTIME_STATUSES:
         return False
     scope = _scope_value(query.scope)
-    if scope and skill.scope.value != scope:
+    if scope and skill.scope not in {Scope.GLOBAL, Scope(scope)}:
         return False
     risk_level = _risk_value(query.risk_level)
     return not (risk_level and _RISK_ORDER[skill.risk_level.value] > _RISK_ORDER[risk_level])

@@ -61,6 +61,7 @@ def test_runtime_query_applies_scope_risk_and_tool_context(tmp_path) -> None:
     registry.save_skill(_skill("low-project", scope=Scope.PROJECT, risk_level=RiskLevel.LOW))
     registry.save_skill(_skill("high-project", scope=Scope.PROJECT, risk_level=RiskLevel.HIGH))
     registry.save_skill(_skill("low-team", scope=Scope.TEAM, risk_level=RiskLevel.LOW))
+    registry.save_skill(_skill("low-global", scope=Scope.GLOBAL, risk_level=RiskLevel.LOW))
 
     results = RuntimeLessonRetriever(registry).retrieve(
         RuntimeLessonQuery(
@@ -73,7 +74,7 @@ def test_runtime_query_applies_scope_risk_and_tool_context(tmp_path) -> None:
         )
     )
 
-    assert [result.skill.id for result in results] == ["low-project"]
+    assert [result.skill.id for result in results] == ["low-project", "low-global"]
 
 
 def test_runtime_query_serializes_context_contract() -> None:
