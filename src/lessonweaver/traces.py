@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import TraceBundle, TraceEventType
 
 
@@ -63,8 +64,21 @@ def load_trace_bundle(path: str | Path) -> TraceBundle:
     """
     from .importers import DictTraceImporter
 
-    with Path(path).open("r", encoding="utf-8") as handle:
+    trace_path = Path(path)
+    with trace_path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         raise ValueError("Invalid trace bundle:\n- top-level JSON value must be an object")
-    return DictTraceImporter().import_trace(payload)
+    trace = DictTraceImporter().import_trace(payload)
+    emitter.emit(
+        LifecycleEvent(
+            LifecycleEventType.TRACE_LOADED,
+            trace.trace_id,
+            {
+                "path": str(trace_path),
+                "source": trace.source,
+                "event_count": len(trace.events),
+            },
+        )
+    )
+    return trace

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import SkillCard
 from .retrieval import RetrievalQuery, SkillRetriever
 
@@ -192,16 +193,32 @@ def run_validation_suite(
         score = match.score if match is not None else 0.0
         classification = _classify(example.should_load, actual)
         tallies[classification] += 1
+        passed = actual == example.should_load
         results.append(
             ValidationResult(
                 example_id=example.example_id,
                 skill_id=target_skill_id,
                 expected=example.should_load,
                 actual=actual,
-                passed=actual == example.should_load,
+                passed=passed,
                 score=score,
                 classification=classification,
                 notes=example.notes,
+            )
+        )
+        emitter.emit(
+            LifecycleEvent(
+                (
+                    LifecycleEventType.VALIDATION_PASSED
+                    if passed
+                    else LifecycleEventType.VALIDATION_FAILED
+                ),
+                target_skill_id,
+                {
+                    "suite_id": suite.suite_id,
+                    "example_id": example.example_id,
+                    "classification": classification,
+                },
             )
         )
 

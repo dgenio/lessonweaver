@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import (
     LessonCandidate,
     RecommendedActionType,
@@ -321,6 +322,28 @@ class LessonDetector:
                     risk_level=RiskLevel.LOW,
                     scope=Scope.PROJECT,
                     metadata={"cluster_only": True, "recurring_pattern": recurring_pattern},
+                )
+            )
+
+        if candidates:
+            for candidate in candidates:
+                emitter.emit(
+                    LifecycleEvent(
+                        LifecycleEventType.CANDIDATE_DETECTED,
+                        candidate.id,
+                        {
+                            "trace_id": trace.trace_id,
+                            "recommended_action_type": candidate.recommended_action_type.value,
+                            "risk_level": candidate.risk_level.value,
+                        },
+                    )
+                )
+        else:
+            emitter.emit(
+                LifecycleEvent(
+                    LifecycleEventType.CANDIDATE_REJECTED,
+                    trace.trace_id,
+                    {"reason": "no_candidates"},
                 )
             )
 

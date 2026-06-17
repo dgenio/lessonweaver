@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import LessonCandidate, OperationalLesson, SkillCard
+
+_T = TypeVar("_T")
 
 
 class Redactor(Protocol):
@@ -30,6 +33,21 @@ def _redact_payload(value: Any, redactor: Redactor | None) -> Any:
     if isinstance(value, dict):
         return {key: _redact_payload(item, redactor) for key, item in value.items()}
     return value
+
+
+def _emit_export(subject_id: str, export_format: str) -> None:
+    emitter.emit(
+        LifecycleEvent(
+            LifecycleEventType.SKILL_EXPORTED,
+            subject_id,
+            {"format": export_format},
+        )
+    )
+
+
+def _with_export_event(subject_id: str, export_format: str, rendered: _T) -> _T:
+    _emit_export(subject_id, export_format)
+    return rendered
 
 
 def _section(lines: list[str], title: str, items: list[str]) -> None:
@@ -71,7 +89,7 @@ def export_skillcard_markdown(skill: SkillCard, redactor: Redactor | None = None
             f"- Sensitivity: {skill.sensitivity.value}",
         ]
     )
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(skill.id, "markdown", "\n".join(lines).strip() + "\n")
 
 
 def export_operational_lesson_markdown(
@@ -104,41 +122,61 @@ def export_operational_lesson_markdown(
             f"- Status: {lesson.status.value}",
         ]
     )
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(
+        lesson.lesson_id,
+        "operational_lesson_markdown",
+        "\n".join(lines).strip() + "\n",
+    )
 
 
 def export_skillcard_json(skill: SkillCard, redactor: Redactor | None = None) -> str:
-    return json.dumps(_redact_payload(skill.to_dict(), redactor), indent=2, sort_keys=True)
+    return _with_export_event(
+        skill.id,
+        "json",
+        json.dumps(_redact_payload(skill.to_dict(), redactor), indent=2, sort_keys=True),
+    )
 
 
 def export_copilot_instruction_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
-    return (
-        f"- Skill: {_text(skill.name, redactor)}\n"
-        f"- Use when: {'; '.join(_list(skill.applies_when, redactor))}\n"
-        f"- Avoid when: {'; '.join(_list(skill.does_not_apply_when, redactor))}\n"
-        f"- Do: {'; '.join(_list(skill.instructions, redactor))}"
+    return _with_export_event(
+        skill.id,
+        "copilot_instruction",
+        (
+            f"- Skill: {_text(skill.name, redactor)}\n"
+            f"- Use when: {'; '.join(_list(skill.applies_when, redactor))}\n"
+            f"- Avoid when: {'; '.join(_list(skill.does_not_apply_when, redactor))}\n"
+            f"- Do: {'; '.join(_list(skill.instructions, redactor))}"
+        ),
     )
 
 
 def export_claude_skill_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
     instruction_block = "\n".join(f"- {line}" for line in _list(skill.instructions, redactor))
-    return (
-        f"## {_text(skill.name, redactor)}\n\n"
-        f"Description: {_text(skill.description, redactor)}\n\n"
-        "When to apply:\n- "
-        + "\n- ".join(_list(skill.applies_when, redactor))
-        + "\n\nInstructions:\n"
-        + instruction_block
+    return _with_export_event(
+        skill.id,
+        "claude_skill",
+        (
+            f"## {_text(skill.name, redactor)}\n\n"
+            f"Description: {_text(skill.description, redactor)}\n\n"
+            "When to apply:\n- "
+            + "\n- ".join(_list(skill.applies_when, redactor))
+            + "\n\nInstructions:\n"
+            + instruction_block
+        ),
     )
 
 
 def export_runtime_prompt_snippet(skill: SkillCard, redactor: Redactor | None = None) -> str:
-    return (
-        "Operational lesson:\n"
-        f"{_text(skill.description, redactor)}\n"
-        f"Applies when: {'; '.join(_list(skill.applies_when, redactor))}\n"
-        f"Do not apply when: {'; '.join(_list(skill.does_not_apply_when, redactor))}\n"
-        f"Required behaviors: {'; '.join(_list(skill.instructions, redactor))}"
+    return _with_export_event(
+        skill.id,
+        "runtime_snippet",
+        (
+            "Operational lesson:\n"
+            f"{_text(skill.description, redactor)}\n"
+            f"Applies when: {'; '.join(_list(skill.applies_when, redactor))}\n"
+            f"Do not apply when: {'; '.join(_list(skill.does_not_apply_when, redactor))}\n"
+            f"Required behaviors: {'; '.join(_list(skill.instructions, redactor))}"
+        ),
     )
 
 
@@ -161,7 +199,7 @@ def export_agents_md_fragment(skill: SkillCard, redactor: Redactor | None = None
         )
     lines.append("")
     lines.extend(f"- {item}" for item in _list(skill.instructions, redactor))
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(skill.id, "agents-md", "\n".join(lines).strip() + "\n")
 
 
 def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None = None) -> str:
@@ -184,7 +222,7 @@ def export_copilot_repo_instruction(skill: SkillCard, redactor: Redactor | None 
         )
     lines.extend(["", "**Instructions:**"])
     lines.extend(f"- {item}" for item in _list(skill.instructions, redactor))
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(skill.id, "copilot-repo", "\n".join(lines).strip() + "\n")
 
 
 def export_copilot_path_instruction(
@@ -207,7 +245,7 @@ def export_copilot_path_instruction(
     _section(lines, "When to apply", _list(skill.applies_when, redactor))
     _section(lines, "When not to apply", _list(skill.does_not_apply_when, redactor))
     _section(lines, "Required behaviors", _list(skill.instructions, redactor))
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(skill.id, "copilot-path", "\n".join(lines).strip() + "\n")
 
 
 def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -> str:
@@ -232,26 +270,34 @@ def export_claude_skill_md(skill: SkillCard, redactor: Redactor | None = None) -
     if skill.evidence_trace_ids:
         metadata.append(f"Evidence: {', '.join(_list(skill.evidence_trace_ids, redactor))}")
     _section(lines, "Metadata", metadata)
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(skill.id, "claude-skill-md", "\n".join(lines).strip() + "\n")
 
 
 def export_claude_rule_fragment(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a concise rule fragment for .claude/rules/."""
-    return (
-        f"# Rule: {_text(skill.name, redactor)}\n\n"
-        f"**Applies when:** {'; '.join(_list(skill.applies_when, redactor))}\n\n"
-        f"**Do:** {'; '.join(_list(skill.instructions, redactor))}\n\n"
-        f"**Avoid:** {'; '.join(_list(skill.anti_patterns, redactor))}"
+    return _with_export_event(
+        skill.id,
+        "claude-rule",
+        (
+            f"# Rule: {_text(skill.name, redactor)}\n\n"
+            f"**Applies when:** {'; '.join(_list(skill.applies_when, redactor))}\n\n"
+            f"**Do:** {'; '.join(_list(skill.instructions, redactor))}\n\n"
+            f"**Avoid:** {'; '.join(_list(skill.anti_patterns, redactor))}"
+        ),
     )
 
 
 def export_claude_md_snippet(skill: SkillCard, redactor: Redactor | None = None) -> str:
     """Render a SkillCard as a short, appendable CLAUDE.md block."""
-    return (
-        f"## Operational guidance: {_text(skill.name, redactor)}\n\n"
-        f"{_text(skill.description, redactor)}\n\n"
-        f"When: {'; '.join(_list(skill.applies_when, redactor))}. "
-        f"Required: {'; '.join(_list(skill.instructions, redactor))}."
+    return _with_export_event(
+        skill.id,
+        "claude-md",
+        (
+            f"## Operational guidance: {_text(skill.name, redactor)}\n\n"
+            f"{_text(skill.description, redactor)}\n\n"
+            f"When: {'; '.join(_list(skill.applies_when, redactor))}. "
+            f"Required: {'; '.join(_list(skill.instructions, redactor))}."
+        ),
     )
 
 
@@ -295,7 +341,11 @@ def export_codex_skill_directory(
         "evidence_trace_ids": _list(skill.evidence_trace_ids, redactor),
     }
     metadata_json = json.dumps(metadata, indent=2, sort_keys=True)
-    return {"SKILL.md": skill_md, "metadata.json": metadata_json}
+    return _with_export_event(
+        skill.id,
+        "codex_directory",
+        {"SKILL.md": skill_md, "metadata.json": metadata_json},
+    )
 
 
 def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | None = None) -> str:
@@ -322,7 +372,7 @@ def export_eval_spec_markdown(candidate: LessonCandidate, redactor: Redactor | N
         "Evidence",
         [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
     )
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(candidate.id, "eval", "\n".join(lines).strip() + "\n")
 
 
 def export_guardrail_rule_markdown(
@@ -351,7 +401,7 @@ def export_guardrail_rule_markdown(
         "Evidence",
         [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
     )
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(candidate.id, "guardrail", "\n".join(lines).strip() + "\n")
 
 
 def export_workflow_recommendation_markdown(
@@ -380,4 +430,4 @@ def export_workflow_recommendation_markdown(
         "Evidence",
         [f"trace: {_text(trace_id, redactor)}" for trace_id in candidate.evidence_trace_ids],
     )
-    return "\n".join(lines).strip() + "\n"
+    return _with_export_event(candidate.id, "workflow", "\n".join(lines).strip() + "\n")

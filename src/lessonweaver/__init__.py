@@ -16,6 +16,7 @@ from .detection_eval import (
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
 from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
+from .events import EventEmitter, LifecycleEvent, LifecycleEventType, emitter
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -106,6 +107,7 @@ __all__ = [
     "DetectionEvalReport",
     "DetectionEvalResult",
     "DictTraceImporter",
+    "EventEmitter",
     "ExportArtifact",
     "ExportFormat",
     "FailureCaseImporter",
@@ -118,6 +120,8 @@ __all__ = [
     "LessonInterviewer",
     "LessonRegistry",
     "LessonStatus",
+    "LifecycleEvent",
+    "LifecycleEventType",
     "LintFinding",
     "LintSeverity",
     "LoadDiagnostics",
@@ -164,6 +168,7 @@ __all__ = [
     "can_promote_skill",
     "candidates_from_failure_case",
     "diff_managed_file",
+    "emitter",
     "explain_load",
     "export_agents_md_fragment",
     "export_claude_md_snippet",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
+from .events import LifecycleEvent, LifecycleEventType, emitter
 from .models import LoadingPolicy
 from .registry import FileSystemRegistry
 from .retrieval import RetrievalQuery, SkillRetriever
@@ -65,8 +66,22 @@ class SkillLoader:
         if self.policy is not None:
             skills = self.policy.filter(skills)
         results = self.retriever.retrieve(skills, query)
-        return self.compiler.compile(
+        default_inclusion = InclusionLevel(inclusion_level)
+        context = self.compiler.compile(
             results,
             budget_chars=effective_budget,
-            default_inclusion=InclusionLevel(inclusion_level),
+            default_inclusion=default_inclusion,
         )
+        if default_inclusion is not InclusionLevel.NONE:
+            for skill_id in context.omitted_skills:
+                emitter.emit(
+                    LifecycleEvent(
+                        LifecycleEventType.SKILL_OMITTED_BUDGET,
+                        skill_id,
+                        {
+                            "budget_chars": effective_budget,
+                            "total_chars": context.total_chars,
+                        },
+                    )
+                )
+        return context
