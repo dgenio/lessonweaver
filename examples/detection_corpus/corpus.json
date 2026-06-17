@@ -78,6 +78,26 @@
       }
     },
     {
+      "case_id": "recurring-unflagged-version-repeat",
+      "should_detect": true,
+      "pattern": "recurring_unflagged",
+      "notes": "KNOWN GAP PAIR: a second occurrence of the same unflagged policy-version mistake. Independent scoring keeps this as a false negative, while clustered scoring can measure the recall lift from the repeated weak signal.",
+      "trace": {
+        "trace_id": "corpus-recurring-unflagged-2",
+        "source": "detection-corpus",
+        "task": "Answer another customer policy question",
+        "events": [
+          {"id": "1", "type": "user_message", "content": "Does the enterprise plan still have a 30 day refund window?"},
+          {"id": "2", "type": "assistant_message", "content": "Yes, it is 30 days for enterprise."},
+          {"id": "3", "type": "user_message", "content": "Was that checked against the current policy?"},
+          {"id": "4", "type": "assistant_message", "content": "The standard policy says 30 days."},
+          {"id": "5", "type": "final_answer", "content": "Enterprise refund window is 30 days."}
+        ],
+        "outcome": "success",
+        "metadata": {"recurring_pattern": "answered_without_checking_policy_version"}
+      }
+    },
+    {
       "case_id": "clean-success",
       "should_detect": false,
       "pattern": "benign",
