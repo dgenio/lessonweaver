@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 
 import pytest
 
@@ -11,6 +13,29 @@ from lessonweaver.skill_packs import (
     import_skill_pack,
     inspect_skill_pack,
 )
+
+
+def _canonical_json(data: object) -> str:
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _digest(data: object) -> str:
+    return hashlib.sha256(_canonical_json(data).encode("utf-8")).hexdigest()
+
+
+def _rehash_pack(pack: dict[str, object]) -> None:
+    skills = pack["skills"]
+    assert isinstance(skills, list)
+    for entry in skills:
+        assert isinstance(entry, dict)
+        entry["digest"] = _digest(entry["skill"])
+    pack["pack_digest"] = _digest(
+        {
+            "schema": pack.get("schema"),
+            "metadata": pack.get("metadata"),
+            "skills": pack.get("skills"),
+        }
+    )
 
 
 def _skill(skill_id: str = "skill-1", *, status: SkillStatus = SkillStatus.APPROVED) -> SkillCard:
@@ -78,3 +103,21 @@ def test_skill_pack_import_reports_id_collisions(tmp_path) -> None:
 
     assert report["imported"] == []
     assert report["collisions"] == ["skill-1"]
+
+
+def test_skill_pack_import_validates_all_skills_before_writing(tmp_path) -> None:
+    pack = export_skill_pack(
+        [_skill("skill-1"), _skill("skill-2")],
+        name="pack",
+        version="1.0.0",
+    )
+    broken = copy.deepcopy(pack)
+    broken["skills"][1]["skill"]["risk_level"] = "impossible"
+    _rehash_pack(broken)
+
+    registry = FileSystemRegistry(tmp_path)
+    with pytest.raises(ValueError, match="impossible"):
+        import_skill_pack(broken, registry)
+
+    with pytest.raises(FileNotFoundError):
+        registry.load_skill("skill-1")

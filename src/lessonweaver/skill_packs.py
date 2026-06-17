@@ -120,25 +120,30 @@ def import_skill_pack(pack: dict[str, Any], registry: FileSystemRegistry) -> dic
         "pack_digest": pack["pack_digest"],
         "schema": pack["schema"],
     }
+    skills = [SkillCard.from_dict(entry["skill"]) for entry in pack["skills"]]
+    imported_skills: list[SkillCard] = []
     imported: list[str] = []
     collisions: list[str] = []
-    for entry in pack["skills"]:
-        skill = SkillCard.from_dict(entry["skill"])
+    for skill in skills:
         try:
             registry.load_skill(skill.id)
         except FileNotFoundError:
             skill_metadata = dict(skill.metadata)
             skill_metadata["source_pack"] = dict(source_pack)
-            imported_skill = replace(
-                skill,
-                status=SkillStatus.EXPERIMENTAL,
-                metadata=skill_metadata,
-                updated_at=datetime.now(timezone.utc),
+            imported_skills.append(
+                replace(
+                    skill,
+                    status=SkillStatus.EXPERIMENTAL,
+                    metadata=skill_metadata,
+                    updated_at=datetime.now(timezone.utc),
+                )
             )
-            registry.save_skill(imported_skill)
-            imported.append(imported_skill.id)
         else:
             collisions.append(skill.id)
+
+    for imported_skill in imported_skills:
+        registry.save_skill(imported_skill)
+        imported.append(imported_skill.id)
     return {
         "valid": True,
         "imported": imported,
