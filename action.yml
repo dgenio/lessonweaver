@@ -1,0 +1,46 @@
+name: lessonweaver governance
+description: Lint lessonweaver skills, validate retrieval suites, and check managed instruction drift.
+
+inputs:
+  python-version:
+    description: Python version used to run lessonweaver.
+    required: false
+    default: "3.10"
+  install-command:
+    description: Command that installs lessonweaver before running governance checks.
+    required: false
+    default: python -m pip install lessonweaver
+  registry-root:
+    description: Registry root containing lessonweaver skills.
+    required: false
+    default: ""
+  skills-dir:
+    description: Directory containing SkillCard JSON files to lint.
+    required: false
+    default: ""
+  validation-suites:
+    description: Newline- or comma-separated glob of validation suite JSON files.
+    required: false
+    default: ""
+  instruction-files:
+    description: Newline- or comma-separated glob of instruction files with lessonweaver managed blocks.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install lessonweaver
+      shell: bash
+      run: ${{ inputs.install-command }}
+    - name: Run lessonweaver governance checks
+      shell: bash
+      run: |
+        python -m lessonweaver.github_action \
+          --registry-root "${{ inputs.registry-root }}" \
+          --skills-dir "${{ inputs.skills-dir }}" \
+          --validation-suites "${{ inputs.validation-suites }}" \
+          --instruction-files "${{ inputs.instruction-files }}"

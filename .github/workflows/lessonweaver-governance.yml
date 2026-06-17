@@ -1,0 +1,20 @@
+name: LessonWeaver Governance
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          install-command: python -m pip install -e .
+          skills-dir: examples/coding_agent_pr_review
+          validation-suites: examples/coding_agent_pr_review/validation_suite.json
+          instruction-files: examples/coding_agent_pr_review/exported_instruction.md
