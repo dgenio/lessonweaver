@@ -309,6 +309,35 @@ class LessonDetector:
                 )
             )
 
+        recurring_pattern = trace.metadata.get("recurring_pattern")
+        if isinstance(recurring_pattern, str) and recurring_pattern and not candidates:
+            candidates.append(
+                LessonCandidate(
+                    id=_candidate_id(trace.trace_id, "recurring-pattern"),
+                    summary="Cluster-only candidate based on repeated unflagged trace metadata.",
+                    evidence_trace_ids=[trace.trace_id],
+                    evidence_event_ids=[],
+                    observed_problem=(
+                        "Trace metadata marks this as a recurring unflagged pattern, but the "
+                        "single trace has no explicit error, failed evaluation, or human "
+                        "correction signal."
+                    ),
+                    proposed_lesson=(
+                        f"Possible recurring pattern to confirm across traces: {recurring_pattern}."
+                    ),
+                    confidence=0.28,
+                    evidence_strength=0.2,
+                    evidence_summary=(
+                        "A recurring-pattern metadata marker is intentionally weak evidence; "
+                        "it should only count when multiple occurrences cluster together."
+                    ),
+                    recommended_action_type=RecommendedActionType.SKILL,
+                    risk_level=RiskLevel.LOW,
+                    scope=Scope.PROJECT,
+                    metadata={"cluster_only": True, "recurring_pattern": recurring_pattern},
+                )
+            )
+
         if trace.outcome_labels:
             labels = [label.to_dict() for label in trace.outcome_labels]
             contradictions = trace.contradictory_outcome_labels()
@@ -328,8 +357,13 @@ def group_candidates_by_outcome_label(
     """Group candidates by evidence outcome label carried in candidate metadata."""
     grouped: dict[str, list[LessonCandidate]] = {}
     for candidate in candidates:
+        seen_labels: set[str] = set()
         for item in candidate.metadata.get("outcome_labels", []):
             if not isinstance(item, dict) or "label" not in item:
                 continue
-            grouped.setdefault(str(item["label"]), []).append(candidate)
+            label = str(item["label"])
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
+            grouped.setdefault(label, []).append(candidate)
     return grouped

@@ -118,3 +118,15 @@ def test_candidates_group_by_outcome_label() -> None:
 
     assert set(grouped) == {"wrong_tool", "human_correction"}
     assert grouped["wrong_tool"] == candidates
+
+
+def test_candidates_group_by_outcome_label_deduplicates_candidate_per_label() -> None:
+    trace = _trace(
+        _label(OutcomeLabelType.RETRIEVAL_MISS, source="manual"),
+        _label(OutcomeLabelType.RETRIEVAL_MISS, source="eval"),
+    )
+    candidates = LessonDetector().detect(trace)
+
+    grouped = group_candidates_by_outcome_label(candidates)
+
+    assert grouped["retrieval_miss"] == candidates
