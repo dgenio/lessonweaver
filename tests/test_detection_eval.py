@@ -8,6 +8,7 @@ import pytest
 from lessonweaver.detection_eval import (
     FALSE_NEGATIVE,
     DetectionCorpus,
+    run_clustered_detection_eval,
     run_detection_eval,
 )
 
@@ -19,14 +20,14 @@ BENCHMARK_RESULTS_PATH = "benchmark/v1/results.json"
 def test_bundled_corpus_matches_baseline_scorecard() -> None:
     report = run_detection_eval(DetectionCorpus.from_file(CORPUS_PATH))
     # Baseline locked so a quiet detection-quality regression fails CI.
-    assert report.total_cases == 9
+    assert report.total_cases == 10
     assert report.true_positives == 5
-    assert report.false_negatives == 1
+    assert report.false_negatives == 2
     assert report.false_positives == 0
     assert report.true_negatives == 3
     assert report.precision == pytest.approx(1.0)
-    assert report.recall == pytest.approx(5 / 6)
-    assert report.f1 == pytest.approx(2 * (5 / 6) / (1 + 5 / 6))
+    assert report.recall == pytest.approx(5 / 7)
+    assert report.f1 == pytest.approx(2 * (5 / 7) / (1 + 5 / 7))
 
 
 def test_public_benchmark_v1_matches_checked_in_results() -> None:
@@ -99,6 +100,63 @@ def test_known_gap_case_is_a_false_negative() -> None:
     assert gap.expected is True
     assert gap.detected is False
     assert gap.classification == FALSE_NEGATIVE
+
+
+def test_clustered_eval_improves_recurring_unflagged_recall() -> None:
+    corpus = DetectionCorpus.from_file(CORPUS_PATH)
+
+    base_report = run_detection_eval(corpus)
+    clustered_report = run_clustered_detection_eval(corpus)
+
+    recurring = [
+        result for result in base_report.results if result.pattern == "recurring_unflagged"
+    ]
+    assert len(recurring) >= 2
+    assert all(result.classification == FALSE_NEGATIVE for result in recurring)
+    assert clustered_report.recall_without_clustering == base_report.recall
+    assert clustered_report.recall_with_clustering > base_report.recall
+    assert clustered_report.clustering_recall_lift > 0
+    assert "answered_without_checking_policy_version" in clustered_report.clustered_patterns
+
+
+def test_clustered_eval_keeps_distinct_recurring_patterns_separate() -> None:
+    corpus = DetectionCorpus.from_dict(
+        {
+            "corpus_id": "distinct-patterns",
+            "cases": [
+                {
+                    "case_id": "pattern-a",
+                    "should_detect": True,
+                    "trace": {
+                        "trace_id": "trace-a",
+                        "source": "unit-test",
+                        "task": "A",
+                        "events": [],
+                        "outcome": "success",
+                        "metadata": {"recurring_pattern": "pattern_a"},
+                    },
+                },
+                {
+                    "case_id": "pattern-b",
+                    "should_detect": True,
+                    "trace": {
+                        "trace_id": "trace-b",
+                        "source": "unit-test",
+                        "task": "B",
+                        "events": [],
+                        "outcome": "success",
+                        "metadata": {"recurring_pattern": "pattern_b"},
+                    },
+                },
+            ],
+        }
+    )
+
+    clustered_report = run_clustered_detection_eval(corpus)
+
+    assert clustered_report.clustered_patterns == []
+    assert clustered_report.clustered_true_positives == 0
+    assert clustered_report.clustered_false_negatives == 2
 
 
 def test_inline_benign_case_is_true_negative() -> None:

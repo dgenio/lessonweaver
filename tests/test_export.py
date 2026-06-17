@@ -160,8 +160,9 @@ def test_export_redactor_integration() -> None:
     skill.description = "Contact admin@example.com with api_key: sk-test-value"
     rendered = export_skillcard_markdown(skill, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "api_key" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "sk-test-value" not in rendered
+    assert "[REDACTED by email]" in rendered
+    assert "[REDACTED by api_key]" in rendered
 
 
 def test_export_agents_md_fragment_snapshot() -> None:
@@ -325,4 +326,4 @@ def test_export_lesson_redactor_integration() -> None:
     candidate.observed_problem = "Leaked admin@example.com during review."
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "[REDACTED]" in rendered
+    assert "[REDACTED by email]" in rendered

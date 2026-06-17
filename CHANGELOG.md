@@ -14,6 +14,14 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Added
 
+- Detection corpus metric floors are documented, and clustering regression
+  coverage now asserts input-order invariance and threshold-boundary behavior
+  (#282).
+
+## [0.4.0] - 2026-06-16
+
+### Added
+
 - Developer-workflow commands for the coding-agent learning loop, documented in
   [`docs/developer-workflow.md`](docs/developer-workflow.md):
   - `review-trace` — one guided command that detects candidates, applies MCQ
@@ -36,6 +44,9 @@ changelog; their dates are the dates of the corresponding work landing on
 - `LoadingPolicy.max_token_budget` was renamed to `max_budget_chars` to match
   the character-based loader/compiler budget semantics; serialized policies
   using the old `max_token_budget` key still load as a deprecated fallback.
+- `SimpleRedactor` and `TraceSanitizer` now use one shared redaction rule set,
+  emit named `[REDACTED by <rule>]` markers, and no longer fail open by returning
+  raw export text when a redaction rule raises (#176).
 
 - `approve` now enforces the human-review gate: a candidate must have answered
   the required (adaptive) review questions before it can be approved. Use
@@ -114,10 +125,8 @@ changelog; their dates are the dates of the corresponding work landing on
 - Markdown, JSON, and runtime-snippet skill exporters.
 - Command-line interface wiring the modules together.
 
-<!--
-Comparison/release links are intentionally omitted until version tags exist.
-Once the first release is tagged (see docs/release.md), add reference links here, e.g.:
-[Unreleased]: https://github.com/dgenio/lessonweaver/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/dgenio/lessonweaver/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dgenio/lessonweaver/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/dgenio/lessonweaver/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dgenio/lessonweaver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dgenio/lessonweaver/releases/tag/v0.1.0
--->

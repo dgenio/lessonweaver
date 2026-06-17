@@ -180,6 +180,9 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver promote-skill <skill-id> <target-status>`
 - `lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json` — reproduce the public detection benchmark scorecard and fail if the recorded results drift.
 
+Closed-loop effectiveness reports are available through the library API; see
+[closed-loop effectiveness](docs/effectiveness.md).
+
 ## Supported outputs and integrations
 
 | Integration | Status |
@@ -203,8 +206,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   records the bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
-- `SimpleRedactor` is a best-effort safety net before export, not a compliance
-  control.
+- `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
+  rules before export and pre-mining sanitization. Redaction markers identify
+  the matching rule, for example `[REDACTED by email]`. This is a safety net,
+  not a compliance control.
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
 
