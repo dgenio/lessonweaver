@@ -160,6 +160,7 @@ class ClaudeCodeTraceImporter:
             )
 
         events = [self._map_event(session_id, item, index) for index, item in enumerate(raw_events)]
+        self._propagate_tool_results(events)
         outcome = self._outcome(source, events)
         bundle = TraceBundle(
             trace_id=session_id,
@@ -225,6 +226,27 @@ class ClaudeCodeTraceImporter:
             success=success,
             metadata=metadata,
         )
+
+    @staticmethod
+    def _propagate_tool_results(events: list[TraceEvent]) -> None:
+        calls_by_id = {
+            event.id: event for event in events if event.type is TraceEventType.TOOL_CALL
+        }
+        for event in events:
+            if event.type is not TraceEventType.TOOL_RESULT:
+                continue
+            tool_use_id = event.metadata.get("tool_use_id")
+            if not isinstance(tool_use_id, str):
+                continue
+            linked_call = calls_by_id.get(tool_use_id)
+            if linked_call is None:
+                continue
+            if event.success is False or event.status == "failed":
+                linked_call.success = False
+                linked_call.status = "failed"
+            elif event.success is True:
+                linked_call.success = True
+                linked_call.status = linked_call.status or event.status
 
     def _event_type(self, raw_event: dict[str, Any]) -> TraceEventType:
         raw_type = str(

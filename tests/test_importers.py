@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lessonweaver.detection import LessonDetector
 from lessonweaver.importers import (
     CLAUDE_CODE_PROVENANCE_KEY,
     FAILURE_CASE_PROVENANCE_KEY,
@@ -110,6 +111,8 @@ def test_claude_code_maps_realistic_trace_and_validates() -> None:
     ]
     assert bundle.events[1].metadata["tool_name"] == "Edit"
     assert bundle.events[1].metadata["path"] == "src/auth.py"
+    assert bundle.events[1].success is False
+    assert bundle.events[1].status == "failed"
     assert bundle.events[2].success is False
     assert bundle.events[2].status == "failed"
     assert bundle.events[4].metadata["path"] == "src/login.py"
@@ -161,6 +164,39 @@ def test_claude_code_sanitizes_content_by_default() -> None:
     assert "Bearer sk-secret-token-value" not in contents
     assert "[REDACTED by email]" in contents
     assert "[REDACTED by bearer_token]" in contents
+
+
+def test_claude_code_failed_tool_result_enables_fallback_detection() -> None:
+    payload = {
+        "schema": "claude-code/transcript@1",
+        "session_id": "claude-tool-fallback",
+        "transcript": [
+            {"uuid": "tool-1", "type": "tool_use", "name": "Read", "input": "src/auth.py"},
+            {
+                "uuid": "result-1",
+                "type": "tool_result",
+                "tool_use_id": "tool-1",
+                "content": "No match found",
+                "is_error": True,
+            },
+            {"uuid": "tool-2", "type": "tool_use", "name": "Read", "input": "src/login.py"},
+            {
+                "uuid": "result-2",
+                "type": "tool_result",
+                "tool_use_id": "tool-2",
+                "content": "Found match",
+                "is_error": False,
+            },
+        ],
+    }
+
+    bundle = ClaudeCodeTraceImporter().import_trace(payload)
+    candidates = LessonDetector().detect(bundle)
+
+    assert bundle.events[0].success is False
+    assert bundle.events[0].status == "failed"
+    assert bundle.events[2].success is True
+    assert [candidate.id for candidate in candidates] == ["claude-tool-fallback-tool-fallback"]
 
 
 # --- DictTraceImporter ---------------------------------------------------------
