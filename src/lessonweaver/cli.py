@@ -831,6 +831,18 @@ def _run(args: argparse.Namespace) -> int:
             clustered_report = run_clustered_detection_eval(corpus)
             _print_json(clustered_report.to_dict())
             if (
+                args.min_precision is not None
+                and clustered_report.base_report is not None
+                and clustered_report.base_report.precision < args.min_precision
+            ):
+                print(
+                    f"Error: detection precision "
+                    f"{clustered_report.base_report.precision:.3f} is below the required "
+                    f"minimum {args.min_precision:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            if (
                 args.min_recall is not None
                 and clustered_report.recall_with_clustering < args.min_recall
             ):

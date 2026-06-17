@@ -851,6 +851,46 @@ def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
     assert exit_code == 0
 
 
+def test_cli_eval_detection_with_clustering_preserves_precision_gate(capsys, tmp_path) -> None:
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "corpus_id": "precision-gate",
+                "cases": [
+                    {
+                        "case_id": "mislabeled",
+                        "should_detect": False,
+                        "trace": {
+                            "trace_id": "false-positive",
+                            "source": "unit-test",
+                            "task": "Benign trace",
+                            "events": [],
+                            "outcome": "success",
+                            "metadata": {"lesson_candidate": True},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "eval-detection",
+            str(corpus_path),
+            "--with-clustering",
+            "--min-precision",
+            "1.0",
+        ]
+    )
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "precision" in err
+
+
 # --- review-trace (#106) ----------------------------------------------------
 
 

@@ -52,6 +52,46 @@ def test_clustered_eval_improves_recurring_unflagged_recall() -> None:
     assert "answered_without_checking_policy_version" in clustered_report.clustered_patterns
 
 
+def test_clustered_eval_keeps_distinct_recurring_patterns_separate() -> None:
+    corpus = DetectionCorpus.from_dict(
+        {
+            "corpus_id": "distinct-patterns",
+            "cases": [
+                {
+                    "case_id": "pattern-a",
+                    "should_detect": True,
+                    "trace": {
+                        "trace_id": "trace-a",
+                        "source": "unit-test",
+                        "task": "A",
+                        "events": [],
+                        "outcome": "success",
+                        "metadata": {"recurring_pattern": "pattern_a"},
+                    },
+                },
+                {
+                    "case_id": "pattern-b",
+                    "should_detect": True,
+                    "trace": {
+                        "trace_id": "trace-b",
+                        "source": "unit-test",
+                        "task": "B",
+                        "events": [],
+                        "outcome": "success",
+                        "metadata": {"recurring_pattern": "pattern_b"},
+                    },
+                },
+            ],
+        }
+    )
+
+    clustered_report = run_clustered_detection_eval(corpus)
+
+    assert clustered_report.clustered_patterns == []
+    assert clustered_report.clustered_true_positives == 0
+    assert clustered_report.clustered_false_negatives == 2
+
+
 def test_inline_benign_case_is_true_negative() -> None:
     corpus = DetectionCorpus.from_dict(
         {

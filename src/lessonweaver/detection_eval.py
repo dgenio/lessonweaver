@@ -16,7 +16,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .clustering import LessonClusterer
 from .detection import LessonDetector
 from .models import LessonCandidate, TraceBundle
 
@@ -268,7 +267,7 @@ def run_clustered_detection_eval(
     """
     detector = detector or LessonDetector()
     base_report = run_detection_eval(corpus, detector)
-    weak_candidates: list[LessonCandidate] = []
+    weak_pattern_counts: dict[str, int] = {}
     weak_pattern_by_trace: dict[str, str] = {}
 
     for case in corpus.cases:
@@ -278,15 +277,14 @@ def run_clustered_detection_eval(
             recurring_pattern = candidate.metadata.get("recurring_pattern")
             if not isinstance(recurring_pattern, str) or not recurring_pattern:
                 continue
-            weak_candidates.append(candidate)
+            weak_pattern_counts[recurring_pattern] = (
+                weak_pattern_counts.get(recurring_pattern, 0) + 1
+            )
             for trace_id in candidate.evidence_trace_ids:
                 weak_pattern_by_trace[trace_id] = recurring_pattern
 
     clustered_patterns = {
-        str(cluster.representative.metadata["recurring_pattern"])
-        for cluster in LessonClusterer().cluster(weak_candidates)
-        if cluster.occurrence_count >= min_occurrences
-        and isinstance(cluster.representative.metadata.get("recurring_pattern"), str)
+        pattern for pattern, count in weak_pattern_counts.items() if count >= min_occurrences
     }
 
     detected_with_clustering = []
