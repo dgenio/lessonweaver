@@ -8,7 +8,10 @@ body:
         Importers map an external format into lessonweaver's trace schema. They
         must stay dependency-light and free of framework lock-in. See
         [docs/interoperability.md](../../docs/interoperability.md) and
-        [docs/trace-format.md](../../docs/trace-format.md).
+        [docs/trace-format.md](../../docs/trace-format.md). If the sample should
+        become part of the public detection benchmark, follow
+        [docs/detection-benchmark.md](../../docs/detection-benchmark.md) and use
+        synthetic or fully sanitized data only.
   - type: input
     id: source-format
     attributes:
@@ -39,6 +42,15 @@ body:
       description: What sensitive content can appear in this format, and how should it be handled before mining?
     validations:
       required: true
+  - type: checkboxes
+    id: benchmark
+    attributes:
+      label: Benchmark contribution readiness
+      description: Complete these only when the request includes a proposed public benchmark trace.
+      options:
+        - label: The sample is synthetic or fully sanitized.
+        - label: I included the expected detection label and pattern.
+        - label: I manually checked content, task, source, and metadata for real identifiers.
   - type: dropdown
     id: dependencies
     attributes:

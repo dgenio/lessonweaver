@@ -1,0 +1,303 @@
+{
+  "corpus_id": "lessonweaver-detection-benchmark-v1",
+  "license": "Apache-2.0",
+  "version": "v1",
+  "cases": [
+    {
+      "case_id": "metadata-flag-explicit",
+      "should_detect": true,
+      "pattern": "metadata_flag",
+      "notes": "Explicit boolean lesson_candidate metadata should produce a metadata-flag candidate.",
+      "trace": {
+        "trace_id": "bench-metadata-flag-explicit",
+        "source": "benchmark-v1-synthetic",
+        "task": "Review a flagged trace",
+        "events": [
+          {"id": "m1", "type": "user_message", "content": "Please review this run."},
+          {"id": "m2", "type": "final_answer", "content": "Run reviewed."}
+        ],
+        "outcome": "success",
+        "metadata": {
+          "lesson_candidate": true,
+          "lesson_problem": "The trace owner flagged this as a reusable failure.",
+          "lesson_note": "Review flagged traces before writing reusable guidance."
+        }
+      }
+    },
+    {
+      "case_id": "metadata-flag-string",
+      "should_detect": true,
+      "pattern": "metadata_flag",
+      "notes": "String true is accepted for imported traces that serialize booleans loosely.",
+      "trace": {
+        "trace_id": "bench-metadata-flag-string",
+        "source": "benchmark-v1-synthetic",
+        "task": "Review a migrated trace",
+        "events": [
+          {"id": "m1", "type": "assistant_message", "content": "Migration completed."},
+          {"id": "m2", "type": "final_answer", "content": "Trace imported."}
+        ],
+        "outcome": "success",
+        "metadata": {"lesson_candidate": "true"}
+      }
+    },
+    {
+      "case_id": "human-correction-pr-review",
+      "should_detect": true,
+      "pattern": "human_correction",
+      "trace_path": "../../examples/traces/github_pr_review_failure.json",
+      "notes": "Reviewer correction in a coding-agent trace should be detected."
+    },
+    {
+      "case_id": "human-correction-governance",
+      "should_detect": true,
+      "pattern": "human_correction",
+      "trace_path": "../../examples/traces/specialist_agent_governance_miss.json",
+      "notes": "Governance correction provides direct evidence for a reusable lesson."
+    },
+    {
+      "case_id": "human-correction-voice-slot",
+      "should_detect": true,
+      "pattern": "human_correction",
+      "trace_path": "../../examples/traces/voice_slot_correction.json",
+      "notes": "Voice slot correction should surface a human-correction candidate."
+    },
+    {
+      "case_id": "failed-eval-chatbot",
+      "should_detect": true,
+      "pattern": "failed_evaluation",
+      "trace_path": "../../examples/traces/external_chatbot_policy_failure.json",
+      "notes": "Failed evaluation_result is a graded failure signal."
+    },
+    {
+      "case_id": "failed-eval-inline",
+      "should_detect": true,
+      "pattern": "failed_evaluation",
+      "notes": "Inline failed evaluation_result should be sufficient without a human correction.",
+      "trace": {
+        "trace_id": "bench-failed-eval-inline",
+        "source": "benchmark-v1-synthetic",
+        "task": "Check policy answer",
+        "events": [
+          {"id": "e1", "type": "assistant_message", "content": "Use the archived policy."},
+          {"id": "e2", "type": "evaluation_result", "status": "failed", "content": "Expected current policy source."},
+          {"id": "e3", "type": "final_answer", "content": "Archived policy used."}
+        ],
+        "outcome": "failed"
+      }
+    },
+    {
+      "case_id": "workflow-step-before-error",
+      "should_detect": true,
+      "pattern": "workflow_step",
+      "trace_path": "../../examples/traces/workflow_validation_failure.json",
+      "notes": "Workflow step before an error should produce a workflow-change candidate."
+    },
+    {
+      "case_id": "workflow-step-before-correction",
+      "should_detect": true,
+      "pattern": "workflow_step",
+      "notes": "Workflow step before a human correction is also a conservative workflow signal.",
+      "trace": {
+        "trace_id": "bench-workflow-correction",
+        "source": "benchmark-v1-synthetic",
+        "task": "Publish generated release notes",
+        "events": [
+          {"id": "w1", "type": "workflow_step", "content": "Publish release notes before checking changelog scope."},
+          {"id": "w2", "type": "assistant_message", "content": "Published notes for every package."},
+          {"id": "w3", "type": "human_correction", "content": "Only the changed package should be listed."},
+          {"id": "w4", "type": "final_answer", "content": "Release notes narrowed."}
+        ],
+        "outcome": "corrected_by_human"
+      }
+    },
+    {
+      "case_id": "error-retry-success",
+      "should_detect": true,
+      "pattern": "error_retry",
+      "notes": "Error followed by retry and success should be detected.",
+      "trace": {
+        "trace_id": "bench-error-retry-success",
+        "source": "benchmark-v1-synthetic",
+        "task": "Fetch a record with a transient failure",
+        "events": [
+          {"id": "r1", "type": "user_message", "content": "Fetch the record."},
+          {"id": "r2", "type": "error", "content": "Connection timed out."},
+          {"id": "r3", "type": "retry", "content": "Retrying the fetch."},
+          {"id": "r4", "type": "final_answer", "content": "Record fetched."}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "error-retry-corrected",
+      "should_detect": true,
+      "pattern": "error_retry",
+      "notes": "Corrected outcome still counts as a successful recovery after retry.",
+      "trace": {
+        "trace_id": "bench-error-retry-corrected",
+        "source": "benchmark-v1-synthetic",
+        "task": "Generate a migration after a failed command",
+        "events": [
+          {"id": "r1", "type": "error", "content": "Migration command failed."},
+          {"id": "r2", "type": "retry", "content": "Retrying with the schema path."},
+          {"id": "r3", "type": "assistant_message", "content": "Migration regenerated."}
+        ],
+        "outcome": "corrected_by_human"
+      }
+    },
+    {
+      "case_id": "tool-fallback-example",
+      "should_detect": true,
+      "pattern": "tool_fallback",
+      "trace_path": "../../examples/traces/tool_api_fallback.json",
+      "notes": "Failed primary tool followed by successful fallback tool should be detected."
+    },
+    {
+      "case_id": "tool-fallback-inline",
+      "should_detect": true,
+      "pattern": "tool_fallback",
+      "notes": "Synthetic fallback case keeps the benchmark independent of the example trace set.",
+      "trace": {
+        "trace_id": "bench-tool-fallback-inline",
+        "source": "benchmark-v1-synthetic",
+        "task": "Resolve a package version",
+        "events": [
+          {"id": "t1", "type": "tool_call", "content": "registry_lookup", "status": "failed", "success": false},
+          {"id": "t2", "type": "tool_call", "content": "lockfile_lookup", "status": "success", "success": true},
+          {"id": "t3", "type": "final_answer", "content": "Version resolved from lockfile."}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "corrected-outcome-inline",
+      "should_detect": true,
+      "pattern": "corrected_outcome",
+      "notes": "Final corrected_by_human outcome without a human_correction event should still be detected.",
+      "trace": {
+        "trace_id": "bench-corrected-outcome-inline",
+        "source": "benchmark-v1-synthetic",
+        "task": "Summarize a ticket",
+        "events": [
+          {"id": "c1", "type": "assistant_message", "content": "Ticket closed without blocker."},
+          {"id": "c2", "type": "final_answer", "content": "Ticket summary revised after reviewer note."}
+        ],
+        "outcome": "corrected_by_human"
+      }
+    },
+    {
+      "case_id": "corrected-outcome-imported",
+      "should_detect": true,
+      "pattern": "corrected_outcome",
+      "notes": "Imported traces may only preserve the final corrected outcome flag.",
+      "trace": {
+        "trace_id": "bench-corrected-outcome-imported",
+        "source": "benchmark-v1-synthetic",
+        "task": "Classify a support request",
+        "events": [
+          {"id": "c1", "type": "user_message", "content": "Classify this synthetic support request."},
+          {"id": "c2", "type": "assistant_message", "content": "Classified as billing."}
+        ],
+        "outcome": "corrected_by_human"
+      }
+    },
+    {
+      "case_id": "recurring-unflagged-policy-version",
+      "should_detect": true,
+      "pattern": "recurring_unflagged",
+      "notes": "KNOWN GAP: recurring mistake with no explicit signal; retained to measure conservative false negatives.",
+      "trace": {
+        "trace_id": "bench-recurring-unflagged-policy",
+        "source": "benchmark-v1-synthetic",
+        "task": "Answer a customer policy question",
+        "events": [
+          {"id": "u1", "type": "user_message", "content": "What is the refund window?"},
+          {"id": "u2", "type": "assistant_message", "content": "The refund window is 30 days."},
+          {"id": "u3", "type": "user_message", "content": "And for the premium plan?"},
+          {"id": "u4", "type": "assistant_message", "content": "Also 30 days."},
+          {"id": "u5", "type": "final_answer", "content": "Refund window is 30 days."}
+        ],
+        "outcome": "success",
+        "metadata": {"recurring_pattern": "answered_without_checking_policy_version"}
+      }
+    },
+    {
+      "case_id": "recurring-unflagged-locale-assumption",
+      "should_detect": true,
+      "pattern": "recurring_unflagged",
+      "notes": "KNOWN GAP: repeated locale assumption without an explicit failure event.",
+      "trace": {
+        "trace_id": "bench-recurring-unflagged-locale",
+        "source": "benchmark-v1-synthetic",
+        "task": "Prepare localized copy",
+        "events": [
+          {"id": "u1", "type": "user_message", "content": "Write checkout copy for two locales."},
+          {"id": "u2", "type": "assistant_message", "content": "Used US spelling for both locales."},
+          {"id": "u3", "type": "assistant_message", "content": "Reused the same currency format."},
+          {"id": "u4", "type": "final_answer", "content": "Localized copy drafted."}
+        ],
+        "outcome": "success",
+        "metadata": {"recurring_pattern": "locale_assumption_without_lookup"}
+      }
+    },
+    {
+      "case_id": "no-candidate-clean-success",
+      "should_detect": false,
+      "pattern": "no_candidate",
+      "notes": "Boring successful run; detector should stay silent.",
+      "trace": {
+        "trace_id": "bench-clean-success",
+        "source": "benchmark-v1-synthetic",
+        "task": "Greet the user",
+        "events": [
+          {"id": "n1", "type": "user_message", "content": "hi"},
+          {"id": "n2", "type": "assistant_message", "content": "hello"},
+          {"id": "n3", "type": "final_answer", "content": "done"}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "no-candidate-workflow-success",
+      "should_detect": false,
+      "pattern": "no_candidate",
+      "trace_path": "../../examples/traces/workflow_validation_order.json",
+      "notes": "Workflow steps without a later failure should not fire."
+    },
+    {
+      "case_id": "no-candidate-keyword-only",
+      "should_detect": false,
+      "pattern": "no_candidate",
+      "notes": "The word error in content alone is not an error event.",
+      "trace": {
+        "trace_id": "bench-benign-keyword",
+        "source": "benchmark-v1-synthetic",
+        "task": "Summarize a log line",
+        "events": [
+          {"id": "n1", "type": "user_message", "content": "Summarize: no error occurred during the run."},
+          {"id": "n2", "type": "assistant_message", "content": "The run completed without any error."},
+          {"id": "n3", "type": "final_answer", "content": "No issues found."}
+        ],
+        "outcome": "success"
+      }
+    },
+    {
+      "case_id": "no-candidate-failed-tool-without-fallback",
+      "should_detect": false,
+      "pattern": "no_candidate",
+      "notes": "A failed tool call without a successful later alternative is not the fallback signal.",
+      "trace": {
+        "trace_id": "bench-failed-tool-no-fallback",
+        "source": "benchmark-v1-synthetic",
+        "task": "Check a package registry",
+        "events": [
+          {"id": "n1", "type": "tool_call", "content": "registry_lookup", "status": "failed", "success": false},
+          {"id": "n2", "type": "assistant_message", "content": "Could not resolve the package."},
+          {"id": "n3", "type": "final_answer", "content": "Package unresolved."}
+        ],
+        "outcome": "failed"
+      }
+    }
+  ]
+}

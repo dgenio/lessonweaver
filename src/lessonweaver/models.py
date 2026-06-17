@@ -23,6 +23,12 @@ def _parse_datetime(value: Any, *, default: datetime | None = None) -> datetime 
     return default
 
 
+def _require_datetime(value: datetime | None, field_name: str) -> datetime:
+    if value is None:
+        raise ValueError(f"{field_name} must be a valid datetime")
+    return value
+
+
 def _ensure_timezone_aware(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=timezone.utc)
@@ -222,8 +228,8 @@ class LessonCandidate:
     def from_dict(cls, data: dict[str, Any]) -> LessonCandidate:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
         updated_at = _parse_datetime(data.get("updated_at"), default=created_at)
-        assert created_at is not None
-        assert updated_at is not None
+        created_at = _require_datetime(created_at, "created_at")
+        updated_at = _require_datetime(updated_at, "updated_at")
         return cls(
             id=str(data["id"]),
             summary=str(data["summary"]),
@@ -479,7 +485,7 @@ class OperationalLesson:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OperationalLesson:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
-        assert created_at is not None
+        created_at = _require_datetime(created_at, "created_at")
         return cls(
             lesson_id=str(data["lesson_id"]),
             candidate_id=str(data["candidate_id"]),
@@ -557,8 +563,8 @@ class SkillCard:
     def from_dict(cls, data: dict[str, Any]) -> SkillCard:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
         updated_at = _parse_datetime(data.get("updated_at"), default=created_at)
-        assert created_at is not None
-        assert updated_at is not None
+        created_at = _require_datetime(created_at, "created_at")
+        updated_at = _require_datetime(updated_at, "updated_at")
         return cls(
             id=str(data["id"]),
             name=str(data["name"]),
@@ -625,7 +631,7 @@ class ExportArtifact:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExportArtifact:
         created_at = _parse_datetime(data.get("created_at"), default=_utc_now())
-        assert created_at is not None
+        created_at = _require_datetime(created_at, "created_at")
         return cls(
             artifact_id=str(data["artifact_id"]),
             format=ExportFormat(str(data["format"])),
@@ -668,7 +674,7 @@ class SkillUsageEvent:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillUsageEvent:
         loaded_at = _parse_datetime(data.get("loaded_at"), default=_utc_now())
-        assert loaded_at is not None
+        loaded_at = _require_datetime(loaded_at, "loaded_at")
         outcome_positive = data.get("outcome_positive")
         return cls(
             id=str(data["id"]),
@@ -701,10 +707,15 @@ class LoadingPolicy:
     Retrieval without a policy is unconstrained: high-risk skills load beside
     low-risk ones and out-of-scope skills leak across teams. This model is the
     scope-aware, risk-filtered, "do not load" layer applied before retrieval.
+
+    ``max_budget_chars`` is a character budget, not a tokenizer-backed token
+    budget. As a rough planning rule, English text often averages around four
+    characters per token, but this policy intentionally avoids adding a
+    tokenizer dependency.
     """
 
     max_skills: int = 5
-    max_token_budget: int = 2000
+    max_budget_chars: int = 2000
     allowed_scopes: list[Scope] = field(default_factory=list)
     max_risk_level: RiskLevel = RiskLevel.MEDIUM
     excluded_skill_ids: list[str] = field(default_factory=list)
@@ -739,9 +750,10 @@ class LoadingPolicy:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LoadingPolicy:
+        budget_chars = data.get("max_budget_chars", data.get("max_token_budget", 2000))
         return cls(
             max_skills=int(data.get("max_skills", 5)),
-            max_token_budget=int(data.get("max_token_budget", 2000)),
+            max_budget_chars=int(budget_chars),
             allowed_scopes=[Scope(str(item)) for item in data.get("allowed_scopes", [])],
             max_risk_level=RiskLevel(str(data.get("max_risk_level", RiskLevel.MEDIUM.value))),
             excluded_skill_ids=[str(item) for item in data.get("excluded_skill_ids", [])],
@@ -751,7 +763,7 @@ class LoadingPolicy:
     def to_dict(self) -> dict[str, Any]:
         return {
             "max_skills": self.max_skills,
-            "max_token_budget": self.max_token_budget,
+            "max_budget_chars": self.max_budget_chars,
             "allowed_scopes": [scope.value for scope in self.allowed_scopes],
             "max_risk_level": self.max_risk_level.value,
             "excluded_skill_ids": list(self.excluded_skill_ids),

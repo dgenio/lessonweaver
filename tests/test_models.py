@@ -311,13 +311,27 @@ def test_skill_usage_event_outcome_defaults_to_none() -> None:
 def test_loading_policy_round_trip() -> None:
     policy = LoadingPolicy(
         max_skills=3,
-        max_token_budget=1500,
+        max_budget_chars=1500,
         allowed_scopes=[Scope.PROJECT, Scope.TEAM],
         max_risk_level=RiskLevel.HIGH,
         excluded_skill_ids=["skill-x"],
         require_approved_status=False,
     )
     assert LoadingPolicy.from_dict(policy.to_dict()).to_dict() == policy.to_dict()
+    assert policy.to_dict()["max_budget_chars"] == 1500
+    assert "max_token_budget" not in policy.to_dict()
+
+
+def test_loading_policy_from_dict_accepts_legacy_token_budget_key() -> None:
+    policy = LoadingPolicy.from_dict({"max_token_budget": 1000})
+    assert policy.max_budget_chars == 1000
+    assert policy.to_dict()["max_budget_chars"] == 1000
+    assert "max_token_budget" not in policy.to_dict()
+
+
+def test_loading_policy_from_dict_prefers_character_budget_key() -> None:
+    policy = LoadingPolicy.from_dict({"max_budget_chars": 800, "max_token_budget": 1000})
+    assert policy.max_budget_chars == 800
 
 
 def test_loading_policy_default_returns_all_approved_skills() -> None:

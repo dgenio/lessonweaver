@@ -27,6 +27,12 @@ below a floor — useful as a CI gate:
 lessonweaver eval-detection examples/detection_corpus/corpus.json --min-precision 1.0
 ```
 
+To compare independent recall with clustered recall for repeated weak signals:
+
+```bash
+lessonweaver eval-detection examples/detection_corpus/corpus.json --with-clustering
+```
+
 Programmatic use:
 
 ```python
@@ -41,19 +47,25 @@ print(report.precision, report.recall, report.f1)
 | Metric | Value |
 | --- | --- |
 | True positives | 5 |
-| False negatives | 1 |
+| False negatives | 2 |
 | False positives | 0 |
 | True negatives | 3 |
 | Precision | 1.00 |
-| Recall | 0.833 |
-| F1 | 0.909 |
+| Recall | 0.714 |
+| F1 | 0.833 |
 
-The single false negative (`recurring-unflagged-version-miss`) is **deliberate**:
-it encodes a recurring mistake that left no error, failed evaluation, or human
-correction in the trace. The conservative detector misses it today. Keeping it in
-the corpus makes that gap measurable, and it is the kind of case multi-trace
-clustering (#37) and future heuristics should eventually close. `precision = 1.0`
-reflects that the detector never fires on the benign cases.
+The two false negatives (`recurring-unflagged-version-miss` and
+`recurring-unflagged-version-repeat`) are **deliberate**: they encode the same
+recurring mistake that left no error, failed evaluation, or human correction in
+either trace. Independent scoring misses them, while the clustered eval path can
+measure whether repeated weak signals improve recall without increasing
+single-trace false positives. `precision = 1.0` reflects that the detector never
+fires on the benign cases.
 
 `tests/test_detection_eval.py` locks these numbers so a change that quietly
 regresses detection quality fails CI.
+
+For the versioned public benchmark, current results, annotation rules, and the
+contribution path for sanitized traces, see
+[`benchmark/v1`](../../benchmark/v1/README.md) and
+[`docs/detection-benchmark.md`](../../docs/detection-benchmark.md).

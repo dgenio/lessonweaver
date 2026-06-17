@@ -178,6 +178,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver validate-skill <suite.json> [--skills-dir DIR | --registry-root ROOT]`
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status> [--rollout-status draft|approved|canary|active|paused|retired] [--environment dev|staging|prod] [--rollout-percentage N] [--cohort NAME] [--target-agent NAME] [--target-version VERSION] [--owner NAME] [--approver NAME] [--activation-date ISO] [--review-date ISO] [--expiry-date ISO] [--rollback-instructions TEXT] [--linked-eval-suite ID] [--monitoring-window-days N]`
+- `lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json` — reproduce the public detection benchmark scorecard and fail if the recorded results drift.
+
+Closed-loop effectiveness reports are available through the library API; see
+[closed-loop effectiveness](docs/effectiveness.md).
 
 ## Supported outputs and integrations
 
@@ -202,8 +206,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   records the bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
-- `SimpleRedactor` is a best-effort safety net before export, not a compliance
-  control.
+- `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
+  rules before export and pre-mining sanitization. Redaction markers identify
+  the matching rule, for example `[REDACTED by email]`. This is a safety net,
+  not a compliance control.
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
 
@@ -276,6 +282,7 @@ any sibling. The Mermaid source is in
 - [Interoperability](docs/interoperability.md)
 - [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)
+- [Detection benchmark](benchmark/v1/README.md) and [contribution guide](docs/detection-benchmark.md)
 - [Repository readiness](docs/repository-readiness.md)
 - [Examples](examples/README.md)
 - [Agent instructions](AGENTS.md)
