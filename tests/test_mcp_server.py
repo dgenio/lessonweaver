@@ -61,12 +61,34 @@ def test_submit_trace_sanitizes_and_saves_pending_candidates(tmp_path) -> None:
 
     assert result["saved"] == 1
     assert result["review_required"] is True
-    assert "lessonweaver review" in result["review_instructions"]
+    assert "lessonweaver interview <candidate-id>" in result["review_instructions"]
+    assert "lessonweaver review" not in result["review_instructions"]
     [candidate] = registry.list_candidates()
     assert candidate.id == result["candidates"][0]["id"]
     evidence_events = candidate.metadata["mcp"]["sanitized_evidence_events"]
     assert "[REDACTED by bearer_token]" in evidence_events[0]["content"]
     assert "Bearer abcdefghijklmnopqrstuvwxyz123456" not in evidence_events[0]["content"]
+
+
+def test_submit_trace_sanitizes_metadata_backed_candidates(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    tools = LessonWeaverMcpTools(registry=registry)
+
+    tools.submit_trace(
+        _trace_payload(
+            lesson_candidate=True,
+            lesson_problem="Customer email admin@example.com leaked.",
+            lesson_note="Never persist Bearer abcdefghijklmnopqrstuvwxyz123456.",
+            nested={"owner": "ops@example.com"},
+        )
+    )
+
+    candidates = {candidate.id: candidate for candidate in registry.list_candidates()}
+    candidate = candidates["trace-1-metadata-flag"]
+    assert "[REDACTED by email]" in candidate.observed_problem
+    assert "[REDACTED by bearer_token]" in candidate.proposed_lesson
+    assert "admin@example.com" not in candidate.observed_problem
+    assert "Bearer abcdefghijklmnopqrstuvwxyz123456" not in candidate.proposed_lesson
 
 
 def test_submit_trace_reports_invalid_trace_without_saving(tmp_path) -> None:
@@ -90,7 +112,8 @@ def test_list_and_get_pending_candidates_return_review_guidance(tmp_path) -> Non
     assert [item["id"] for item in pending["candidates"]] == [candidate["id"]]
     assert pending["review_required"] is True
     assert candidate["status"] == "candidate"
-    assert "review_instructions" in candidate
+    assert "lessonweaver interview <candidate-id>" in pending["review_instructions"]
+    assert f"lessonweaver interview {candidate['id']}" in candidate["review_instructions"]
 
 
 def test_load_skills_matches_skill_loader_output(tmp_path) -> None:

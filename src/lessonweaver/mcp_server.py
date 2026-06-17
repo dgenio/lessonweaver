@@ -55,6 +55,11 @@ class LessonWeaverMcpTools:
         payload = _coerce_json_object(trace_json, "trace_json")
         bundle = DictTraceImporter().import_trace(payload)
         sanitized = self.sanitizer.sanitize(bundle)
+        sanitized = replace(
+            sanitized,
+            task=_sanitize_text(sanitized.task, self.sanitizer),
+            metadata=_sanitize_value(sanitized.metadata, self.sanitizer),
+        )
         candidates = [
             self._with_mcp_metadata(candidate, sanitized)
             for candidate in self.detector.detect(sanitized)
@@ -263,6 +268,24 @@ def _coerce_json_object(value: dict[str, Any] | str, field_name: str) -> dict[st
     return decoded
 
 
+def _sanitize_text(value: str, sanitizer: TraceSanitizer) -> str:
+    for rule in sanitizer.rules:
+        value = rule.apply(value)
+    return value
+
+
+def _sanitize_value(value: Any, sanitizer: TraceSanitizer) -> Any:
+    if isinstance(value, str):
+        return _sanitize_text(value, sanitizer)
+    if isinstance(value, dict):
+        return {key: _sanitize_value(item, sanitizer) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_value(item, sanitizer) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_sanitize_value(item, sanitizer) for item in value)
+    return value
+
+
 def _candidate_summary(candidate: LessonCandidate) -> dict[str, Any]:
     return {
         "id": candidate.id,
@@ -278,9 +301,16 @@ def _candidate_summary(candidate: LessonCandidate) -> dict[str, Any]:
 
 
 def _review_instructions(candidate_id: str | None = None) -> str:
-    suffix = f" {candidate_id}" if candidate_id else ""
+    if candidate_id:
+        return (
+            "Human approval is intentionally not available through MCP. "
+            f"Run `lessonweaver interview {candidate_id}`, answer the required questions "
+            f"with `lessonweaver answer {candidate_id} <question> <option>`, then run "
+            f"`lessonweaver approve {candidate_id}` before promoting the candidate."
+        )
     return (
         "Human approval is intentionally not available through MCP. "
-        f"Run `lessonweaver review{suffix}` or the guided CLI review flow before approving "
-        "or promoting any candidate."
+        "Use a returned candidate id with `lessonweaver interview <candidate-id>`, "
+        "`lessonweaver answer <candidate-id> <question> <option>`, and "
+        "`lessonweaver approve <candidate-id>` before promoting any candidate."
     )
