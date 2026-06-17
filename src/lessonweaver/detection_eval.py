@@ -121,6 +121,53 @@ class DetectionEvalResult:
 
 
 @dataclass(slots=True)
+class DetectionEvalPatternMetrics:
+    """Aggregate scorecard for one labeled detection pattern."""
+
+    total_cases: int
+    passed: int
+    failed: int
+    true_positives: int
+    true_negatives: int
+    false_positives: int
+    false_negatives: int
+
+    @property
+    def pass_rate(self) -> float:
+        return self.passed / self.total_cases if self.total_cases > 0 else 0.0
+
+    @property
+    def precision(self) -> float:
+        predicted_positive = self.true_positives + self.false_positives
+        return self.true_positives / predicted_positive if predicted_positive > 0 else 0.0
+
+    @property
+    def recall(self) -> float:
+        actual_positive = self.true_positives + self.false_negatives
+        return self.true_positives / actual_positive if actual_positive > 0 else 0.0
+
+    @property
+    def f1(self) -> float:
+        denominator = self.precision + self.recall
+        return 2 * self.precision * self.recall / denominator if denominator > 0 else 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_cases": self.total_cases,
+            "passed": self.passed,
+            "failed": self.failed,
+            "true_positives": self.true_positives,
+            "true_negatives": self.true_negatives,
+            "false_positives": self.false_positives,
+            "false_negatives": self.false_negatives,
+            "pass_rate": self.pass_rate,
+            "precision": self.precision,
+            "recall": self.recall,
+            "f1": self.f1,
+        }
+
+
+@dataclass(slots=True)
 class DetectionEvalReport:
     """Aggregate detection-quality scorecard with precision/recall/F1."""
 
@@ -133,6 +180,7 @@ class DetectionEvalReport:
     false_positives: int
     false_negatives: int
     results: list[DetectionEvalResult] = field(default_factory=list)
+    by_pattern: dict[str, DetectionEvalPatternMetrics] = field(default_factory=dict)
 
     @property
     def pass_rate(self) -> float:
@@ -167,8 +215,29 @@ class DetectionEvalReport:
             "precision": self.precision,
             "recall": self.recall,
             "f1": self.f1,
+            "by_pattern": {
+                pattern: metrics.to_dict()
+                for pattern, metrics in sorted(self.by_pattern.items(), key=lambda item: item[0])
+            },
             "results": [result.to_dict() for result in self.results],
         }
+
+
+def _metrics_for_results(results: list[DetectionEvalResult]) -> DetectionEvalPatternMetrics:
+    true_positives = sum(1 for result in results if result.classification == TRUE_POSITIVE)
+    true_negatives = sum(1 for result in results if result.classification == TRUE_NEGATIVE)
+    false_positives = sum(1 for result in results if result.classification == FALSE_POSITIVE)
+    false_negatives = sum(1 for result in results if result.classification == FALSE_NEGATIVE)
+    passed = sum(1 for result in results if result.passed)
+    return DetectionEvalPatternMetrics(
+        total_cases=len(results),
+        passed=passed,
+        failed=len(results) - passed,
+        true_positives=true_positives,
+        true_negatives=true_negatives,
+        false_positives=false_positives,
+        false_negatives=false_negatives,
+    )
 
 
 @dataclass(slots=True)
@@ -239,6 +308,7 @@ def run_detection_eval(
         )
 
     passed_count = sum(1 for result in results if result.passed)
+    patterns = sorted({result.pattern or "unlabeled" for result in results})
     return DetectionEvalReport(
         corpus_id=corpus.corpus_id,
         total_cases=len(results),
@@ -249,6 +319,12 @@ def run_detection_eval(
         false_positives=tallies[FALSE_POSITIVE],
         false_negatives=tallies[FALSE_NEGATIVE],
         results=results,
+        by_pattern={
+            pattern: _metrics_for_results(
+                [result for result in results if (result.pattern or "unlabeled") == pattern]
+            )
+            for pattern in patterns
+        },
     )
 
 

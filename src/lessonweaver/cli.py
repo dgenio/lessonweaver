@@ -459,6 +459,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Exit non-zero if recall falls below this floor (CI gate)",
     )
     eval_detection_parser.add_argument(
+        "--compare-results",
+        help="Exit non-zero if the JSON report differs from this recorded results file",
+    )
+    eval_detection_parser.add_argument(
         "--with-clustering",
         action="store_true",
         help="Report recall with and without clustering repeated weak signals",
@@ -881,7 +885,17 @@ def _run(args: argparse.Namespace) -> int:
                 return 1
             return 0
         report = run_detection_eval(corpus)
-        _print_json(report.to_dict())
+        report_payload = report.to_dict()
+        _print_json(report_payload)
+        if args.compare_results is not None:
+            expected_payload = _read_json(args.compare_results)
+            if report_payload != expected_payload:
+                print(
+                    "Error: recorded detection benchmark results differ; rerun "
+                    "eval-detection and update the results file intentionally.",
+                    file=sys.stderr,
+                )
+                return 1
         if args.min_precision is not None and report.precision < args.min_precision:
             print(
                 f"Error: detection precision {report.precision:.3f} is below the required "
