@@ -34,6 +34,12 @@ class SkillLoader:
         max_skills: int = 10,
         inclusion_level: str = "summary",
     ) -> CompiledContext:
+        """Load matching skills into a compiled context.
+
+        ``budget_chars`` and any policy cap are measured in characters. This
+        deliberately matches :class:`SkillCompiler`, which uses ``len(...)``
+        rather than a tokenizer-dependent token counter.
+        """
         # When a policy is present it owns load governance: its limits act as
         # ceilings over the per-call arguments, and it has already decided which
         # lifecycle states are eligible. Retrieval must therefore not re-apply
@@ -44,7 +50,7 @@ class SkillLoader:
         effective_budget = budget_chars
         if self.policy is not None:
             effective_max_skills = min(max_skills, self.policy.max_skills)
-            effective_budget = min(budget_chars, self.policy.max_token_budget)
+            effective_budget = min(budget_chars, self.policy.max_budget_chars)
 
         query = RetrievalQuery(
             task=task,

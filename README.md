@@ -179,6 +179,9 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   - Suite JSON: `{"suite_id": "s1", "skill_id": "pr-review", "examples": [{"example_id": "pos", "task": "Review this pull request", "should_load": true}, {"example_id": "neg", "task": "Generate a SQL migration", "should_load": false}]}`. Negative examples (`should_load=false`) measure precision; the command prints the eval result as JSON and exits `0` when every example passes, `1` otherwise.
 - `lessonweaver promote-skill <skill-id> <target-status>`
 
+Closed-loop effectiveness reports are available through the library API; see
+[closed-loop effectiveness](docs/effectiveness.md).
+
 ## Supported outputs and integrations
 
 | Integration | Status |
@@ -202,8 +205,10 @@ an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
   records the bypass in metadata.
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
-- `SimpleRedactor` is a best-effort safety net before export, not a compliance
-  control.
+- `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
+  rules before export, pre-mining sanitization, and assist provider calls.
+  Redaction markers identify the matching rule, for example
+  `[REDACTED by email]`. This is a safety net, not a compliance control.
 - Optional LLM-assisted extensions must use the shared assist boundary: disabled
   by default, redacted before provider calls, audit-marked, and non-authoritative.
   The LLM proposes, deterministic checks run, the human approves, and runtime

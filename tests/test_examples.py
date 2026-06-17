@@ -55,7 +55,7 @@ def _load_json(path: Path) -> dict:
 def test_every_trace_file_has_an_expected_count() -> None:
     # Guards against a new trace being added without an expectation here.
     on_disk = {
-        str(path.relative_to(EXAMPLES))
+        str(path.relative_to(EXAMPLES)).replace("\\", "/")
         for path in EXAMPLES.rglob("*.json")
         if "events" in _load_json(path) and "trace_id" in _load_json(path)
     }
