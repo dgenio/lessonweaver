@@ -69,6 +69,22 @@ def _trace(trace_id: str, task: str, content: str) -> TraceBundle:
     )
 
 
+def _successful_trace(trace_id: str, task: str, content: str) -> TraceBundle:
+    return TraceBundle(
+        trace_id=trace_id,
+        source="unit-test",
+        task=task,
+        events=[
+            TraceEvent(
+                id="event-1",
+                type=TraceEventType.FINAL_ANSWER,
+                content=content,
+            )
+        ],
+        outcome="success",
+    )
+
+
 def test_effectiveness_scorecard_keeps_skill_with_positive_relevant_usage() -> None:
     report = SkillEffectivenessReviewer().review(
         _skill(),
@@ -104,6 +120,26 @@ def test_effectiveness_scorecard_flags_recurring_failure_after_activation() -> N
     assert report.false_negative_examples == ["trace-repeat"]
     assert report.recommendation == "revise"
     assert report.score < 0.5
+
+
+def test_effectiveness_scorecard_ignores_matching_task_without_failure_evidence() -> None:
+    report = SkillEffectivenessReviewer().review(
+        _skill(),
+        usage_events=[
+            _usage("usage-positive", "Review this PR for security issues", outcome_positive=True)
+        ],
+        post_activation_traces=[
+            _successful_trace(
+                "trace-healthy",
+                "Review pull request",
+                "The diff was inspected before the review completed.",
+            )
+        ],
+    )
+
+    assert report.recurrence_trace_ids == []
+    assert report.false_negative_examples == []
+    assert report.recommendation == "keep"
 
 
 def test_effectiveness_scorecard_flags_irrelevant_loading_as_over_triggering() -> None:

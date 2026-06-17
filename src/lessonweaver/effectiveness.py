@@ -63,7 +63,6 @@ def _is_relevant_usage(skill_tokens: set[str], event: SkillUsageEvent) -> bool:
 def _is_recurrence(skill_tokens: set[str], trace: TraceBundle) -> bool:
     trace_text = " ".join(
         [
-            trace.task,
             *[
                 event.content or ""
                 for event in trace.events
