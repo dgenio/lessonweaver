@@ -41,7 +41,11 @@ def _render_skill(skill: SkillCard, level: InclusionLevel) -> str:
 
 
 class SkillCompiler:
-    """Compile retrieved skills into a prompt snippet within a character budget."""
+    """Compile retrieved skills into a prompt snippet within a character budget.
+
+    Budgets are measured with ``len(...)`` over the rendered snippet. This is a
+    character budget, not an estimated tokenizer budget.
+    """
 
     def compile(
         self,
@@ -49,6 +53,7 @@ class SkillCompiler:
         budget_chars: int = 2000,
         default_inclusion: InclusionLevel = InclusionLevel.SUMMARY,
     ) -> CompiledContext:
+        """Return a compiled context capped by ``budget_chars`` characters."""
         if not results or budget_chars <= 0:
             return CompiledContext("", [], [result.skill.id for result in results], 0)
 

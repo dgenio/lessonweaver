@@ -2,7 +2,7 @@
 
 import pytest
 
-from lessonweaver.clustering import LessonClusterer
+from lessonweaver.clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonCluster, LessonClusterer
 from lessonweaver.models import LessonCandidate, RecommendedActionType, RiskLevel, Scope
 
 
@@ -44,6 +44,17 @@ def _recurring_pair() -> list[LessonCandidate]:
     ]
 
 
+def _cluster_signature(clusters: list[LessonCluster]) -> list[tuple[str, str, tuple[str, ...]]]:
+    return [
+        (
+            cluster.cluster_id,
+            cluster.representative.id,
+            tuple(member.id for member in cluster.members),
+        )
+        for cluster in clusters
+    ]
+
+
 def test_groups_similar_candidates_into_one_cluster() -> None:
     clusters = LessonClusterer().cluster(_recurring_pair())
     assert len(clusters) == 1
@@ -78,9 +89,36 @@ def test_representative_is_highest_confidence_member() -> None:
     assert clusters[0].representative.id == "c2"
 
 
-def test_cluster_id_is_seeded_by_first_member() -> None:
-    clusters = LessonClusterer().cluster(_recurring_pair())
+def test_cluster_id_is_seeded_by_canonical_first_member() -> None:
+    clusters = LessonClusterer().cluster(list(reversed(_recurring_pair())))
     assert clusters[0].cluster_id == "cluster-c1"
+
+
+def test_representative_tie_breaks_on_lexicographic_id() -> None:
+    first, second = _recurring_pair()
+    clusters = LessonClusterer().cluster([second, first])
+    assert len(clusters) == 1
+    assert clusters[0].representative.id == "c1"
+
+
+def test_cluster_output_is_independent_of_input_order() -> None:
+    first, second = _recurring_pair()
+    unrelated = _candidate(
+        "c3",
+        "Payment API timed out during checkout",
+        "Fallback endpoint resolved the request",
+    )
+
+    original = [first, second, unrelated]
+    shuffled = [unrelated, second, first]
+
+    assert _cluster_signature(LessonClusterer().cluster(original)) == _cluster_signature(
+        LessonClusterer().cluster(shuffled)
+    )
+    assert _cluster_signature(LessonClusterer().cluster(shuffled)) == [
+        ("cluster-c1", "c1", ("c1", "c2")),
+        ("cluster-c3", "c3", ("c3",)),
+    ]
 
 
 def test_empty_input_returns_no_clusters() -> None:
@@ -88,10 +126,32 @@ def test_empty_input_returns_no_clusters() -> None:
 
 
 def test_invalid_threshold_raises() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="threshold"):
         LessonClusterer(threshold=0.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="threshold"):
         LessonClusterer(threshold=1.5)
+
+
+def test_similarity_threshold_boundary_is_inclusive() -> None:
+    # The two candidates share 2 tokens out of a 5-token union, so Jaccard = 0.4.
+    base = _candidate("c1", "alpha beta gamma", "")
+    boundary = _candidate("c2", "alpha beta delta epsilon", "")
+
+    assert (
+        len(
+            LessonClusterer(threshold=DEFAULT_SIMILARITY_THRESHOLD - 0.01).cluster([base, boundary])
+        )
+        == 1
+    )
+    assert (
+        len(LessonClusterer(threshold=DEFAULT_SIMILARITY_THRESHOLD).cluster([base, boundary])) == 1
+    )
+    assert (
+        len(
+            LessonClusterer(threshold=DEFAULT_SIMILARITY_THRESHOLD + 0.01).cluster([base, boundary])
+        )
+        == 2
+    )
 
 
 def test_to_dict_exposes_counts_and_members() -> None:

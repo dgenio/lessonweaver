@@ -53,6 +53,7 @@ def test_default_detection_signals_are_named_and_ordered() -> None:
         "error_retry_success",
         "tool_fallback",
         "corrected_outcome",
+        "recurring_pattern",
     ]
     assert all(isinstance(signal, DetectionSignal) for signal in DEFAULT_DETECTION_SIGNALS)
 
@@ -314,6 +315,32 @@ def test_detection_metadata_flag_uses_custom_problem() -> None:
     candidates = LessonDetector().detect(trace)
     assert candidates[0].observed_problem == "Custom problem"
     assert candidates[0].proposed_lesson == "Custom lesson"
+
+
+def test_detection_recurring_pattern_metadata_emits_cluster_only_candidate() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "recurring-weak-1",
+            "source": "unit-test",
+            "task": "Answer a policy question",
+            "events": [
+                {"id": "1", "type": "user_message", "content": "What is the refund window?"},
+                {"id": "2", "type": "assistant_message", "content": "It is 30 days."},
+                {"id": "3", "type": "final_answer", "content": "Refund window is 30 days."},
+            ],
+            "outcome": "success",
+            "metadata": {"recurring_pattern": "answered_without_checking_policy_version"},
+        }
+    )
+
+    candidates = LessonDetector().detect(trace)
+
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert candidate.id == "recurring-weak-1-recurring-pattern"
+    assert candidate.confidence < 0.4
+    assert candidate.metadata["cluster_only"] is True
+    assert candidate.metadata["recurring_pattern"] == "answered_without_checking_policy_version"
 
 
 def test_detection_sanitizes_trace_id_for_persistable_candidate_ids(tmp_path) -> None:

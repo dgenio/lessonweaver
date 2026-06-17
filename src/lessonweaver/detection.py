@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from .models import (
     LessonCandidate,
@@ -51,6 +51,7 @@ def _candidate(
     recommended_action_type: RecommendedActionType,
     risk_level: RiskLevel,
     scope: Scope,
+    metadata: dict[str, Any] | None = None,
 ) -> LessonCandidate:
     return LessonCandidate(
         id=_candidate_id(trace.trace_id, suffix),
@@ -65,6 +66,7 @@ def _candidate(
         recommended_action_type=recommended_action_type,
         risk_level=risk_level,
         scope=scope,
+        metadata=metadata or {},
     )
 
 
@@ -184,7 +186,10 @@ class WorkflowStepFailureSignal:
     name = "workflow_step_failure"
     CONFIDENCE = 0.50
     EVIDENCE_STRENGTH = 0.4
-    FAILURE_TYPES = {TraceEventType.ERROR, TraceEventType.HUMAN_CORRECTION}
+    FAILURE_TYPES: ClassVar[set[TraceEventType]] = {
+        TraceEventType.ERROR,
+        TraceEventType.HUMAN_CORRECTION,
+    }
 
     def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
         first_failure_index = next(
@@ -367,6 +372,43 @@ class CorrectedOutcomeSignal:
         ]
 
 
+class RecurringPatternSignal:
+    name = "recurring_pattern"
+    CONFIDENCE = 0.28
+    EVIDENCE_STRENGTH = 0.2
+
+    def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
+        recurring_pattern = trace.metadata.get("recurring_pattern")
+        if not isinstance(recurring_pattern, str) or not recurring_pattern:
+            return []
+        return [
+            _candidate(
+                trace,
+                suffix="recurring-pattern",
+                summary="Cluster-only candidate based on repeated unflagged trace metadata.",
+                evidence_event_ids=[],
+                observed_problem=(
+                    "Trace metadata marks this as a recurring unflagged pattern, but the "
+                    "single trace has no explicit error, failed evaluation, or human "
+                    "correction signal."
+                ),
+                proposed_lesson=(
+                    f"Possible recurring pattern to confirm across traces: {recurring_pattern}."
+                ),
+                confidence=self.CONFIDENCE,
+                evidence_strength=self.EVIDENCE_STRENGTH,
+                evidence_summary=(
+                    "A recurring-pattern metadata marker is intentionally weak evidence; "
+                    "it should only count when multiple occurrences cluster together."
+                ),
+                recommended_action_type=RecommendedActionType.SKILL,
+                risk_level=RiskLevel.LOW,
+                scope=Scope.PROJECT,
+                metadata={"cluster_only": True, "recurring_pattern": recurring_pattern},
+            )
+        ]
+
+
 def _is_failed_tool_call(event: TraceEvent) -> bool:
     return event.type is TraceEventType.TOOL_CALL and (
         event.success is False or event.status == "failed"
@@ -387,6 +429,7 @@ DEFAULT_DETECTION_SIGNALS: tuple[DetectionSignal, ...] = (
     ErrorRetrySuccessSignal(),
     ToolFallbackSignal(),
     CorrectedOutcomeSignal(),
+    RecurringPatternSignal(),
 )
 
 
@@ -399,5 +442,7 @@ class LessonDetector:
     def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
         candidates: list[LessonCandidate] = []
         for signal in self.signals:
+            if signal.name == RecurringPatternSignal.name and candidates:
+                continue
             candidates.extend(signal.detect(trace))
         return candidates
