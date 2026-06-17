@@ -51,9 +51,12 @@ Expected review result excerpt:
 }
 ```
 
-Promote the approved skill before runtime use so loaders include it:
+Promote the approved skill through the governed lifecycle before runtime use so
+loaders include it:
 
 ```bash
+lessonweaver promote-skill skill-trace-chatbot-policy-001-failed-eval experimental \
+  --registry-root /tmp/lw-chatbot-cookbook
 lessonweaver promote-skill skill-trace-chatbot-policy-001-failed-eval active \
   --registry-root /tmp/lw-chatbot-cookbook
 ```
@@ -77,21 +80,25 @@ Do not apply when: When the task is unrelated to the observed trace context.
 Required behaviors: Possible reusable pattern: add stronger retrieval/version checks before answering.
 ```
 
-A chatbot runtime can load active reviewed skills before serving a policy task:
+A chatbot runtime can load active reviewed skills before serving a task. The
+auto-generated skill from this trace is intentionally generic, so the retrieval
+task below uses the same evaluation-result and retrieval/version-check terms
+that the reviewed skill contains:
 
 ```python
 from lessonweaver import FileSystemRegistry, SkillLoader
 
 loader = SkillLoader(registry=FileSystemRegistry("/tmp/lw-chatbot-cookbook"))
 context = loader.load_for_task(
-    task="Answer a customer refund-policy question from current policy docs",
+    task="Candidate lesson based on failed evaluation_result signal",
     agent_type="chatbot",
     budget_chars=600,
 )
 system_prompt = context.snippet
 ```
 
-The repo also includes a hand-written destination artifact for this scenario:
+For a production chatbot prompt that uses natural refund-policy wording, prefer
+the hand-written destination artifact for this scenario:
 [`examples/skills/chatbot_policy_version_check.md`](../../examples/skills/chatbot_policy_version_check.md).
 
 ## 2. Voice slot-correction guardrail
