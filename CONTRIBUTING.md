@@ -35,8 +35,15 @@ mypy src/lessonweaver/
 pytest
 ```
 
-CI runs lint, type check, and tests on Python 3.10, 3.11, and 3.12. Run the
-commands above locally before opening a PR so there are no surprises.
+CI runs lint, type check, and tests on Python 3.10, 3.11, 3.12, 3.13, and
+3.14. A dependency-policy job also checks minimum direct dependency resolution
+on Python 3.10 and scheduled/latest pre-release dependency resolution on Python
+3.14. Run the commands above locally before opening a PR so there are no
+surprises.
+
+Core install dependencies must stay library-friendly: lower bounds only, no
+exact pins, and no upper caps unless a known incompatibility is documented next
+to the specifier.
 
 ## Where to contribute
 
