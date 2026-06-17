@@ -106,6 +106,17 @@ def test_inbox_can_filter_to_recurring_failures() -> None:
     assert inbox.items[0].candidate_ids == ["c1", "c2"]
 
 
+def test_inbox_skips_resolved_candidates_before_clustering() -> None:
+    candidates = _inbox_candidates()
+    candidates[0].status = LessonStatus.APPROVED
+    candidates[1].status = LessonStatus.REJECTED
+    candidates[2].status = LessonStatus.NEEDS_REVIEW
+
+    inbox = AgentImprovementInboxBuilder().build(candidates)
+
+    assert [item.candidate_ids for item in inbox.items] == [["c3"]]
+
+
 def test_inbox_exports_json_and_markdown() -> None:
     inbox = AgentImprovementInboxBuilder(min_frequency=2).build(_inbox_candidates())
 

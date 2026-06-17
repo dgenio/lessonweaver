@@ -12,6 +12,7 @@ from .models import LessonCandidate, LessonStatus, RecommendedActionType, RiskLe
 from .registry import FileSystemRegistry
 
 REVIEW_ACTIONS = ["approve", "reject", "defer", "create_issue"]
+_OPEN_CANDIDATE_STATUSES = {LessonStatus.CANDIDATE, LessonStatus.NEEDS_REVIEW}
 
 _RISK_RANK = {
     RiskLevel.HIGH: 3,
@@ -121,7 +122,10 @@ class AgentImprovementInboxBuilder:
         self.clusterer = clusterer or LessonClusterer()
 
     def build(self, candidates: list[LessonCandidate]) -> AgentImprovementInbox:
-        clusters = self.clusterer.cluster(candidates)
+        open_candidates = [
+            candidate for candidate in candidates if candidate.status in _OPEN_CANDIDATE_STATUSES
+        ]
+        clusters = self.clusterer.cluster(open_candidates)
         items = [
             _item_from_cluster(cluster)
             for cluster in clusters
