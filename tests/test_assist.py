@@ -17,7 +17,7 @@ def _trace() -> TraceBundle:
     return TraceBundle(
         trace_id="trace-1",
         source="unit-test",
-        task="Draft a lesson",
+        task="Draft a lesson for a.user@example.com",
         events=[
             TraceEvent(
                 id="event-1",
@@ -26,6 +26,7 @@ def _trace() -> TraceBundle:
             )
         ],
         outcome="corrected_by_human",
+        metadata={"customer": "a.user@example.com"},
     )
 
 
@@ -54,7 +55,10 @@ def test_enabled_assist_redacts_trace_evidence_before_provider_call() -> None:
 
     assert suggestion.text == "Check the current policy."
     assert provider.requests[0].trace is not None
-    provider_event = provider.requests[0].trace.events[0]
+    provider_trace = provider.requests[0].trace
+    provider_event = provider_trace.events[0]
+    assert provider_trace.task == "Draft a lesson for [REDACTED by email]"
+    assert provider_trace.metadata == {"customer": "[REDACTED by email]"}
     assert provider_event.content == (
         "User email is [REDACTED by email] and token is [REDACTED by bearer_token]"
     )
