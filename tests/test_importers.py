@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import pytest
 
 from lessonweaver.importers import (
@@ -200,6 +202,17 @@ def test_langfuse_importer_preserves_unmapped_metadata() -> None:
     assert bundle.events[2].metadata["langfuse"]["observation_type"] == "SPAN"
 
 
+def test_langfuse_importer_treats_null_metadata_as_empty() -> None:
+    payload = deepcopy(LANGFUSE_EXPORT)
+    payload["trace"]["metadata"] = None
+    payload["observations"][0]["metadata"] = None
+
+    bundle = LangfuseTraceImporter().import_trace(payload)
+
+    assert bundle.metadata["langfuse"]["trace"] == {}
+    assert bundle.events[1].metadata["langfuse"] == {"observation_type": "GENERATION"}
+
+
 def test_langfuse_importer_rejects_malformed_payload() -> None:
     with pytest.raises(ValueError, match="trace id"):
         LangfuseTraceImporter().import_trace({"source": "langfuse", "observations": []})
@@ -277,6 +290,15 @@ def test_langsmith_importer_preserves_run_metadata() -> None:
     assert bundle.metadata["langsmith"]["run_count"] == 2
     assert bundle.events[0].metadata["langsmith"]["run_type"] == "chain"
     assert bundle.events[0].metadata["langsmith"]["extra"]["metadata"]["tenant"] == "acme"
+
+
+def test_langsmith_importer_treats_null_extra_as_empty() -> None:
+    payload = deepcopy(LANGSMITH_EXPORT)
+    payload["runs"][0]["extra"] = None
+
+    bundle = LangSmithTraceImporter().import_trace(payload)
+
+    assert bundle.events[0].metadata["langsmith"]["extra"] == {}
 
 
 def test_langsmith_importer_rejects_malformed_payload() -> None:

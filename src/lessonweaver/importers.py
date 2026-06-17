@@ -31,6 +31,10 @@ from .traces import validate_trace_dict
 FAILURE_CASE_PROVENANCE_KEY = "failure_case"
 
 
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 @runtime_checkable
 class TraceImporter(Protocol):
     """Normalize an arbitrary payload into a :class:`TraceBundle`.
@@ -221,7 +225,7 @@ class LangfuseTraceImporter:
             task=str(trace_data.get("name") or source.get("name") or "Langfuse trace"),
             events=events,
             outcome=_outcome_from_events(events),
-            metadata={"langfuse": {"trace": dict(trace_data.get("metadata", {}))}},
+            metadata={"langfuse": {"trace": _dict_or_empty(trace_data.get("metadata"))}},
         )
 
 
@@ -310,7 +314,7 @@ def _langfuse_observation_event(
         metadata={
             "langfuse": {
                 "observation_type": observation_type or None,
-                **dict(observation.get("metadata", {})),
+                **_dict_or_empty(observation.get("metadata")),
             }
         },
     )
@@ -337,7 +341,7 @@ def _langsmith_run_event(trace_id: str, index: int, run: dict[str, Any]) -> Trac
         metadata={
             "langsmith": {
                 "run_type": run_type or None,
-                "extra": dict(run.get("extra", {})),
+                "extra": _dict_or_empty(run.get("extra")),
             }
         },
     )
