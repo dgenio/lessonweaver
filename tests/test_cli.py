@@ -903,6 +903,64 @@ def test_cli_ingest_strict_fails_on_skipped_file(capsys, tmp_path) -> None:
     assert report["files_skipped"][0]["reason"] == "invalid JSON"
 
 
+def test_cli_ingest_strict_does_not_save_when_any_file_is_skipped(capsys, tmp_path) -> None:
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    source = json.loads(
+        Path("examples/traces/github_pr_review_failure.json").read_text(encoding="utf-8")
+    )
+    source["trace_id"] = "strict-valid"
+    (traces_dir / "valid.json").write_text(json.dumps(source), encoding="utf-8")
+    (traces_dir / "bad.json").write_text("{not json", encoding="utf-8")
+
+    registry_root = tmp_path / "registry"
+    exit_code = main(
+        [
+            "ingest",
+            str(traces_dir),
+            "--save",
+            "--strict",
+            "--registry-root",
+            str(registry_root),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["files_read"] == 1
+    assert report["files_skipped"][0]["reason"] == "invalid JSON"
+    assert report["candidates_found"] == 1
+    assert report["candidates_saved"] == 0
+    assert FileSystemRegistry(registry_root).list_candidates() == []
+
+
+def test_cli_ingest_dry_run_output_does_not_write_file(capsys, tmp_path) -> None:
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    source = json.loads(
+        Path("examples/traces/github_pr_review_failure.json").read_text(encoding="utf-8")
+    )
+    source["trace_id"] = "dry-run-output"
+    (traces_dir / "trace.json").write_text(json.dumps(source), encoding="utf-8")
+    output_path = tmp_path / "report.txt"
+    output_path.write_text("keep me\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            str(traces_dir),
+            "--dry-run",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert output_path.read_text(encoding="utf-8") == "keep me\n"
+    assert f"[dry-run] would write to: {output_path}" in capsys.readouterr().out
+
+
 def test_cli_eval_detection_reports_metrics(capsys) -> None:
     exit_code = main(["eval-detection", "examples/detection_corpus/corpus.json"])
     assert exit_code == 0

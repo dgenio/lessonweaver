@@ -926,8 +926,9 @@ def _run(args: argparse.Namespace) -> int:
 
         clusters = LessonClusterer(threshold=args.threshold).cluster(ingest_candidates)
         representatives = [_cluster_representative(cluster) for cluster in clusters]
+        strict_failed = bool(skipped and (args.strict or files_read == 0))
         candidates_saved = 0
-        if args.save and not args.dry_run:
+        if args.save and not args.dry_run and not strict_failed:
             registry = _registry(args.registry_root)
             for candidate in representatives:
                 registry.save_candidate(candidate)
@@ -949,8 +950,8 @@ def _run(args: argparse.Namespace) -> int:
             if args.json
             else _render_ingest_table(ingest_report)
         )
-        _emit_text(content, output=args.output, dry_run=False)
-        if skipped and (args.strict or files_read == 0):
+        _emit_text(content, output=args.output, dry_run=args.dry_run)
+        if strict_failed:
             return 2
         return 0
 
