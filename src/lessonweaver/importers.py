@@ -330,8 +330,7 @@ class OpenTelemetryImporter:
                 continue
             name = str(item.get("name") or "")
             attributes = self._attributes(item.get("attributes", {}))
-            lowered = name.lower()
-            if "human" not in lowered and "feedback" not in lowered and "correction" not in lowered:
+            if not self._is_correction_event(name, attributes):
                 continue
             content = str(
                 attributes.get("feedback.comment")
@@ -481,9 +480,29 @@ class OpenTelemetryImporter:
         guardrail_result = str(attributes.get("guardrail.result") or "").lower()
         if event_type is TraceEventType.EVALUATION_RESULT:
             return "failed" if guardrail_result in {"blocked", "failed", "error"} else "passed"
-        if status_code in {"error", "2"} or attributes.get("error.type"):
+        if self._is_error_status_code(status_code) or attributes.get("error.type"):
             return "error"
         return None
+
+    def _is_correction_event(self, name: str, attributes: dict[str, Any]) -> bool:
+        lowered = name.lower()
+        if any(part in lowered for part in ("human_feedback", "human-correction")):
+            return True
+        if "human_correction" in lowered or "feedback" in lowered or "correction" in lowered:
+            return True
+        return any(
+            key in attributes for key in ("feedback.comment", "human.feedback", "correction")
+        )
+
+    def _is_error_status_code(self, status_code: str) -> bool:
+        normalized = status_code.replace(".", "_").replace("-", "_").lower()
+        return normalized in {
+            "2",
+            "error",
+            "status_code_error",
+            "statuscode_error",
+            "status_code_2",
+        }
 
     def _token_usage(self, attributes: dict[str, Any]) -> dict[str, Any]:
         return {

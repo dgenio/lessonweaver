@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lessonweaver.detection import LessonDetector
 from lessonweaver.importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
@@ -256,6 +257,49 @@ def test_opentelemetry_importer_accepts_jsonl_spans() -> None:
         TraceEventType.MODEL_CALL,
         TraceEventType.TOOL_CALL,
     ]
+
+
+def test_opentelemetry_importer_recognizes_otlp_error_status_enum() -> None:
+    bundle = OpenTelemetryImporter().import_trace(
+        {
+            "spans": [
+                {
+                    "traceId": "trace-error-enum",
+                    "spanId": "s1",
+                    "name": "tool.call",
+                    "attributes": {"tool.name": "api"},
+                    "status": {"code": "STATUS_CODE_ERROR"},
+                }
+            ]
+        }
+    )
+
+    assert bundle.events[0].status == "error"
+    assert bundle.events[0].success is False
+    assert bundle.outcome == "failure"
+
+
+def test_opentelemetry_importer_ignores_ordinary_human_span_events() -> None:
+    bundle = OpenTelemetryImporter().import_trace(
+        {
+            "spans": [
+                {
+                    "traceId": "trace-human-input",
+                    "spanId": "s1",
+                    "name": "llm.chat",
+                    "events": [
+                        {
+                            "name": "human_input",
+                            "attributes": {"content": "Please continue."},
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert [event.type for event in bundle.events] == [TraceEventType.MODEL_CALL]
+    assert LessonDetector().detect(bundle) == []
 
 
 def test_opentelemetry_importer_tolerates_missing_optional_fields_with_warnings() -> None:
