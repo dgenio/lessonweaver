@@ -12,6 +12,7 @@ from .export import (
 )
 from .filemerge import diff_managed_file, merge_managed_block
 from .models import LessonCandidate, LessonStatus, RecommendedActionType
+from .privacy import SimpleRedactor
 
 
 @dataclass(slots=True)
@@ -43,17 +44,18 @@ def _metadata_block(candidate: LessonCandidate) -> str:
     return "\n".join(lines)
 
 
-def _artifact_content(candidate: LessonCandidate) -> str:
+def _artifact_content(candidate: LessonCandidate, *, redact: bool = True) -> str:
     if candidate.status is not LessonStatus.APPROVED:
         raise ValueError(
             f"candidate '{candidate.id}' is not approved (status: {candidate.status.value})"
         )
+    redactor = SimpleRedactor() if redact else None
     if candidate.recommended_action_type is RecommendedActionType.EVAL:
-        artifact = export_eval_spec_markdown(candidate)
+        artifact = export_eval_spec_markdown(candidate, redactor=redactor)
     elif candidate.recommended_action_type is RecommendedActionType.GUARDRAIL:
-        artifact = export_guardrail_rule_markdown(candidate)
+        artifact = export_guardrail_rule_markdown(candidate, redactor=redactor)
     elif candidate.recommended_action_type is RecommendedActionType.WORKFLOW_CHANGE:
-        artifact = export_workflow_recommendation_markdown(candidate)
+        artifact = export_workflow_recommendation_markdown(candidate, redactor=redactor)
     else:
         raise ValueError(
             f"candidate '{candidate.id}' cannot be rendered as a coding-agent file change "
@@ -62,11 +64,15 @@ def _artifact_content(candidate: LessonCandidate) -> str:
     return f"{_metadata_block(candidate)}\n\n{artifact}".strip() + "\n"
 
 
-def plan_coding_agent_change(candidate: LessonCandidate, path: str | Path) -> FileChange:
+def plan_coding_agent_change(
+    candidate: LessonCandidate, path: str | Path, *, redact: bool = True
+) -> FileChange:
     """Plan an idempotent coding-agent instruction file change for a candidate."""
     target = Path(path)
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
-    merged = merge_managed_block(existing, _artifact_content(candidate), candidate.id)
+    merged = merge_managed_block(
+        existing, _artifact_content(candidate, redact=redact), candidate.id
+    )
     changed = merged != existing
     diff = diff_managed_file(existing, merged, str(target)) if changed else ""
     return FileChange(path=target, existing=existing, merged=merged, diff=diff, changed=changed)

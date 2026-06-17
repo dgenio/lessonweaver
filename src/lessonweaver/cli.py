@@ -671,6 +671,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Write the merged file (default: preview the diff only)",
     )
+    pr_diff_parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Redact before writing (default: on; pass --no-redact to disable)",
+    )
     pr_diff_parser.add_argument("--registry-root")
 
     lint_parser = subparsers.add_parser("lint", help="Lint a SkillCard")
@@ -1086,7 +1092,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "generate-pr-diff":
         candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
         try:
-            change = plan_coding_agent_change(candidate, args.path)
+            change = plan_coding_agent_change(candidate, args.path, redact=args.redact)
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 1

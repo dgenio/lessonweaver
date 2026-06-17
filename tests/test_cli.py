@@ -392,6 +392,63 @@ def test_cli_generate_pr_diff_write_is_idempotent(capsys, tmp_path) -> None:
     assert "no changes" in capsys.readouterr().out
 
 
+def test_cli_generate_pr_diff_redacts_candidate_content_by_default(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    candidate = _candidate(action_type=RecommendedActionType.GUARDRAIL)
+    candidate.observed_problem = "User email a.user@example.com leaked into trace output."
+    candidate.proposed_lesson = "Never paste Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ into AGENTS.md."
+    registry.save_candidate(candidate)
+    target = tmp_path / "AGENTS.md"
+
+    exit_code = main(
+        [
+            "generate-pr-diff",
+            "cand-1",
+            "--target",
+            "coding-agent",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--write",
+        ]
+    )
+
+    assert exit_code == 0
+    capsys.readouterr()
+    content = target.read_text(encoding="utf-8")
+    assert "a.user@example.com" not in content
+    assert "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ" not in content
+    assert "[REDACTED]" in content
+
+
+def test_cli_generate_pr_diff_can_disable_redaction(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    candidate = _candidate(action_type=RecommendedActionType.GUARDRAIL)
+    candidate.observed_problem = "User email a.user@example.com leaked into trace output."
+    registry.save_candidate(candidate)
+    target = tmp_path / "AGENTS.md"
+
+    exit_code = main(
+        [
+            "generate-pr-diff",
+            "cand-1",
+            "--target",
+            "coding-agent",
+            "--path",
+            str(target),
+            "--registry-root",
+            str(tmp_path),
+            "--write",
+            "--no-redact",
+        ]
+    )
+
+    assert exit_code == 0
+    capsys.readouterr()
+    assert "a.user@example.com" in target.read_text(encoding="utf-8")
+
+
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     bad = _skill()
