@@ -77,6 +77,29 @@ forces preview even with `--write`. Re-running an unchanged export reports
 `no changes` rather than rewriting the file. Review the diff like any code change
 before committing.
 
+## Eval before rollout
+
+Before promoting a reviewed artifact to active use, generate a minimal positive
+and negative retrieval suite and require it to pass:
+
+```bash
+# Generate a suite from an approved skill or candidate
+lessonweaver generate-eval skill-1 --registry-root .lessonweaver > suite.json
+
+# Inspect the pass/fail summary before promotion
+lessonweaver validate-artifact skill-1 --eval-suite suite.json \
+  --registry-root .lessonweaver
+
+# Require the suite to pass before activation
+lessonweaver promote-artifact skill-1 active --require-eval-pass \
+  --eval-suite suite.json --registry-root .lessonweaver
+```
+
+Negative examples protect precision: a lesson that loads for unrelated tasks
+fails rollout validation even if it loads for the intended positive case. If a
+team intentionally accepts a failing suite, `--allow-eval-fail` records the
+override in skill metadata under `eval_before_rollout`.
+
 ## Understand loading decisions: `explain-load`
 
 A growing skill library poisons context if everything always loads. Diagnose
