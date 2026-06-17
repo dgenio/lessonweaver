@@ -39,6 +39,8 @@ def export_eval_companion_pack(
         candidate_id = _redact_text(candidate.id, redactor)
         _validate_candidate_id(candidate_id)
         path = f"{directory}/{candidate_id}.md"
+        if path in artifacts:
+            raise ValueError(f"duplicate eval companion artifact path: {path!r}")
         artifacts[path] = exporter(candidate, redactor=redactor)
         metadata.append(_metadata(candidate, candidate_id, path, redactor))
 

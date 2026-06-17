@@ -107,5 +107,16 @@ def test_eval_companion_pack_redacts_metadata_readme_and_paths() -> None:
     assert "admin@example.com" not in serialized
     assert "reviewer@example.com" not in serialized
     assert "Bearer abcdefghijklmnopqrstuvwxyz123456" not in serialized
-    assert "[REDACTED]" in serialized
-    assert "evals/[REDACTED].md" in pack
+    assert "[REDACTED by email]" in serialized
+    assert "evals/[REDACTED by email].md" in pack
+
+
+def test_eval_companion_pack_rejects_redacted_path_collisions() -> None:
+    with pytest.raises(ValueError, match="duplicate eval companion artifact path"):
+        export_eval_companion_pack(
+            [
+                _candidate("admin@example.com", RecommendedActionType.EVAL),
+                _candidate("reviewer@example.com", RecommendedActionType.EVAL),
+            ],
+            redactor=SimpleRedactor(),
+        )
