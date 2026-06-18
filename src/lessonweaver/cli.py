@@ -384,6 +384,25 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
+def _redact_packet(value: Any, redactor: SimpleRedactor) -> Any:
+    if isinstance(value, str):
+        return redactor.redact(value)
+    if isinstance(value, list):
+        return [_redact_packet(item, redactor) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_packet(item, redactor) for key, item in value.items()}
+    return value
+
+
+def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Redact rendered output before printing (default: on; pass --no-redact to disable)",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
 
@@ -552,7 +571,7 @@ def main(argv: list[str] | None = None) -> int:
         "--target", help="Preview an export of the resulting skill in this format"
     )
     review_trace_parser.add_argument("--applies-to", default="**")
-    review_trace_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(review_trace_parser)
     review_trace_parser.add_argument(
         "--sanitize",
         action="store_true",
@@ -596,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
     export_parser.add_argument("--registry-root")
-    export_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_parser)
 
     export_lesson_parser = subparsers.add_parser(
         "export-lesson",
@@ -608,7 +627,7 @@ def main(argv: list[str] | None = None) -> int:
         "--format", choices=["eval", "guardrail", "workflow"], required=True
     )
     export_lesson_parser.add_argument("--registry-root")
-    export_lesson_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_lesson_parser)
     export_lesson_parser.add_argument(
         "--json",
         action="store_true",
@@ -645,12 +664,7 @@ def main(argv: list[str] | None = None) -> int:
         default="**",
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
-    export_file_parser.add_argument(
-        "--redact",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Redact before writing (default: on; pass --no-redact to disable)",
-    )
+    _add_redact_argument(export_file_parser)
     export_file_parser.add_argument(
         "--write",
         action="store_true",
@@ -1083,6 +1097,8 @@ def _run(args: argparse.Namespace) -> int:
             "candidates": [_review_packet(candidate, args) for candidate in reviewed],
             "approval": approval,
         }
+        if args.redact:
+            packet = _redact_packet(packet, SimpleRedactor())
         _print_json(packet)
         return 0
 

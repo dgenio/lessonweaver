@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from lessonweaver.cli import main
 from lessonweaver.models import (
     LessonCandidate,
@@ -34,6 +36,12 @@ def _skill(skill_id: str = "skill-1", *, status: SkillStatus = SkillStatus.ACTIV
         version="0.2.0",
         status=status,
     )
+
+
+def _sensitive_skill() -> SkillCard:
+    skill = _skill()
+    skill.instructions = ["Email admin@example.com before committing instructions."]
+    return skill
 
 
 def test_cli_detect_produces_json(capsys) -> None:
@@ -208,6 +216,7 @@ def _candidate(
     candidate_id: str = "cand-1",
     action_type: RecommendedActionType = RecommendedActionType.EVAL,
     status: LessonStatus = LessonStatus.APPROVED,
+    proposed_lesson: str = "Inspect changed files before drawing review conclusions.",
 ) -> LessonCandidate:
     return LessonCandidate(
         id=candidate_id,
@@ -215,7 +224,7 @@ def _candidate(
         evidence_trace_ids=["trace-1"],
         evidence_event_ids=["e1"],
         observed_problem="Agent approved a PR without inspecting the diff.",
-        proposed_lesson="Inspect changed files before drawing review conclusions.",
+        proposed_lesson=proposed_lesson,
         confidence=0.62,
         recommended_action_type=action_type,
         risk_level=RiskLevel.MEDIUM,
@@ -224,12 +233,57 @@ def _candidate(
     )
 
 
+def _sensitive_trace(path: Path) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "trace_id": "trace-sensitive-review",
+                "source": "test",
+                "task": "Review sensitive export behavior",
+                "events": [
+                    {
+                        "id": "e1",
+                        "type": "assistant_message",
+                        "content": "Prepared export guidance.",
+                    }
+                ],
+                "outcome": "success",
+                "metadata": {
+                    "lesson_candidate": True,
+                    "lesson_problem": "Agent exposed admin@example.com in an export.",
+                    "lesson_note": "Do not include admin@example.com in committed instructions.",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
     assert exit_code == 0
     assert "# PR Diff First" in capsys.readouterr().out
+
+
+def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_sensitive_skill())
+    exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "[REDACTED by email]" in out
+    assert "admin@example.com" not in out
+
+
+def test_cli_export_skill_no_redact_emits_raw_content(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_sensitive_skill())
+    exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path), "--no-redact"])
+    assert exit_code == 0
+    assert "admin@example.com" in capsys.readouterr().out
 
 
 def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
@@ -283,6 +337,40 @@ def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     assert "# Eval: Inspect diffs before PR review" in capsys.readouterr().out
+
+
+def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+    )
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "[REDACTED by email]" in out
+    assert "admin@example.com" not in out
+
+
+def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+    )
+    exit_code = main(
+        [
+            "export-lesson",
+            "cand-1",
+            "--format",
+            "eval",
+            "--registry-root",
+            str(tmp_path),
+            "--no-redact",
+        ]
+    )
+    assert exit_code == 0
+    assert "admin@example.com" in capsys.readouterr().out
 
 
 def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
@@ -980,6 +1068,36 @@ def test_cli_review_trace_target_includes_export_preview(capsys, tmp_path) -> No
     assert "<!-- lessonweaver skill_id=" in preview["content"]
 
 
+def test_cli_review_trace_target_redacts_by_default(capsys, tmp_path) -> None:
+    trace_path = _sensitive_trace(tmp_path / "sensitive-trace.json")
+    exit_code = main(
+        ["review-trace", str(trace_path), "--registry-root", str(tmp_path), "--target", "agents-md"]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    preview = json.loads(out)["candidates"][0]["export_preview"]
+    assert "[REDACTED by email]" in preview["content"]
+    assert "admin@example.com" not in out
+
+
+def test_cli_review_trace_target_no_redact_emits_raw_preview(capsys, tmp_path) -> None:
+    trace_path = _sensitive_trace(tmp_path / "sensitive-trace.json")
+    exit_code = main(
+        [
+            "review-trace",
+            str(trace_path),
+            "--registry-root",
+            str(tmp_path),
+            "--target",
+            "agents-md",
+            "--no-redact",
+        ]
+    )
+    assert exit_code == 0
+    preview = json.loads(capsys.readouterr().out)["candidates"][0]["export_preview"]
+    assert "admin@example.com" in preview["content"]
+
+
 def test_cli_review_trace_approve_blocked_when_incomplete(capsys, tmp_path) -> None:
     exit_code = main(["review-trace", _TRACE, "--registry-root", str(tmp_path), "--approve"])
     assert exit_code == 1
@@ -1108,6 +1226,16 @@ def test_cli_export_file_preserves_handwritten_content(capsys, tmp_path) -> None
     content = target.read_text(encoding="utf-8")
     assert "Keep PRs small." in content
     assert "lessonweaver:begin skill_id=skill-1" in content
+
+
+def test_cli_export_redact_help_states_default_on(capsys) -> None:
+    for command in ["review-trace", "export-skill", "export-lesson", "export-file"]:
+        with pytest.raises(SystemExit) as exc_info:
+            main([command, "--help"])
+        assert exc_info.value.code == 0
+        out = capsys.readouterr().out
+        assert "--no-redact" in out
+        assert "default: on" in out
 
 
 # --- explain-load / load --explain (#110) -----------------------------------

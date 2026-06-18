@@ -37,7 +37,7 @@ recipe below exports that skill into a different surface.
 
 ```bash
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format agents-md --redact --registry-root /tmp/lw
+  --format agents-md --registry-root /tmp/lw
 ```
 
 - The output is a compact `###`-titled fragment (with an HTML comment carrying
@@ -53,15 +53,15 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
 ```bash
 # Compact bullet fragment
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format copilot --redact --registry-root /tmp/lw
+  --format copilot --registry-root /tmp/lw
 
 # Repository-wide block for .github/copilot-instructions.md
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format copilot-repo --redact --registry-root /tmp/lw
+  --format copilot-repo --registry-root /tmp/lw
 
 # Path-specific file for .github/instructions/<id>.instructions.md
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format copilot-path --applies-to "src/**/*.py" --redact --registry-root /tmp/lw
+  --format copilot-path --applies-to "src/**/*.py" --registry-root /tmp/lw
 ```
 
 - **Review before use:** append the output to the relevant Copilot instruction
@@ -73,7 +73,7 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
 ```bash
 # Full SKILL.md (claude-rule and claude-md produce shorter fragments)
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format claude-skill --redact --registry-root /tmp/lw
+  --format claude-skill --registry-root /tmp/lw
 ```
 
 - `claude-skill` emits a full SKILL.md; `claude-rule` targets `.claude/rules/`
@@ -87,7 +87,7 @@ lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
 
 ```bash
 lessonweaver export-skill skill-trace-gh-pr-review-001-human-correction \
-  --format markdown --redact --registry-root /tmp/lw > reviewed-lesson.md
+  --format markdown --registry-root /tmp/lw > reviewed-lesson.md
 ```
 
 - Copy `reviewed-lesson.md` into a team knowledge base or review checklist.
@@ -105,7 +105,8 @@ Before any exported fragment is loaded into an agent, confirm:
       (enforced by `SkillLinter` rule `LW006`).
 - [ ] **Expiry / revisit** — note when the lesson should be re-reviewed.
 - [ ] **When not to load it** — `does_not_apply_when` is populated.
-- [ ] **No secrets** — exported with `--redact`; content checked by a human.
+- [ ] **No secrets** — export redaction stayed enabled, and content was checked
+      by a human.
 
 ## Notes
 

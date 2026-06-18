@@ -47,6 +47,8 @@ changelog; their dates are the dates of the corresponding work landing on
 - `SimpleRedactor` and `TraceSanitizer` now use one shared redaction rule set,
   emit named `[REDACTED by <rule>]` markers, and no longer fail open by returning
   raw export text when a redaction rule raises (#176).
+- `export-skill`, `export-lesson`, and `review-trace --target` now redact by
+  default, matching `export-file`; pass `--no-redact` to emit raw content (#177).
 
 - `approve` now enforces the human-review gate: a candidate must have answered
   the required (adaptive) review questions before it can be approved. Use
