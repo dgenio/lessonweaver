@@ -77,6 +77,7 @@ from .models import (
     TraceEventType,
 )
 from .privacy import SimpleRedactor
+from .recorder import TraceRecorder, record
 from .registry import FileSystemRegistry, LessonRegistry
 from .reporting import SkillReporter
 from .retrieval import (
@@ -159,6 +160,7 @@ __all__ = [
     "TraceEvent",
     "TraceEventType",
     "TraceImporter",
+    "TraceRecorder",
     "TraceSanitizer",
     "ValidationExample",
     "ValidationResult",
@@ -191,6 +193,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "record",
     "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",
