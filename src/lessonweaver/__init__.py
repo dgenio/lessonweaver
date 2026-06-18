@@ -19,6 +19,13 @@ from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
 from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
 from .eval_companion import export_eval_companion_pack
 from .export import (
+    EXPORT_FILE_FORMAT_CHOICES,
+    EXPORT_FILE_FORMAT_INPUT_CHOICES,
+    EXPORT_FORMAT_CHOICES,
+    EXPORT_FORMAT_INPUT_CHOICES,
+    EXPORTER_REGISTRY,
+    ExporterSpec,
+    ResolvedExporter,
     export_agents_md_fragment,
     export_claude_md_snippet,
     export_claude_rule_fragment,
@@ -32,9 +39,11 @@ from .export import (
     export_guardrail_rule_markdown,
     export_operational_lesson_markdown,
     export_runtime_prompt_snippet,
+    export_skill,
     export_skillcard_json,
     export_skillcard_markdown,
     export_workflow_recommendation_markdown,
+    resolve_export_format,
 )
 from .filemerge import (
     diff_managed_file,
@@ -97,6 +106,11 @@ from .validation import (
 )
 
 __all__ = [
+    "EXPORTER_REGISTRY",
+    "EXPORT_FILE_FORMAT_CHOICES",
+    "EXPORT_FILE_FORMAT_INPUT_CHOICES",
+    "EXPORT_FORMAT_CHOICES",
+    "EXPORT_FORMAT_INPUT_CHOICES",
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "BudgetUsage",
@@ -111,6 +125,7 @@ __all__ = [
     "DictTraceImporter",
     "ExportArtifact",
     "ExportFormat",
+    "ExporterSpec",
     "FailureCaseImporter",
     "FileSystemRegistry",
     "InclusionLevel",
@@ -128,6 +143,7 @@ __all__ = [
     "LoadingPolicy",
     "OperationalLesson",
     "RecommendedActionType",
+    "ResolvedExporter",
     "RetrievalDiagnostics",
     "RetrievalQuery",
     "RetrievalResult",
@@ -182,6 +198,7 @@ __all__ = [
     "export_guardrail_rule_markdown",
     "export_operational_lesson_markdown",
     "export_runtime_prompt_snippet",
+    "export_skill",
     "export_skillcard_json",
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
@@ -191,6 +208,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "resolve_export_format",
     "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",

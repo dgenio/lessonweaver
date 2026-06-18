@@ -1,7 +1,12 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from lessonweaver.export import (
+    EXPORT_FILE_FORMAT_CHOICES,
+    EXPORT_FORMAT_CHOICES,
+    EXPORTER_REGISTRY,
     export_agents_md_fragment,
     export_claude_md_snippet,
     export_claude_rule_fragment,
@@ -16,6 +21,7 @@ from lessonweaver.export import (
     export_skillcard_json,
     export_skillcard_markdown,
     export_workflow_recommendation_markdown,
+    resolve_export_format,
 )
 from lessonweaver.models import (
     LessonCandidate,
@@ -121,6 +127,26 @@ def test_export_skillcard_json() -> None:
     assert data["risk_level"] == "medium"
     assert data["scope"] == "project"
     assert data["sensitivity"] == "internal"
+
+
+def test_exporter_registry_defines_skill_choices_and_file_choices() -> None:
+    assert tuple(EXPORTER_REGISTRY) == EXPORT_FORMAT_CHOICES
+    assert "codex" in EXPORT_FORMAT_CHOICES
+    assert "codex" not in EXPORT_FILE_FORMAT_CHOICES
+    assert all(EXPORTER_REGISTRY[name].valid_for_file for name in EXPORT_FILE_FORMAT_CHOICES)
+
+
+def test_exporter_registry_resolves_deprecated_aliases() -> None:
+    resolved = resolve_export_format("claude_skill")
+
+    assert resolved.spec.name == "claude-fragment"
+    assert resolved.deprecated_alias == "claude_skill"
+    assert resolved.canonical_name == "claude-fragment"
+
+
+def test_exporter_registry_rejects_unknown_format() -> None:
+    with pytest.raises(ValueError, match="unknown export format"):
+        resolve_export_format("not-a-format")
 
 
 def test_export_copilot_instruction_fragment() -> None:

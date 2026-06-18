@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from lessonweaver.cli import main
+from lessonweaver.export import EXPORT_FILE_FORMAT_CHOICES, EXPORT_FORMAT_CHOICES
 from lessonweaver.models import (
     LessonCandidate,
     LessonStatus,
@@ -327,6 +328,86 @@ def test_cli_export_skill_codex_is_json_directory(capsys, tmp_path) -> None:
     directory = json.loads(capsys.readouterr().out)
     assert set(directory) == {"SKILL.md", "metadata.json"}
     assert json.loads(directory["metadata.json"])["id"] == "skill-1"
+
+
+def test_cli_export_skill_accepts_registry_canonical_choices(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    assert "claude-fragment" in EXPORT_FORMAT_CHOICES
+
+    exit_code = main(
+        [
+            "export-skill",
+            "skill-1",
+            "--format",
+            "claude-fragment",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert "Description:" in capsys.readouterr().out
+
+
+def test_cli_export_file_choices_are_registry_file_choices(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+    target = tmp_path / "AGENTS.md"
+    assert "claude-fragment" in EXPORT_FILE_FORMAT_CHOICES
+    assert "codex" not in EXPORT_FILE_FORMAT_CHOICES
+
+    exit_code = main(
+        [
+            "export-file",
+            "skill-1",
+            "--path",
+            str(target),
+            "--format",
+            "claude-fragment",
+            "--registry-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert "Description:" in capsys.readouterr().out
+
+
+def test_cli_export_skill_deprecated_alias_warns_and_preserves_output(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+
+    assert (
+        main(["export-skill", "skill-1", "--format", "claude", "--registry-root", str(tmp_path)])
+        == 0
+    )
+    canonical = capsys.readouterr().out
+    assert (
+        main(
+            [
+                "export-skill",
+                "skill-1",
+                "--format",
+                "claude_skill",
+                "--registry-root",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+    alias = capsys.readouterr()
+
+    assert alias.out == canonical
+    assert "deprecated export format alias 'claude_skill'" in alias.err
+
+
+def test_cli_rejects_unknown_review_trace_target(capsys, tmp_path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["review-trace", _TRACE, "--registry-root", str(tmp_path), "--target", "bogus"])
+
+    assert exc.value.code == 2
+    assert "invalid choice: 'bogus'" in capsys.readouterr().err
 
 
 def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
