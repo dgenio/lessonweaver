@@ -1,9 +1,110 @@
-from lessonweaver.detection import LessonDetector
-from lessonweaver.models import RecommendedActionType, TraceBundle
+import json
+from pathlib import Path
+
+from lessonweaver.detection import DEFAULT_DETECTION_SIGNALS, DetectionSignal, LessonDetector
+from lessonweaver.models import (
+    LessonCandidate,
+    RecommendedActionType,
+    RiskLevel,
+    Scope,
+    TraceBundle,
+)
 from lessonweaver.registry import FileSystemRegistry
 from lessonweaver.traces import load_trace_bundle
 
 _WORKFLOW_SUMMARY = "workflow step that preceded a failure"
+
+
+def _stable_candidate(candidate: LessonCandidate) -> dict[str, object]:
+    data = candidate.to_dict()
+    data.pop("created_at")
+    data.pop("updated_at")
+    return data
+
+
+class _CustomSignal:
+    name = "custom-test-signal"
+
+    def detect(self, trace: TraceBundle) -> list[LessonCandidate]:
+        return [
+            LessonCandidate(
+                id=f"{trace.trace_id}-custom",
+                summary="Custom signal candidate.",
+                evidence_trace_ids=[trace.trace_id],
+                evidence_event_ids=[],
+                observed_problem="Custom signal observed a problem.",
+                proposed_lesson="Custom signal proposed a lesson.",
+                confidence=0.9,
+                evidence_strength=0.8,
+                evidence_summary="Custom test evidence.",
+                recommended_action_type=RecommendedActionType.SKILL,
+                risk_level=RiskLevel.LOW,
+                scope=Scope.PROJECT,
+            )
+        ]
+
+
+def test_default_detection_signals_are_named_and_ordered() -> None:
+    assert [signal.name for signal in DEFAULT_DETECTION_SIGNALS] == [
+        "metadata_flag",
+        "human_correction",
+        "failed_eval",
+        "workflow_step_failure",
+        "error_retry_success",
+        "tool_fallback",
+        "corrected_outcome",
+        "recurring_pattern",
+    ]
+    assert all(isinstance(signal, DetectionSignal) for signal in DEFAULT_DETECTION_SIGNALS)
+
+
+def test_detector_accepts_custom_signal_list() -> None:
+    trace = TraceBundle.from_dict(
+        {
+            "trace_id": "custom-1",
+            "source": "unit-test",
+            "task": "Custom signal",
+            "events": [],
+            "outcome": "success",
+        }
+    )
+
+    candidates = LessonDetector(signals=[_CustomSignal()]).detect(trace)
+
+    assert [candidate.id for candidate in candidates] == ["custom-1-custom"]
+
+
+def test_explicit_default_signal_set_matches_implicit_default() -> None:
+    trace = load_trace_bundle("examples/traces/github_pr_review_failure.json")
+
+    implicit = [_stable_candidate(candidate) for candidate in LessonDetector().detect(trace)]
+    explicit = [
+        _stable_candidate(candidate)
+        for candidate in LessonDetector(signals=DEFAULT_DETECTION_SIGNALS).detect(trace)
+    ]
+
+    assert explicit == implicit
+
+
+def test_default_signal_set_matches_implicit_default_for_examples_and_corpus() -> None:
+    trace_paths = sorted(Path("examples/traces").glob("*.json"))
+    corpus = json.loads(Path("examples/detection_corpus/corpus.json").read_text())
+    corpus_root = Path("examples/detection_corpus")
+    corpus_traces = []
+    for case in corpus["cases"]:
+        if "trace" in case:
+            corpus_traces.append(TraceBundle.from_dict(case["trace"]))
+        else:
+            corpus_traces.append(load_trace_bundle(corpus_root / case["trace_path"]))
+
+    traces = [load_trace_bundle(path) for path in trace_paths] + corpus_traces
+    default_detector = LessonDetector()
+    explicit_detector = LessonDetector(signals=DEFAULT_DETECTION_SIGNALS)
+
+    for trace in traces:
+        implicit = [_stable_candidate(candidate) for candidate in default_detector.detect(trace)]
+        explicit = [_stable_candidate(candidate) for candidate in explicit_detector.detect(trace)]
+        assert explicit == implicit
 
 
 def test_detection_from_human_correction() -> None:

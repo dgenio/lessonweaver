@@ -74,15 +74,16 @@ flowchart LR
 
 ## Detection signals
 
-`LessonDetector.detect` is intentionally small. Today it emits a candidate when
-it observes any of:
+`LessonDetector` runs a small ordered list of deterministic `DetectionSignal`
+objects. The default signal set emits a candidate when it observes any of:
 
 1. an explicit `lesson_candidate` flag in trace metadata;
 2. a `human_correction` event;
 3. a failed `evaluation_result` event;
-4. an `error` followed by a `retry` with a successful/corrected outcome;
-5. a failed `tool_call` followed by a later successful one (tool fallback);
-6. an `outcome` of `corrected_by_human` (when no explicit correction event).
+4. a workflow step before an `error` or `human_correction`;
+5. an `error` followed by a `retry` with a successful/corrected outcome;
+6. a failed `tool_call` followed by a later successful one (tool fallback);
+7. an `outcome` of `corrected_by_human` (when no explicit correction event).
 
 Each candidate carries a different default `confidence`,
 `recommended_action_type`, and `risk_level`. Detection prefers false negatives
@@ -128,9 +129,9 @@ Keeping them separate makes the human-review gate explicit and auditable.
 
 ## Extension points
 
-- **New detection signal** — add the smallest deterministic rule to
-  `LessonDetector.detect` (`detection.py`); add true-positive, false-positive,
-  and edge-case tests. Keep it conservative.
+- **New detection signal** — add the smallest deterministic `DetectionSignal`
+  class to `detection.py`, register it in `DEFAULT_DETECTION_SIGNALS`, and add
+  true-positive, false-positive, and edge-case tests. Keep it conservative.
 - **New export format** — add an `export_<format>_<target>` function to
   `export.py`, wire it into the CLI `--format` choices only when users call it
   directly, and add a snapshot-style test.

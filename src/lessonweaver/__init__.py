@@ -4,7 +4,7 @@ from .analysis import AnalysisFinding, SkillAnalyzer
 from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
-from .detection import LessonDetector
+from .detection import DEFAULT_DETECTION_SIGNALS, DetectionSignal, LessonDetector
 from .detection_eval import (
     ClusteredDetectionEvalReport,
     DetectionCase,
@@ -97,6 +97,7 @@ from .validation import (
 )
 
 __all__ = [
+    "DEFAULT_DETECTION_SIGNALS",
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
     "BudgetUsage",
@@ -108,6 +109,7 @@ __all__ = [
     "DetectionEvalPatternMetrics",
     "DetectionEvalReport",
     "DetectionEvalResult",
+    "DetectionSignal",
     "DictTraceImporter",
     "ExportArtifact",
     "ExportFormat",
