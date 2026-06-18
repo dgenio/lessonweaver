@@ -57,4 +57,6 @@ A generic `TraceImporter` protocol formalizes these mappings; see
 dependency-free adapters for sibling tools (vibeguard, agent-kernel, ChainWeaver)
 live in [`examples/interop_adapters/`](../examples/interop_adapters/). A small
 JSON-to-trace mapping function is still all that a one-off needs. See
-[ecosystem](ecosystem.md) for related tool boundaries.
+[ecosystem](ecosystem.md) for related tool boundaries. For a Puppetmaster-style
+orchestrator mapping, see the
+[Puppetmaster trace ingestion pattern](integrations/puppetmaster.md).
