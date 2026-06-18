@@ -32,6 +32,7 @@ importing the source system. They map a dict onto the schema.
 | Importer | Input | Notes |
 | --- | --- | --- |
 | `DictTraceImporter` | canonical lessonweaver trace JSON | `load_trace_bundle` delegates to it |
+| `ClaudeCodeTraceImporter` | Claude Code hook/transcript-style JSON | maps messages, tools, corrections, and errors with default trace sanitization |
 | `FailureCaseImporter` | replayable failure case artifact | governed path for issue #82 |
 
 `DictTraceImporter` makes the canonical loader a special case of the protocol:
@@ -88,6 +89,39 @@ Provenance is stored under `metadata["failure_case"]` and propagated onto every
 resulting candidate by `candidates_from_failure_case`. See
 [`examples/failure_cases/`](../examples/failure_cases/).
 
+## Claude Code hook/transcript payloads
+
+`ClaudeCodeTraceImporter` accepts dependency-free JSON captured from Claude Code
+hooks, transcript exporters, or small wrapper scripts. It recognizes either a
+`schema` containing `claude-code`, `source: "claude_code"` with an `events` or
+`transcript` list, or a `session_id` with one of those lists.
+
+```python
+from lessonweaver.importers import ClaudeCodeTraceImporter
+
+payload = {
+    "schema": "claude-code/transcript@1",
+    "session_id": "session-2026-06-13",
+    "task": "Fix failing auth test",
+    "transcript": [
+        {"type": "user", "message": "The auth test fails."},
+        {"type": "tool_use", "name": "Edit", "input": {"file_path": "src/auth.py"}},
+        {"type": "tool_result", "content": "No match found", "is_error": True},
+        {"type": "human_correction", "content": "Check src/login.py instead."},
+    ],
+}
+
+bundle = ClaudeCodeTraceImporter().import_trace(payload)
+```
+
+Mapped source event types include `user`, `assistant`, `tool_use`,
+`tool_result`, `error`, `retry`, `human_correction`, `evaluation_result`, and
+`final_answer`. Unknown event fields are preserved under
+`TraceEvent.metadata["claude_code"]`; common fields such as tool names, tool ids,
+and file paths are promoted to metadata. The importer applies
+`TraceSanitizer` by default before returning the bundle, so email addresses,
+bearer tokens, and private keys in event content are redacted before detection.
+
 ## Known future adapter candidates
 
 - **OpenTelemetry** spans — design sketched in
@@ -95,4 +129,4 @@ resulting candidate by `candidates_from_failure_case`. See
 - **Sibling tools** — agent-kernel ActionTrace, ChainWeaver flow-failure, and
   vibeguard finding adapters live in
   [`examples/interop_adapters/`](../examples/interop_adapters/).
-- Claude Code hooks, Pipecat post-call JSON, CI logs.
+- Pipecat post-call JSON and CI logs.
