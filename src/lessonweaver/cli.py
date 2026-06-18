@@ -6,12 +6,17 @@ import argparse
 import json
 import sys
 import uuid
-from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .analysis import SkillAnalyzer
+from .approval import (
+    IncompleteReviewError,
+    approve_candidate,
+    remaining_review_questions,
+    skill_from_candidate,
+)
 from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
@@ -43,12 +48,10 @@ from .lint import LintSeverity, SkillLinter
 from .models import (
     LessonCandidate,
     LessonStatus,
-    OperationalLesson,
     RecommendedActionType,
     ReviewAnswer,
     ReviewQuestion,
     ReviewSession,
-    SensitivityLevel,
     SkillCard,
     SkillStatus,
     SkillUsageEvent,
@@ -169,58 +172,7 @@ def _skill_from_candidate(
     name: str,
     approved_by: str | None,
 ) -> SkillCard:
-    now = datetime.now(timezone.utc)
-    return SkillCard(
-        id=skill_id,
-        name=name,
-        description=candidate.summary,
-        applies_when=[candidate.summary],
-        does_not_apply_when=["When the task is unrelated to the observed trace context."],
-        instructions=[candidate.proposed_lesson],
-        anti_patterns=[candidate.observed_problem],
-        evidence_trace_ids=candidate.evidence_trace_ids,
-        confidence=candidate.confidence,
-        risk_level=candidate.risk_level,
-        scope=candidate.scope,
-        version="0.1.0",
-        status=SkillStatus.APPROVED,
-        sensitivity=SensitivityLevel.INTERNAL,
-        owner=candidate.owner,
-        approved_by=approved_by,
-        created_at=now,
-        updated_at=now,
-        approved_at=now,
-        metadata={"candidate_id": candidate.id},
-    )
-
-
-def _lesson_from_candidate(
-    candidate: LessonCandidate,
-    *,
-    lesson_id: str,
-    title: str,
-) -> OperationalLesson:
-    history = candidate.metadata.get("review_history", [])
-    review_answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
-    return OperationalLesson(
-        lesson_id=lesson_id,
-        candidate_id=candidate.id,
-        title=title,
-        summary=candidate.summary,
-        instructions=[candidate.proposed_lesson],
-        applies_when=[candidate.summary],
-        does_not_apply_when=["When the task is unrelated to the observed trace context."],
-        anti_patterns=[candidate.observed_problem],
-        risk_level=candidate.risk_level,
-        scope=candidate.scope,
-        recommended_action_type=candidate.recommended_action_type,
-        evidence_trace_ids=candidate.evidence_trace_ids,
-        evidence_event_ids=candidate.evidence_event_ids,
-        confidence=candidate.confidence,
-        review_answers=review_answers,
-        status=LessonStatus.APPROVED,
-        approved_at=datetime.now(timezone.utc),
-    )
+    return skill_from_candidate(candidate, skill_id=skill_id, name=name, approved_by=approved_by)
 
 
 def _parse_now(value: str | None) -> datetime | None:
@@ -252,9 +204,7 @@ def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
     ``workflow_change`` action queues follow-ups. An empty list means the review
     gate is satisfied.
     """
-    history = candidate.metadata.get("review_history", [])
-    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
-    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
+    return remaining_review_questions(candidate)
 
 
 def _apply_answers(
@@ -290,38 +240,23 @@ def _do_approve(
     used, the unanswered questions are recorded on the lesson candidate and skill
     metadata so the bypass is auditable.
     """
-    remaining = _remaining_review_questions(candidate)
-    if remaining and not allow_incomplete:
-        return None, remaining
-
-    now = datetime.now(timezone.utc)
-    approved = replace(
-        candidate,
-        status=LessonStatus.APPROVED,
-        approved_by=approved_by,
-        approved_at=now,
-        updated_at=now,
-    )
-    title = name or approved.summary
-    lesson_id = lesson_id or f"lesson-{approved.id}"
-    skill_id = skill_id or f"skill-{approved.id}"
-    lesson = _lesson_from_candidate(approved, lesson_id=lesson_id, title=title)
-    skill = _skill_from_candidate(approved, skill_id=skill_id, name=title, approved_by=approved_by)
-
-    if remaining and allow_incomplete:
-        override = {
-            "unanswered_questions": remaining,
-            "approved_by": approved_by,
-            "approved_at": now.isoformat(),
-        }
-        approved.metadata["incomplete_review_override"] = override
-        skill.metadata["incomplete_review_override"] = override
+    try:
+        result = approve_candidate(
+            candidate,
+            approved_by=approved_by,
+            name=name,
+            lesson_id=lesson_id,
+            skill_id=skill_id,
+            allow_incomplete=allow_incomplete,
+        )
+    except IncompleteReviewError as exc:
+        return None, exc.unanswered_questions
 
     if not dry_run:
-        registry.save_candidate(approved)
-        registry.save_lesson(lesson)
-        registry.save_skill(skill)
-    return {"candidate_id": approved.id, "lesson_id": lesson.lesson_id, "skill_id": skill.id}, []
+        registry.save_candidate(result.candidate)
+        registry.save_lesson(result.lesson)
+        registry.save_skill(result.skill)
+    return result.to_dict(), []
 
 
 def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict[str, Any]:

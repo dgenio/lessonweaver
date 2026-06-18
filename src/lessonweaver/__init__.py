@@ -1,6 +1,13 @@
 """lessonweaver public API."""
 
 from .analysis import AnalysisFinding, SkillAnalyzer
+from .approval import (
+    ApprovalResult,
+    IncompleteReviewError,
+    approve_and_save,
+    approve_candidate,
+    remaining_review_questions,
+)
 from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
@@ -99,6 +106,7 @@ from .validation import (
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
+    "ApprovalResult",
     "BudgetUsage",
     "CleanupAction",
     "ClusteredDetectionEvalReport",
@@ -114,6 +122,7 @@ __all__ = [
     "FailureCaseImporter",
     "FileSystemRegistry",
     "InclusionLevel",
+    "IncompleteReviewError",
     "LessonCandidate",
     "LessonCluster",
     "LessonClusterer",
@@ -164,6 +173,8 @@ __all__ = [
     "ValidationResult",
     "ValidationSuite",
     "apply_review_answer",
+    "approve_and_save",
+    "approve_candidate",
     "can_promote_skill",
     "candidates_from_failure_case",
     "diff_managed_file",
@@ -191,6 +202,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "remaining_review_questions",
     "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",

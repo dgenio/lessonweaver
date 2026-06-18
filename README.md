@@ -144,6 +144,16 @@ context = loader.load_for_task(
 print(context.snippet)
 ```
 
+Reviewed candidates can also be approved without going through the CLI:
+
+```python
+from lessonweaver import approve_and_save
+
+candidate = registry.load_candidate("trace-gh-pr-review-001-human-correction")
+result = approve_and_save(registry, candidate, approved_by="reviewer")
+print(result.to_dict())
+```
+
 ## Commands
 
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
