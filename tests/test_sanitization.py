@@ -34,6 +34,41 @@ def test_sanitize_returns_new_bundle_and_leaves_input_unchanged() -> None:
     assert sanitized.events[0].content == "ping me at [REDACTED by email]"
 
 
+def test_sanitize_scrubs_task_and_metadata_without_mutating_input() -> None:
+    original = TraceBundle(
+        trace_id="t1",
+        source="unit-test",
+        task="Investigate a.user@example.com",
+        events=[
+            TraceEvent(
+                id="e1",
+                type=TraceEventType.USER_MESSAGE,
+                content="nothing sensitive here",
+                metadata={"contact": "a.user@example.com"},
+            )
+        ],
+        outcome="success",
+        metadata={
+            "token": "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "nested": ["a.user@example.com", {"key": "-----BEGIN RSA PRIVATE KEY-----"}],
+            "count": 1,
+        },
+    )
+
+    sanitized = TraceSanitizer().sanitize(original)
+
+    assert original.task == "Investigate a.user@example.com"
+    assert original.metadata["token"] == "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    assert original.events[0].metadata["contact"] == "a.user@example.com"
+    assert sanitized.task == "Investigate [REDACTED by email]"
+    assert sanitized.metadata == {
+        "token": "[REDACTED by bearer_token]",
+        "nested": ["[REDACTED by email]", {"key": "[REDACTED by private_key]"}],
+        "count": 1,
+    }
+    assert sanitized.events[0].metadata == {"contact": "[REDACTED by email]"}
+
+
 def test_none_content_is_preserved() -> None:
     sanitized = TraceSanitizer().sanitize(_bundle(None))
     assert sanitized.events[0].content is None

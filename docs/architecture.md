@@ -53,6 +53,7 @@ flowchart LR
 | `detection.py` | Deterministic, conservative lesson-candidate detection. |
 | `detection_eval.py` | Score detection precision/recall/F1 against a labeled corpus. |
 | `clustering.py` | Group recurring candidates across traces by lexical similarity. |
+| `assist.py` | Optional LLM-assist provider boundary; disabled by default, redacted, audited, and non-authoritative. |
 | `interview.py` | Build MCQ review questions and apply answers to a candidate. |
 | `registry.py` | Persist/list candidates, lessons, skills, artifacts (JSON files). |
 | `export.py` | Render skills/lessons into downstream formats. |
@@ -136,6 +137,10 @@ Keeping them separate makes the human-review gate explicit and auditable.
   directly, and add a snapshot-style test.
 - **New adapter example** — add `examples/<framework>_runtime_loader/` using
   `try/except ImportError`; never add the framework to core dependencies.
+- **New LLM-assisted feature** — route provider calls through `assist.py`.
+  Keep assist mode opt-in, redact trace evidence before calls, attach audit
+  metadata, and treat output only as a draft. The LLM proposes, deterministic
+  checks run, the human approves, and runtime loading obeys reviewed artifacts.
 
 ## Adapter strategy
 

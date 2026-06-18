@@ -215,9 +215,13 @@ Closed-loop effectiveness reports are available through the library API; see
 - `experimental` skills must pass governed lifecycle checks (lint with no errors)
   before becoming `active`.
 - `SimpleRedactor` and `TraceSanitizer` share the same best-effort redaction
-  rules before export and pre-mining sanitization. Redaction markers identify
-  the matching rule, for example `[REDACTED by email]`. This is a safety net,
-  not a compliance control.
+  rules before export, pre-mining sanitization, and assist provider calls.
+  Redaction markers identify the matching rule, for example
+  `[REDACTED by email]`. This is a safety net, not a compliance control.
+- Optional LLM-assisted extensions must use the shared assist boundary: disabled
+  by default, redacted before provider calls, audit-marked, and non-authoritative.
+  The LLM proposes, deterministic checks run, the human approves, and runtime
+  loading obeys reviewed artifacts. See [LLM assist boundary](docs/llm-assist.md).
 - Skills carry owner, approver, expiration, sensitivity, scope, and evidence
   metadata.
 

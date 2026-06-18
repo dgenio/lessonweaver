@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from .models import TraceBundle, TraceEvent
 
@@ -110,10 +111,30 @@ class TraceSanitizer:
             text = rule.apply(text)
         return text
 
+    def _scrub_value(self, value: Any) -> Any:
+        if isinstance(value, str):
+            return self._scrub(value)
+        if isinstance(value, dict):
+            return {key: self._scrub_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._scrub_value(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(self._scrub_value(item) for item in value)
+        return value
+
     def sanitize(self, bundle: TraceBundle) -> TraceBundle:
-        """Return a new bundle with every ``TraceEvent.content`` scrubbed."""
+        """Return a new bundle with trace text and metadata scrubbed."""
         sanitized_events: list[TraceEvent] = [
-            replace(event, content=self._scrub(event.content) if event.content else event.content)
+            replace(
+                event,
+                content=self._scrub(event.content) if event.content else event.content,
+                metadata=self._scrub_value(event.metadata),
+            )
             for event in bundle.events
         ]
-        return replace(bundle, events=sanitized_events)
+        return replace(
+            bundle,
+            task=self._scrub(bundle.task),
+            events=sanitized_events,
+            metadata=self._scrub_value(bundle.metadata),
+        )

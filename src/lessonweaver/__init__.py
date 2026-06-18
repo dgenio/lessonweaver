@@ -1,6 +1,16 @@
 """lessonweaver public API."""
 
 from .analysis import AnalysisFinding, SkillAnalyzer
+from .assist import (
+    AssistDisabledError,
+    LLMAssistClient,
+    LLMAssistConfig,
+    LLMAssistMetadata,
+    LLMAssistProvider,
+    LLMAssistRequest,
+    LLMAssistSuggestion,
+    MockLLMAssistProvider,
+)
 from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
@@ -99,6 +109,7 @@ from .validation import (
 __all__ = [
     "FAILURE_CASE_PROVENANCE_KEY",
     "AnalysisFinding",
+    "AssistDisabledError",
     "BudgetUsage",
     "CleanupAction",
     "ClusteredDetectionEvalReport",
@@ -114,6 +125,12 @@ __all__ = [
     "FailureCaseImporter",
     "FileSystemRegistry",
     "InclusionLevel",
+    "LLMAssistClient",
+    "LLMAssistConfig",
+    "LLMAssistMetadata",
+    "LLMAssistProvider",
+    "LLMAssistRequest",
+    "LLMAssistSuggestion",
     "LessonCandidate",
     "LessonCluster",
     "LessonClusterer",
@@ -126,6 +143,7 @@ __all__ = [
     "LoadDiagnostics",
     "LoadedSkill",
     "LoadingPolicy",
+    "MockLLMAssistProvider",
     "OperationalLesson",
     "RecommendedActionType",
     "RetrievalDiagnostics",
