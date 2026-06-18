@@ -77,6 +77,29 @@ forces preview even with `--write`. Re-running an unchanged export reports
 `no changes` rather than rewriting the file. Review the diff like any code change
 before committing.
 
+## PR-ready artifact diffs: `generate-pr-diff`
+
+Approved lesson candidates that should enter production through code review can
+be rendered as local, reviewable file changes. The first target is
+`coding-agent`, which writes a managed block into `AGENTS.md` containing the
+artifact plus review metadata (candidate id, action type, scope, risk, owner,
+approver, and evidence ids).
+
+```bash
+# Preview the unified diff without writing
+lessonweaver generate-pr-diff cand-1 --target coding-agent \
+  --path AGENTS.md --registry-root .lessonweaver
+
+# Apply the same managed block explicitly
+lessonweaver generate-pr-diff cand-1 --target coding-agent \
+  --path AGENTS.md --registry-root .lessonweaver --write
+```
+
+The command is idempotent: running it again updates the same lessonweaver block
+instead of adding a duplicate, while hand-written content in the target file is
+preserved. Use this when a reviewed eval, guardrail, or workflow recommendation
+should become a normal pull request diff rather than an ad-hoc pasted snippet.
+
 ## Understand loading decisions: `explain-load`
 
 A growing skill library poisons context if everything always loads. Diagnose

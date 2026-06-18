@@ -76,6 +76,7 @@ from .models import (
     TraceEvent,
     TraceEventType,
 )
+from .prdiff import FileChange, apply_file_change, plan_coding_agent_change
 from .privacy import SimpleRedactor
 from .registry import FileSystemRegistry, LessonRegistry
 from .reporting import SkillReporter
@@ -112,6 +113,7 @@ __all__ = [
     "ExportArtifact",
     "ExportFormat",
     "FailureCaseImporter",
+    "FileChange",
     "FileSystemRegistry",
     "InclusionLevel",
     "LessonCandidate",
@@ -163,6 +165,7 @@ __all__ = [
     "ValidationExample",
     "ValidationResult",
     "ValidationSuite",
+    "apply_file_change",
     "apply_review_answer",
     "can_promote_skill",
     "candidates_from_failure_case",
@@ -190,6 +193,7 @@ __all__ = [
     "load_trace_bundle",
     "managed_block",
     "merge_managed_block",
+    "plan_coding_agent_change",
     "promote_skill",
     "run_clustered_detection_eval",
     "run_detection_eval",
