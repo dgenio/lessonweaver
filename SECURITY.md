@@ -40,3 +40,21 @@ We aim to acknowledge a report within a few business days.
   that invariant as a security concern.
 - Never include real credentials, tokens, or personal data in issues, traces,
   examples, or tests.
+
+## Supply chain
+
+lessonweaver is designed with zero runtime dependencies; optional developer
+tools live in the `dev` extra and are used for tests, linting, typing, builds,
+and release checks.
+
+Releases use PyPI Trusted Publishing through the GitHub Actions publish workflow.
+That workflow requests only `contents: read` and `id-token: write`, builds the
+distribution from the release tag, and publishes with PyPI attestations enabled.
+After a release is live, verify the package on the PyPI project page by checking
+that the uploaded distribution includes an index-hosted attestation for the
+matching GitHub release workflow run.
+
+Repository workflows pin third-party GitHub Actions by full commit SHA with a
+version comment next to each reference. Dependabot is configured to propose
+weekly updates for GitHub Actions and Python developer dependencies, and the
+OpenSSF Scorecard workflow runs on a schedule to surface supply-chain drift.
