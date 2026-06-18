@@ -79,12 +79,17 @@ install from source:
 
 ```bash
 pip install -e ".[dev]"
-lessonweaver --help
+lessonweaver demo
 ```
 
 > Once published, the user install will be `pip install lessonweaver` (see
 > [Contributing](#contributing) for the contributor workflow). The release
 > process is documented in [docs/release.md](docs/release.md).
+
+`lessonweaver demo` runs the bundled detect → review → approve → export loop in
+a temporary registry, prints the equivalent standalone commands, and cleans up
+after itself. Use `lessonweaver demo --keep` to retain the demo registry for
+inspection.
 
 ```bash
 # 1. Detect candidates from a trace and save them to a temporary registry
@@ -146,6 +151,7 @@ print(context.snippet)
 
 ## Commands
 
+- `lessonweaver demo [--format FORMAT] [--keep]` — run the bundled first-run closed-loop demo
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
