@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and usage discussions
+    url: https://github.com/dgenio/lessonweaver/discussions/categories/q-a
+    about: Ask which export format, workflow, or integration pattern fits your setup.
+  - name: Ideas and show-and-tell
+    url: https://github.com/dgenio/lessonweaver/discussions
+    about: Share reviewed skill cards, registry setups, or early feature ideas before opening an issue.
   - name: Documentation
     url: https://github.com/dgenio/lessonweaver/tree/main/docs
     about: Architecture, glossary, comparisons, cookbooks, and integration guides.
