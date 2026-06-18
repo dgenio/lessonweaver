@@ -878,6 +878,32 @@ def test_cli_import_failure_case_save_persists_to_registry(capsys, tmp_path) -> 
     assert stored.metadata["failure_case"]["failure_id"] == "fc-eval-as-evidence-001"
 
 
+def test_cli_import_otel_outputs_trace_bundle(capsys, tmp_path) -> None:
+    trace_path = tmp_path / "otel.json"
+    trace_path.write_text(
+        json.dumps(
+            {
+                "spans": [
+                    {
+                        "traceId": "trace-otel-cli",
+                        "spanId": "span-1",
+                        "name": "llm.chat",
+                        "attributes": {"gen_ai.request.model": "gpt-4.1"},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["import-otel", str(trace_path)])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["trace_id"] == "trace-otel-cli"
+    assert payload["events"][0]["type"] == "model_call"
+
+
 def test_cli_cluster_groups_repeated_pattern(capsys, tmp_path) -> None:
     # Two distinct traces (different trace_ids) carrying the same human-correction
     # pattern must collapse into one cluster of distinct candidates.

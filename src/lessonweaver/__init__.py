@@ -47,6 +47,7 @@ from .importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
+    OpenTelemetryImporter,
     TraceImporter,
     candidates_from_failure_case,
 )
@@ -126,6 +127,7 @@ __all__ = [
     "LoadDiagnostics",
     "LoadedSkill",
     "LoadingPolicy",
+    "OpenTelemetryImporter",
     "OperationalLesson",
     "RecommendedActionType",
     "RetrievalDiagnostics",

@@ -1,0 +1,85 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "agent.name",
+            "value": {
+              "stringValue": "lesson-bot"
+            }
+          },
+          {
+            "key": "agent.version",
+            "value": {
+              "stringValue": "1.2.0"
+            }
+          },
+          {
+            "key": "agent.framework",
+            "value": {
+              "stringValue": "langgraph"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "spans": [
+            {
+              "traceId": "trace-otel-minimal",
+              "spanId": "span-llm",
+              "name": "llm.chat",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-4.1"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": 12
+                  }
+                }
+              ],
+              "events": [
+                {
+                  "name": "human_feedback",
+                  "attributes": [
+                    {
+                      "key": "feedback.comment",
+                      "value": {
+                        "stringValue": "The agent should cite the retrieved source."
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "trace-otel-minimal",
+              "spanId": "span-tool",
+              "name": "tool.call",
+              "attributes": [
+                {
+                  "key": "tool.name",
+                  "value": {
+                    "stringValue": "github.search"
+                  }
+                },
+                {
+                  "key": "tool.arguments_shape",
+                  "value": {
+                    "stringValue": "query:string"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

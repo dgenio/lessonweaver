@@ -33,6 +33,7 @@ importing the source system. They map a dict onto the schema.
 | --- | --- | --- |
 | `DictTraceImporter` | canonical lessonweaver trace JSON | `load_trace_bundle` delegates to it |
 | `FailureCaseImporter` | replayable failure case artifact | governed path for issue #82 |
+| `OpenTelemetryImporter` | OTLP JSON export, flat span JSON, or JSONL spans | maps deployed-agent span semantics to trace evidence |
 
 `DictTraceImporter` makes the canonical loader a special case of the protocol:
 `load_trace_bundle` reads the JSON file, then calls `import_trace`.
@@ -88,10 +89,35 @@ Provenance is stored under `metadata["failure_case"]` and propagated onto every
 resulting candidate by `candidates_from_failure_case`. See
 [`examples/failure_cases/`](../examples/failure_cases/).
 
+## OpenTelemetry agent traces
+
+`OpenTelemetryImporter` accepts OTLP-style `resourceSpans`, flat `{"spans": [...]}`
+payloads, a single span object, or newline-delimited JSON spans. It recognizes
+common AI-agent semantic attributes without requiring an OpenTelemetry SDK:
+
+| Semantic input | Trace event |
+| --- | --- |
+| `gen_ai.*`, `llm.*`, or span names like `llm.chat` | `model_call` |
+| `tool.name`, `gen_ai.tool.name`, or span names containing `tool` | `tool_call` |
+| `retrieval.*` or span names containing `retrieval` | `tool_call` with retrieval metadata |
+| `agent.handoff.from` / `agent.handoff.to` | `workflow_step` |
+| `guardrail.name` / `guardrail.result` | `evaluation_result` |
+| span events named `human_feedback` or `human_correction` | `human_correction` |
+| span status `ERROR` or `error.type` | `error` |
+
+Missing optional fields are tolerated and listed under
+`metadata["otel"]["warnings"]`. Sensitive span attributes such as authorization
+headers, tokens, API keys, passwords, and secrets are redacted by default.
+
+```bash
+lessonweaver import-otel examples/opentelemetry/minimal_agent_trace.json
+
+# JSONL span export
+lessonweaver import-otel spans.jsonl --jsonl
+```
+
 ## Known future adapter candidates
 
-- **OpenTelemetry** spans — design sketched in
-  [`design/opentelemetry-import.md`](design/opentelemetry-import.md).
 - **Sibling tools** — agent-kernel ActionTrace, ChainWeaver flow-failure, and
   vibeguard finding adapters live in
   [`examples/interop_adapters/`](../examples/interop_adapters/).
