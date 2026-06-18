@@ -19,6 +19,7 @@ the sibling*, and they live in ``examples/interop_adapters/``. See
 
 from __future__ import annotations
 
+import json
 from typing import Any, Protocol, runtime_checkable
 
 from .detection import LessonDetector
@@ -28,6 +29,10 @@ from .traces import validate_trace_dict
 # Provenance key stamped onto a TraceBundle (and propagated onto candidates) so a
 # reviewer can always trace a lesson back to the failure case it came from.
 FAILURE_CASE_PROVENANCE_KEY = "failure_case"
+
+
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 @runtime_checkable
@@ -163,6 +168,237 @@ class FailureCaseImporter:
             outcome=str(source.get("outcome") or outcome),
             metadata={FAILURE_CASE_PROVENANCE_KEY: provenance},
         )
+
+
+class LangfuseTraceImporter:
+    """Importer for exported Langfuse trace/observation/score JSON."""
+
+    def can_import(self, source: dict[str, Any]) -> bool:
+        if not isinstance(source, dict):
+            return False
+        if "langfuse" in str(source.get("schema", "")).lower():
+            return True
+        return str(source.get("source", "")).lower() == "langfuse" and (
+            "trace" in source or "observations" in source
+        )
+
+    def import_trace(self, source: dict[str, Any]) -> TraceBundle:
+        if not self.can_import(source):
+            raise ValueError("Unrecognized Langfuse export payload.")
+        trace = source.get("trace")
+        trace_data = trace if isinstance(trace, dict) else {}
+        trace_id = str(
+            trace_data.get("id") or source.get("trace_id") or source.get("id") or ""
+        ).strip()
+        if not trace_id:
+            raise ValueError("Langfuse export missing a trace id.")
+
+        observations = source.get("observations", [])
+        if not isinstance(observations, list):
+            raise ValueError("Langfuse export 'observations' must be a list.")
+        scores = source.get("scores", [])
+        if not isinstance(scores, list):
+            raise ValueError("Langfuse export 'scores' must be a list.")
+
+        events: list[TraceEvent] = []
+        trace_input = trace_data.get("input") or source.get("input")
+        if trace_input is not None:
+            events.append(
+                TraceEvent(
+                    id=f"{trace_id}-input",
+                    type=TraceEventType.USER_MESSAGE,
+                    content=_stringify(trace_input),
+                )
+            )
+        for index, observation in enumerate(observations, start=1):
+            if not isinstance(observation, dict):
+                raise ValueError(f"Langfuse observation {index} must be an object.")
+            events.append(_langfuse_observation_event(trace_id, index, observation))
+        for index, score in enumerate(scores, start=1):
+            if not isinstance(score, dict):
+                raise ValueError(f"Langfuse score {index} must be an object.")
+            events.extend(_score_events("langfuse", trace_id, index, score))
+
+        return TraceBundle(
+            trace_id=trace_id,
+            source="langfuse",
+            task=str(trace_data.get("name") or source.get("name") or "Langfuse trace"),
+            events=events,
+            outcome=_outcome_from_events(events),
+            metadata={"langfuse": {"trace": _dict_or_empty(trace_data.get("metadata"))}},
+        )
+
+
+class LangSmithTraceImporter:
+    """Importer for exported LangSmith run JSON."""
+
+    def can_import(self, source: dict[str, Any]) -> bool:
+        if not isinstance(source, dict):
+            return False
+        if "langsmith" in str(source.get("schema", "")).lower():
+            return True
+        return str(source.get("source", "")).lower() == "langsmith" and "runs" in source
+
+    def import_trace(self, source: dict[str, Any]) -> TraceBundle:
+        if not self.can_import(source):
+            raise ValueError("Unrecognized LangSmith run export payload.")
+        runs = source.get("runs")
+        if not isinstance(runs, list):
+            raise ValueError("LangSmith export 'runs' must be a list.")
+        if not runs:
+            raise ValueError("LangSmith export requires at least one run.")
+
+        run_objects: list[dict[str, Any]] = []
+        for index, run in enumerate(runs, start=1):
+            if not isinstance(run, dict):
+                raise ValueError(f"LangSmith run {index} must be an object.")
+            run_objects.append(run)
+        run_objects.sort(
+            key=lambda item: str(item.get("dotted_order") or item.get("start_time") or "")
+        )
+
+        root = run_objects[0]
+        trace_id = str(
+            root.get("trace_id") or root.get("id") or source.get("trace_id") or ""
+        ).strip()
+        if not trace_id:
+            raise ValueError("LangSmith export missing a trace id.")
+
+        events = [
+            _langsmith_run_event(trace_id, index, run)
+            for index, run in enumerate(run_objects, start=1)
+        ]
+        feedback_items = source.get("feedback", [])
+        if not isinstance(feedback_items, list):
+            raise ValueError("LangSmith export 'feedback' must be a list.")
+        for index, feedback in enumerate(feedback_items, start=1):
+            if not isinstance(feedback, dict):
+                raise ValueError(f"LangSmith feedback {index} must be an object.")
+            events.extend(_score_events("langsmith", trace_id, index, feedback))
+
+        return TraceBundle(
+            trace_id=trace_id,
+            source="langsmith",
+            task=str(root.get("name") or "LangSmith run"),
+            events=events,
+            outcome=_outcome_from_events(events),
+            metadata={"langsmith": {"run_count": len(run_objects)}},
+        )
+
+
+def _langfuse_observation_event(
+    trace_id: str, index: int, observation: dict[str, Any]
+) -> TraceEvent:
+    observation_type = str(observation.get("type") or "").upper()
+    level = str(observation.get("level") or "").upper()
+    status_message = observation.get("status_message")
+    event_type = (
+        TraceEventType.MODEL_CALL if observation_type == "GENERATION" else TraceEventType.TOOL_CALL
+    )
+    status = None
+    if level == "ERROR" or status_message:
+        event_type = TraceEventType.ERROR
+        status = "failed"
+    content = (
+        status_message
+        or observation.get("output")
+        or observation.get("input")
+        or observation.get("name")
+    )
+    return TraceEvent(
+        id=str(observation.get("id") or f"{trace_id}-observation-{index}"),
+        type=event_type,
+        content=_stringify(content),
+        status=status,
+        success=False if status == "failed" else None,
+        metadata={
+            "langfuse": {
+                "observation_type": observation_type or None,
+                **_dict_or_empty(observation.get("metadata")),
+            }
+        },
+    )
+
+
+def _langsmith_run_event(trace_id: str, index: int, run: dict[str, Any]) -> TraceEvent:
+    run_type = str(run.get("run_type") or "").lower()
+    status = str(run.get("status") or "").lower()
+    error = run.get("error")
+    event_type = TraceEventType.WORKFLOW_STEP
+    if run_type == "llm":
+        event_type = TraceEventType.MODEL_CALL
+    elif run_type == "tool":
+        event_type = TraceEventType.TOOL_CALL
+    if error or status == "error":
+        event_type = TraceEventType.ERROR
+    content = error or run.get("outputs") or run.get("inputs") or run.get("name")
+    return TraceEvent(
+        id=str(run.get("id") or f"{trace_id}-run-{index}"),
+        type=event_type,
+        content=_stringify(content),
+        status="failed" if event_type is TraceEventType.ERROR else None,
+        success=False if event_type is TraceEventType.ERROR else None,
+        metadata={
+            "langsmith": {
+                "run_type": run_type or None,
+                "extra": _dict_or_empty(run.get("extra")),
+            }
+        },
+    )
+
+
+def _score_events(
+    platform: str, trace_id: str, index: int, score: dict[str, Any]
+) -> list[TraceEvent]:
+    value = score.get("value", score.get("score"))
+    comment = score.get("comment")
+    name = str(score.get("name") or score.get("key") or "feedback")
+    events = [
+        TraceEvent(
+            id=str(score.get("id") or f"{trace_id}-{platform}-score-{index}"),
+            type=TraceEventType.EVALUATION_RESULT,
+            content=_stringify({"name": name, "value": value, "comment": comment}),
+            status="failed" if _is_negative_score(value) else "passed",
+            success=not _is_negative_score(value),
+            metadata={platform: {key: value for key, value in score.items() if key != "comment"}},
+        )
+    ]
+    if comment:
+        events.append(
+            TraceEvent(
+                id=f"{trace_id}-{platform}-feedback-{index}",
+                type=TraceEventType.HUMAN_CORRECTION,
+                content=str(comment),
+                metadata={platform: {"score_name": name}},
+            )
+        )
+    return events
+
+
+def _is_negative_score(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value is False
+    if isinstance(value, int | float):
+        return value <= 0
+    if isinstance(value, str):
+        return value.lower() in {"0", "false", "fail", "failed", "negative"}
+    return False
+
+
+def _outcome_from_events(events: list[TraceEvent]) -> str:
+    if any(event.type is TraceEventType.ERROR for event in events):
+        return "failure"
+    if any(event.status == "failed" for event in events):
+        return "failure"
+    return "success"
+
+
+def _stringify(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True)
 
 
 def candidates_from_failure_case(

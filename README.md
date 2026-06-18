@@ -200,6 +200,7 @@ Closed-loop effectiveness reports are available through the library API; see
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | Eval companion packs | Supported (`export_eval_companion_pack`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
+| Langfuse and LangSmith | Exported JSON trace importers ([Langfuse](docs/integrations/langfuse.md), [LangSmith](docs/integrations/langsmith.md)) |
 
 ## Governance and safety
 

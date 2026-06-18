@@ -47,6 +47,8 @@ from .importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
     FailureCaseImporter,
+    LangfuseTraceImporter,
+    LangSmithTraceImporter,
     TraceImporter,
     candidates_from_failure_case,
 )
@@ -114,6 +116,8 @@ __all__ = [
     "FailureCaseImporter",
     "FileSystemRegistry",
     "InclusionLevel",
+    "LangSmithTraceImporter",
+    "LangfuseTraceImporter",
     "LessonCandidate",
     "LessonCluster",
     "LessonClusterer",
