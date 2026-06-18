@@ -36,7 +36,7 @@ from .export import (
     export_workflow_recommendation_markdown,
 )
 from .filemerge import diff_managed_file, merge_managed_block
-from .governance import promote_skill
+from .governance import promote_skill, update_rollout_metadata
 from .importers import candidates_from_failure_case
 from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
 from .lint import LintSeverity, SkillLinter
@@ -48,6 +48,8 @@ from .models import (
     ReviewAnswer,
     ReviewQuestion,
     ReviewSession,
+    RolloutEnvironment,
+    RolloutStatus,
     SensitivityLevel,
     SkillCard,
     SkillStatus,
@@ -242,6 +244,26 @@ def _parse_kv(items: list[str]) -> dict[str, str]:
         key, _, value = item.partition("=")
         parsed[key.strip()] = value
     return parsed
+
+
+def _has_rollout_args(args: argparse.Namespace) -> bool:
+    return any(
+        getattr(args, name, None) is not None
+        for name in (
+            "rollout_status",
+            "environment",
+            "rollout_percentage",
+            "cohort",
+            "owner",
+            "approver",
+            "activation_date",
+            "review_date",
+            "expiry_date",
+            "rollback_instructions",
+            "linked_eval_suite",
+            "monitoring_window_days",
+        )
+    ) or bool(getattr(args, "target_agent", []) or getattr(args, "target_version", []))
 
 
 def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
@@ -753,6 +775,22 @@ def main(argv: list[str] | None = None) -> int:
     promote_parser.add_argument("skill_id")
     promote_parser.add_argument("target", choices=[item.value for item in SkillStatus])
     promote_parser.add_argument("--registry-root")
+    promote_parser.add_argument("--rollout-status", choices=[item.value for item in RolloutStatus])
+    promote_parser.add_argument(
+        "--environment", choices=[item.value for item in RolloutEnvironment]
+    )
+    promote_parser.add_argument("--rollout-percentage", type=int)
+    promote_parser.add_argument("--cohort")
+    promote_parser.add_argument("--target-agent", action="append", default=[])
+    promote_parser.add_argument("--target-version", action="append", default=[])
+    promote_parser.add_argument("--owner")
+    promote_parser.add_argument("--approver")
+    promote_parser.add_argument("--activation-date")
+    promote_parser.add_argument("--review-date")
+    promote_parser.add_argument("--expiry-date")
+    promote_parser.add_argument("--rollback-instructions")
+    promote_parser.add_argument("--linked-eval-suite")
+    promote_parser.add_argument("--monitoring-window-days", type=int)
 
     usage_parser = subparsers.add_parser(
         "log-usage", help="Record that a skill was loaded into an agent context"
@@ -1289,7 +1327,33 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "promote-skill":
         registry = _registry(args.registry_root)
         skill = registry.load_skill(args.skill_id)
-        promoted = promote_skill(skill, SkillStatus(args.target))
+        try:
+            target_status = SkillStatus(args.target)
+            rollout_only_update = target_status is skill.status and _has_rollout_args(args)
+            promoted = skill if rollout_only_update else promote_skill(skill, target_status)
+            if _has_rollout_args(args):
+                promoted = update_rollout_metadata(
+                    promoted,
+                    target_agents=args.target_agent or None,
+                    target_versions=args.target_version or None,
+                    environment=(
+                        RolloutEnvironment(args.environment) if args.environment else None
+                    ),
+                    status=RolloutStatus(args.rollout_status) if args.rollout_status else None,
+                    percentage=args.rollout_percentage,
+                    cohort=args.cohort,
+                    owner=args.owner,
+                    approver=args.approver,
+                    activation_date=_parse_now(args.activation_date),
+                    review_date=_parse_now(args.review_date),
+                    expiry_date=_parse_now(args.expiry_date),
+                    rollback_instructions=args.rollback_instructions,
+                    linked_eval_suite=args.linked_eval_suite,
+                    monitoring_window_days=args.monitoring_window_days,
+                )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
         registry.save_skill(promoted)
         _print_json(promoted.to_dict())
         return 0

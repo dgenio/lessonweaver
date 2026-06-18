@@ -99,6 +99,21 @@ class SkillStatus(str, Enum):
     DEPRECATED = "deprecated"
 
 
+class RolloutEnvironment(str, Enum):
+    DEV = "dev"
+    STAGING = "staging"
+    PROD = "prod"
+
+
+class RolloutStatus(str, Enum):
+    DRAFT = "draft"
+    APPROVED = "approved"
+    CANARY = "canary"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    RETIRED = "retired"
+
+
 class SensitivityLevel(str, Enum):
     PUBLIC = "public"
     INTERNAL = "internal"
@@ -262,6 +277,69 @@ class LessonCandidate:
             "approved_at": _datetime_to_str(self.approved_at),
             "expires_at": _datetime_to_str(self.expires_at),
             "metadata": self.metadata,
+        }
+
+
+@dataclass(slots=True)
+class RolloutMetadata:
+    """Deployment metadata for staging reviewed lessons across agent surfaces."""
+
+    target_agents: list[str] = field(default_factory=list)
+    target_versions: list[str] = field(default_factory=list)
+    environment: RolloutEnvironment = RolloutEnvironment.DEV
+    status: RolloutStatus = RolloutStatus.DRAFT
+    percentage: int | None = None
+    cohort: str | None = None
+    owner: str | None = None
+    approver: str | None = None
+    activation_date: datetime | None = None
+    review_date: datetime | None = None
+    expiry_date: datetime | None = None
+    rollback_instructions: str | None = None
+    linked_eval_suite: str | None = None
+    monitoring_window_days: int | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RolloutMetadata:
+        return cls(
+            target_agents=[str(item) for item in data.get("target_agents", [])],
+            target_versions=[str(item) for item in data.get("target_versions", [])],
+            environment=RolloutEnvironment(
+                str(data.get("environment", RolloutEnvironment.DEV.value))
+            ),
+            status=RolloutStatus(str(data.get("status", RolloutStatus.DRAFT.value))),
+            percentage=(int(data["percentage"]) if data.get("percentage") is not None else None),
+            cohort=data.get("cohort"),
+            owner=data.get("owner"),
+            approver=data.get("approver"),
+            activation_date=_parse_datetime(data.get("activation_date")),
+            review_date=_parse_datetime(data.get("review_date")),
+            expiry_date=_parse_datetime(data.get("expiry_date")),
+            rollback_instructions=data.get("rollback_instructions"),
+            linked_eval_suite=data.get("linked_eval_suite"),
+            monitoring_window_days=(
+                int(data["monitoring_window_days"])
+                if data.get("monitoring_window_days") is not None
+                else None
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target_agents": list(self.target_agents),
+            "target_versions": list(self.target_versions),
+            "environment": self.environment.value,
+            "status": self.status.value,
+            "percentage": self.percentage,
+            "cohort": self.cohort,
+            "owner": self.owner,
+            "approver": self.approver,
+            "activation_date": _datetime_to_str(self.activation_date),
+            "review_date": _datetime_to_str(self.review_date),
+            "expiry_date": _datetime_to_str(self.expiry_date),
+            "rollback_instructions": self.rollback_instructions,
+            "linked_eval_suite": self.linked_eval_suite,
+            "monitoring_window_days": self.monitoring_window_days,
         }
 
 
@@ -478,6 +556,7 @@ class SkillCard:
     updated_at: datetime = field(default_factory=_utc_now)
     approved_at: datetime | None = None
     expires_at: datetime | None = None
+    rollout: RolloutMetadata = field(default_factory=RolloutMetadata)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -509,6 +588,7 @@ class SkillCard:
             updated_at=updated_at,
             approved_at=_parse_datetime(data.get("approved_at")),
             expires_at=_parse_datetime(data.get("expires_at")),
+            rollout=RolloutMetadata.from_dict(data.get("rollout", {})),
             metadata=dict(data.get("metadata", {})),
         )
 
@@ -534,6 +614,7 @@ class SkillCard:
             "updated_at": _datetime_to_str(self.updated_at),
             "approved_at": _datetime_to_str(self.approved_at),
             "expires_at": _datetime_to_str(self.expires_at),
+            "rollout": self.rollout.to_dict(),
             "metadata": self.metadata,
         }
 
@@ -699,6 +780,8 @@ class StaleSkillReport:
     recommendation: str  # "revalidate", "deprecate", "remove"
     last_used_at: datetime | None = None
     expires_at: datetime | None = None
+    rollout_status: RolloutStatus | None = None
+    review_date: datetime | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> StaleSkillReport:
@@ -708,6 +791,12 @@ class StaleSkillReport:
             recommendation=str(data.get("recommendation", "")),
             last_used_at=_parse_datetime(data.get("last_used_at")),
             expires_at=_parse_datetime(data.get("expires_at")),
+            rollout_status=(
+                RolloutStatus(str(data["rollout_status"]))
+                if data.get("rollout_status") is not None
+                else None
+            ),
+            review_date=_parse_datetime(data.get("review_date")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -717,4 +806,6 @@ class StaleSkillReport:
             "recommendation": self.recommendation,
             "last_used_at": _datetime_to_str(self.last_used_at),
             "expires_at": _datetime_to_str(self.expires_at),
+            "rollout_status": self.rollout_status.value if self.rollout_status else None,
+            "review_date": _datetime_to_str(self.review_date),
         }

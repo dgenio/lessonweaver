@@ -498,6 +498,84 @@ def test_cli_promote_skill(capsys, tmp_path) -> None:
     assert payload["status"] == "approved"
 
 
+def test_cli_promote_skill_updates_rollout_metadata(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.APPROVED))
+
+    exit_code = main(
+        [
+            "promote-skill",
+            "skill-1",
+            "experimental",
+            "--registry-root",
+            str(tmp_path),
+            "--rollout-status",
+            "canary",
+            "--environment",
+            "staging",
+            "--rollout-percentage",
+            "10",
+            "--cohort",
+            "internal-reviewers",
+            "--target-agent",
+            "codex-cli",
+            "--target-version",
+            "1.2.0",
+            "--owner",
+            "ai-platform",
+            "--approver",
+            "release-owner",
+            "--activation-date",
+            "2026-05-26T12:00:00Z",
+            "--review-date",
+            "2026-06-02T12:00:00Z",
+            "--expiry-date",
+            "2026-06-26T12:00:00Z",
+            "--rollback-instructions",
+            "Revert to skill-1 v0.1.0.",
+            "--linked-eval-suite",
+            "suite-rollout-1",
+            "--monitoring-window-days",
+            "7",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "experimental"
+    assert payload["rollout"]["status"] == "canary"
+    assert payload["rollout"]["environment"] == "staging"
+    assert payload["rollout"]["percentage"] == 10
+    assert payload["rollout"]["target_agents"] == ["codex-cli"]
+    assert payload["rollout"]["target_versions"] == ["1.2.0"]
+    assert payload["rollout"]["review_date"] == "2026-06-02T12:00:00+00:00"
+
+
+def test_cli_promote_skill_allows_rollout_only_updates(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill(status=SkillStatus.EXPERIMENTAL))
+
+    exit_code = main(
+        [
+            "promote-skill",
+            "skill-1",
+            "experimental",
+            "--registry-root",
+            str(tmp_path),
+            "--rollout-status",
+            "canary",
+            "--rollout-percentage",
+            "25",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "experimental"
+    assert payload["rollout"]["status"] == "canary"
+    assert payload["rollout"]["percentage"] == 25
+
+
 def test_cli_log_usage_records_event(capsys, tmp_path) -> None:
     exit_code = main(
         [

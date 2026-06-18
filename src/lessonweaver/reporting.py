@@ -52,6 +52,8 @@ class SkillReporter:
                         recommendation="revalidate",
                         last_used_at=last_used_at,
                         expires_at=skill.expires_at,
+                        rollout_status=skill.rollout.status,
+                        review_date=skill.rollout.review_date,
                     )
                 )
             if skill.status is SkillStatus.DEPRECATED:
@@ -62,6 +64,8 @@ class SkillReporter:
                         recommendation="remove",
                         last_used_at=last_used_at,
                         expires_at=skill.expires_at,
+                        rollout_status=skill.rollout.status,
+                        review_date=skill.rollout.review_date,
                     )
                 )
             if skill.confidence < _LOW_CONFIDENCE_THRESHOLD:
@@ -72,6 +76,8 @@ class SkillReporter:
                         recommendation="revalidate",
                         last_used_at=last_used_at,
                         expires_at=skill.expires_at,
+                        rollout_status=skill.rollout.status,
+                        review_date=skill.rollout.review_date,
                     )
                 )
             if not usage:
@@ -82,6 +88,8 @@ class SkillReporter:
                         recommendation="revalidate",
                         last_used_at=None,
                         expires_at=skill.expires_at,
+                        rollout_status=skill.rollout.status,
+                        review_date=skill.rollout.review_date,
                     )
                 )
         return reports
