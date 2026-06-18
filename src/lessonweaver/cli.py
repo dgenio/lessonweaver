@@ -399,7 +399,7 @@ def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
         "--redact",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Redact before rendering (default: on; pass --no-redact to disable)",
+        help="Redact rendered output before printing (default: on; pass --no-redact to disable)",
     )
 
 

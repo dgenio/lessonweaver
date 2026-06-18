@@ -274,7 +274,7 @@ def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "[REDACTED]" in out
+    assert "[REDACTED by email]" in out
     assert "admin@example.com" not in out
 
 
@@ -349,7 +349,7 @@ def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "[REDACTED]" in out
+    assert "[REDACTED by email]" in out
     assert "admin@example.com" not in out
 
 
@@ -1076,7 +1076,7 @@ def test_cli_review_trace_target_redacts_by_default(capsys, tmp_path) -> None:
     assert exit_code == 0
     out = capsys.readouterr().out
     preview = json.loads(out)["candidates"][0]["export_preview"]
-    assert "[REDACTED]" in preview["content"]
+    assert "[REDACTED by email]" in preview["content"]
     assert "admin@example.com" not in out
 
 
