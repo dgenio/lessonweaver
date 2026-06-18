@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import sys
 import uuid
@@ -13,7 +14,7 @@ from typing import Any
 
 from .analysis import SkillAnalyzer
 from .cleanup import SkillCleaner
-from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
+from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonCluster, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import DetectionCorpus, run_clustered_detection_eval, run_detection_eval
@@ -119,6 +120,63 @@ def _emit_candidates(candidates: list[LessonCandidate], args: argparse.Namespace
         [candidate.to_dict() for candidate in candidates], indent=2, sort_keys=True
     )
     return _emit_text(content, output=args.output, dry_run=args.dry_run)
+
+
+def _unique(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def _resolve_ingest_paths(path_or_glob: str) -> list[Path]:
+    path = Path(path_or_glob).expanduser()
+    if path.is_dir():
+        return sorted(path.glob("*.json"))
+    matches = [Path(item) for item in glob.glob(path_or_glob)]
+    if matches:
+        return sorted(matches)
+    if path.exists():
+        return [path]
+    return []
+
+
+def _cluster_representative(cluster: LessonCluster) -> LessonCandidate:
+    evidence_trace_ids = _unique(
+        [trace_id for member in cluster.members for trace_id in member.evidence_trace_ids]
+    )
+    evidence_event_ids = _unique(
+        [event_id for member in cluster.members for event_id in member.evidence_event_ids]
+    )
+    metadata = dict(cluster.representative.metadata)
+    metadata["ingest_cluster"] = {
+        "cluster_id": cluster.cluster_id,
+        "occurrence_count": cluster.occurrence_count,
+        "member_ids": [member.id for member in cluster.members],
+    }
+    return replace(
+        cluster.representative,
+        evidence_trace_ids=evidence_trace_ids,
+        evidence_event_ids=evidence_event_ids,
+        metadata=metadata,
+    )
+
+
+def _render_ingest_table(report: dict[str, Any]) -> str:
+    lines = [
+        "batch ingest summary",
+        f"files read: {report['files_read']}",
+        f"files skipped: {len(report['files_skipped'])}",
+        f"candidates found: {report['candidates_found']}",
+        f"clusters formed: {report['clusters_formed']}",
+        f"candidates saved: {report['candidates_saved']}",
+    ]
+    for skipped in report["files_skipped"]:
+        lines.append(f"skipped: {skipped['path']} ({skipped['reason']})")
+    return "\n".join(lines)
 
 
 def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> LessonCandidate:
@@ -440,6 +498,30 @@ def main(argv: list[str] | None = None) -> int:
         "--sanitize",
         action="store_true",
         help="Scrub sensitive content (secrets and PII) before detection",
+    )
+
+    ingest_parser = subparsers.add_parser(
+        "ingest",
+        parents=[dry_run_parent, output_parent],
+        help="Detect and cluster candidates across a directory or glob of traces",
+    )
+    ingest_parser.add_argument("path")
+    ingest_parser.add_argument("--registry-root")
+    ingest_parser.add_argument("--save", action="store_true", help="Save cluster representatives")
+    ingest_parser.add_argument(
+        "--sanitize",
+        action="store_true",
+        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+    )
+    ingest_parser.add_argument(
+        "--strict", action="store_true", help="Exit non-zero when any file is skipped"
+    )
+    ingest_parser.add_argument("--json", action="store_true", help="Emit a JSON summary report")
+    ingest_parser.add_argument(
+        "--threshold",
+        type=float,
+        default=DEFAULT_SIMILARITY_THRESHOLD,
+        help="Candidate clustering similarity threshold",
     )
 
     eval_detection_parser = subparsers.add_parser(
@@ -827,6 +909,60 @@ def _run(args: argparse.Namespace) -> int:
             candidates.extend(detector.detect(bundle))
         clusters = LessonClusterer(threshold=args.threshold).cluster(candidates)
         _print_json([cluster.to_dict() for cluster in clusters])
+        return 0
+
+    if args.command == "ingest":
+        paths = _resolve_ingest_paths(args.path)
+        if not paths:
+            print(f"Error: no trace files matched '{args.path}'", file=sys.stderr)
+            return 1
+
+        detector = LessonDetector()
+        sanitizer = TraceSanitizer() if args.sanitize else None
+        ingest_candidates: list[LessonCandidate] = []
+        skipped: list[dict[str, str]] = []
+        files_read = 0
+        for trace_path in paths:
+            try:
+                bundle = load_trace_bundle(trace_path)
+                if sanitizer is not None:
+                    bundle = sanitizer.sanitize(bundle)
+                ingest_candidates.extend(detector.detect(bundle))
+                files_read += 1
+            except json.JSONDecodeError:
+                skipped.append({"path": str(trace_path), "reason": "invalid JSON"})
+            except ValueError as exc:
+                skipped.append({"path": str(trace_path), "reason": str(exc).splitlines()[0]})
+
+        clusters = LessonClusterer(threshold=args.threshold).cluster(ingest_candidates)
+        representatives = [_cluster_representative(cluster) for cluster in clusters]
+        strict_failed = bool(skipped and (args.strict or files_read == 0))
+        candidates_saved = 0
+        if args.save and not args.dry_run and not strict_failed:
+            registry = _registry(args.registry_root)
+            for candidate in representatives:
+                registry.save_candidate(candidate)
+                candidates_saved += 1
+
+        ingest_report: dict[str, Any] = {
+            "files_read": files_read,
+            "files_skipped": skipped,
+            "candidates_found": len(ingest_candidates),
+            "clusters_formed": len(clusters),
+            "candidates_saved": candidates_saved,
+            "clusters": [
+                {**cluster.to_dict(), "representative": representative.to_dict()}
+                for cluster, representative in zip(clusters, representatives, strict=True)
+            ],
+        }
+        content = (
+            json.dumps(ingest_report, indent=2, sort_keys=True)
+            if args.json
+            else _render_ingest_table(ingest_report)
+        )
+        _emit_text(content, output=args.output, dry_run=args.dry_run)
+        if strict_failed:
+            return 2
         return 0
 
     if args.command == "eval-detection":

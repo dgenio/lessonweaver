@@ -147,6 +147,7 @@ print(context.snippet)
 ## Commands
 
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
+- `lessonweaver ingest <dir-or-glob> [--save] [--registry-root DIR] [--sanitize] [--dry-run] [--strict] [--json]`
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions
 - `lessonweaver answer <candidate-id> <question-id> <option-id> [--free-text ...] [--session FILE]`

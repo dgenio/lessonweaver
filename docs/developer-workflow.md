@@ -36,6 +36,22 @@ lessonweaver review-trace trace.json --answer ... --approve --approved-by you
 `--dry-run` detects and previews without saving candidates or persisting the
 approval.
 
+## Batch trace ingestion: `ingest`
+
+When traces accumulate in a daily or weekly directory, run detection once across
+the batch and cluster recurring candidates before review:
+
+```bash
+lessonweaver ingest traces/2026-06-12 --save --registry-root .lessonweaver --json
+```
+
+`ingest` reads `*.json` files in sorted order, skips malformed traces with a
+reason in the report, clusters duplicate candidates with the same deterministic
+similarity logic as `cluster`, and saves one representative per cluster. The
+saved representative carries the combined `evidence_trace_ids` from every
+cluster member. Use `--dry-run` to preview without writes and `--strict` when
+any skipped file should fail the command.
+
 ## The review gate is enforced
 
 `approve` (and `review-trace --approve`) now **refuse to approve a candidate
