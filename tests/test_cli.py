@@ -73,6 +73,46 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     assert any(question["id"] == "decision" for question in questions)
 
 
+def test_cli_init_agents_tree_dry_run_prints_plan_without_writing(capsys, tmp_path) -> None:
+    target = tmp_path / "AGENTS.md"
+    exit_code = main(["init-agents-tree", "--path", str(target), "--dry-run"])
+    assert exit_code == 0
+    assert not target.exists()
+    out = capsys.readouterr().out
+    assert "[dry-run] would write to:" in out
+    assert "# AGENTS.md" in out
+    assert "## Child Instruction Index" in out
+
+
+def test_cli_init_agents_tree_creates_root_scaffold(capsys, tmp_path) -> None:
+    target = tmp_path / "AGENTS.md"
+    exit_code = main(["init-agents-tree", "--path", str(target)])
+    assert exit_code == 0
+    assert "created:" in capsys.readouterr().out
+    content = target.read_text(encoding="utf-8")
+    assert "profile=dox-agents-tree" in content
+    assert "## Reviewed Lessons" in content
+    assert "lessonweaver export-skill" in content
+
+
+def test_cli_init_agents_tree_preserves_existing_file_without_force(capsys, tmp_path) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text("existing instructions\n", encoding="utf-8")
+    exit_code = main(["init-agents-tree", "--path", str(target)])
+    assert exit_code == 1
+    assert target.read_text(encoding="utf-8") == "existing instructions\n"
+    assert "already exists" in capsys.readouterr().err
+
+
+def test_cli_init_agents_tree_force_overwrites_existing_file(capsys, tmp_path) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text("existing instructions\n", encoding="utf-8")
+    exit_code = main(["init-agents-tree", "--path", str(target), "--force"])
+    assert exit_code == 0
+    assert "updated:" in capsys.readouterr().out
+    assert "# AGENTS.md" in target.read_text(encoding="utf-8")
+
+
 # The full set of base review answers that satisfies the enforced review gate
 # (a low-risk skill with no triggered follow-ups). decision=approve last.
 _COMPLETE_REVIEW = [

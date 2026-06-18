@@ -356,6 +356,40 @@ def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict
     return packet
 
 
+def _agents_tree_scaffold(profile: str) -> str:
+    if profile != "dox":
+        raise ValueError(f"unsupported agents tree profile: {profile}")
+    lines = [
+        "<!-- lessonweaver profile=dox-agents-tree version=1 -->",
+        "# AGENTS.md",
+        "",
+        "## Purpose",
+        "Project-local instructions for agents working in this repository.",
+        "",
+        "## Ownership",
+        "- Maintained by repository owners.",
+        "- Durable guidance must be reviewed before it is added here.",
+        "- lessonweaver exports reviewed lessons; it does not auto-activate unreviewed findings.",
+        "",
+        "## Local Contracts",
+        "- Keep repo-wide rules in this root file.",
+        "- Put narrower directory rules in child `AGENTS.md` files.",
+        "- Prefer the closest applicable child file when guidance is directory-specific.",
+        "",
+        "## Reviewed Lessons",
+        "- Export reviewed skills into the relevant scope with:",
+        "  `lessonweaver export-skill <skill-id> --format agents-md`",
+        "",
+        "## Verification",
+        "- Before committing instruction changes, confirm each durable rule has reviewed evidence.",
+        "- Re-run project checks that match the changed guidance.",
+        "",
+        "## Child Instruction Index",
+        "- Add child `AGENTS.md` paths here as local contracts are introduced.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "**") -> str:
     redactor = SimpleRedactor() if redact else None
     if fmt == "markdown":
@@ -484,6 +518,28 @@ def main(argv: list[str] | None = None) -> int:
         "--with-clustering",
         action="store_true",
         help="Report recall with and without clustering repeated weak signals",
+    )
+
+    init_agents_parser = subparsers.add_parser(
+        "init-agents-tree",
+        parents=[dry_run_parent],
+        help="Scaffold a project-local hierarchical AGENTS.md instruction tree",
+    )
+    init_agents_parser.add_argument(
+        "--profile",
+        choices=["dox"],
+        default="dox",
+        help="Instruction tree profile to scaffold (default: dox)",
+    )
+    init_agents_parser.add_argument(
+        "--path",
+        default="AGENTS.md",
+        help="Root instruction file to create (default: AGENTS.md)",
+    )
+    init_agents_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing instruction file",
     )
 
     interview_parser = subparsers.add_parser(
@@ -898,6 +954,26 @@ def _run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        return 0
+
+    if args.command == "init-agents-tree":
+        target = Path(args.path)
+        content = _agents_tree_scaffold(args.profile)
+        existed = target.exists()
+        if existed and not args.force:
+            print(
+                f"Error: {target} already exists; pass --force to overwrite it",
+                file=sys.stderr,
+            )
+            return 1
+        if args.dry_run:
+            action = "update" if existed else "create"
+            print(f"[dry-run] would write to: {target} ({action})")
+            print(content, end="")
+            return 0
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        print(f"{'updated' if existed else 'created'}: {target}")
         return 0
 
     if args.command == "interview":
