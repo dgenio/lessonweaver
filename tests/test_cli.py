@@ -498,6 +498,46 @@ def test_cli_promote_skill(capsys, tmp_path) -> None:
     assert payload["status"] == "approved"
 
 
+def test_cli_pack_export_inspect_import(capsys, tmp_path) -> None:
+    source_registry = tmp_path / "source"
+    dest_registry = tmp_path / "dest"
+    FileSystemRegistry(source_registry).save_skill(_skill(status=SkillStatus.APPROVED))
+    pack_path = tmp_path / "pack.json"
+
+    export_code = main(
+        [
+            "pack",
+            "export",
+            "skill-1",
+            "--registry-root",
+            str(source_registry),
+            "--output",
+            str(pack_path),
+            "--name",
+            "starter-pack",
+            "--version",
+            "1.0.0",
+            "--publisher",
+            "ai-platform",
+        ]
+    )
+    assert export_code == 0
+    assert pack_path.exists()
+
+    inspect_code = main(["pack", "inspect", str(pack_path)])
+    assert inspect_code == 0
+    inspection = json.loads(capsys.readouterr().out)
+    assert inspection["valid"] is True
+
+    import_code = main(["pack", "import", str(pack_path), "--registry-root", str(dest_registry)])
+    assert import_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["imported"] == ["skill-1"]
+    assert (
+        FileSystemRegistry(dest_registry).load_skill("skill-1").status is SkillStatus.EXPERIMENTAL
+    )
+
+
 def test_cli_log_usage_records_event(capsys, tmp_path) -> None:
     exit_code = main(
         [
