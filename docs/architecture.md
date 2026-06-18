@@ -55,6 +55,7 @@ flowchart LR
 | `clustering.py` | Group recurring candidates across traces by lexical similarity. |
 | `interview.py` | Build MCQ review questions and apply answers to a candidate. |
 | `registry.py` | Persist/list candidates, lessons, skills, artifacts (JSON files). |
+| `improvement_inbox.py` | Group telemetry-derived candidates into review inbox items. |
 | `export.py` | Render skills/lessons into downstream formats. |
 | `retrieval.py` | Rank active skills against a task with a lexical baseline. |
 | `compile.py` | Assemble retrieved skills into a context-budgeted snippet. |
