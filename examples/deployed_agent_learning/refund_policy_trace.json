@@ -1,0 +1,68 @@
+{
+  "trace_id": "deployed-refund-policy-stale-001",
+  "source": "otel-export:customer-support-agent",
+  "task": "Answer a customer question about refund eligibility",
+  "events": [
+    {
+      "id": "span-1",
+      "type": "user_message",
+      "content": "Can I get a refund after 45 days?",
+      "metadata": {
+        "session_id": "support-demo-001",
+        "environment": "staging",
+        "agent_version": "support-agent-2026-06-01"
+      }
+    },
+    {
+      "id": "span-2",
+      "type": "tool_call",
+      "content": "policy_search(query='refund window')",
+      "status": "success",
+      "metadata": {
+        "tool": "policy_search",
+        "policy_version": "2026-04"
+      }
+    },
+    {
+      "id": "span-3",
+      "type": "assistant_message",
+      "content": "Refunds are available for 60 days after purchase.",
+      "metadata": {
+        "policy_version_used": "2026-04"
+      }
+    },
+    {
+      "id": "span-4",
+      "type": "evaluation_result",
+      "content": "Failed: policy answer used stale refund window. Current version is 2026-06 with a 30-day standard window.",
+      "status": "failed",
+      "metadata": {
+        "eval_id": "refund-policy-version-current",
+        "expected_policy_version": "2026-06"
+      }
+    },
+    {
+      "id": "span-5",
+      "type": "human_correction",
+      "content": "Check the current policy version before quoting refund eligibility. If the latest policy cannot be retrieved, escalate instead of answering from memory.",
+      "metadata": {
+        "reviewer": "support-qa",
+        "correct_policy_version": "2026-06"
+      }
+    }
+  ],
+  "outcome": "corrected_by_human",
+  "metadata": {
+    "source_refs": [
+      {
+        "type": "otel_trace",
+        "id": "trace-support-demo-001"
+      }
+    ],
+    "rollout_target": {
+      "framework": "llamaindex",
+      "agent": "customer-support-agent",
+      "environment": "staging"
+    }
+  }
+}

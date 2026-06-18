@@ -282,6 +282,7 @@ any sibling. The Mermaid source is in
 - [Glossary](docs/glossary.md) — canonical terms
 - [Comparisons](docs/comparisons.md) — vs. observability, evals, memory, frameworks
 - [Ecosystem positioning](docs/ecosystem.md) — integration boundaries
+- [Deployed-agent learning loop](docs/deployed-agent-learning-loop.md) — telemetry to reviewed improvements and staged rollout
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)

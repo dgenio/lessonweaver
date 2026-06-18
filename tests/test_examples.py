@@ -34,6 +34,7 @@ EXPECTED_TRACE_CANDIDATES = {
     "coding_agent_pr_review/traces/pr_review_correct.json": 0,
     "coding_agent_pr_review/traces/pr_review_missing_test.json": 1,
     "coding_agent_pr_review/traces/pr_review_security_miss.json": 2,
+    "deployed_agent_learning/refund_policy_trace.json": 2,
     "traces/external_chatbot_policy_failure.json": 1,
     "traces/github_pr_review_failure.json": 1,
     "traces/repo_check_finding.json": 1,
