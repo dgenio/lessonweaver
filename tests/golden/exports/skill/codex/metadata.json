@@ -1,0 +1,12 @@
+{
+  "confidence": 0.87,
+  "description": "Inspect changed files before approving a pull request.",
+  "evidence_trace_ids": [
+    "trace-pr-review-001"
+  ],
+  "id": "skill-canonical-review",
+  "name": "Review Diff Before Approval",
+  "risk_level": "medium",
+  "scope": "project",
+  "version": "1.2.3"
+}

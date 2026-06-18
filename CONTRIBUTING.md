@@ -73,6 +73,13 @@ Browse the issue tracker for the most current list and labels.
 - Prefer small dataclass factory helpers for repeated test data.
 - A new behavior should have a test that fails without the change and passes
   with it.
+- Exporter output is locked by checked-in golden files under
+  `tests/golden/exports/`. When an intentional exporter change updates those
+  bytes, regenerate and review the snapshots with:
+
+  ```bash
+  PYTHONPATH=src pytest tests/test_export_golden.py --update-golden
+  ```
 
 ## Pull request expectations
 
