@@ -43,6 +43,11 @@ from .filemerge import (
     merge_managed_block,
 )
 from .governance import can_promote_skill, promote_skill
+from .governed_memory import (
+    GovernedMemoryRecord,
+    GovernedMemorySnapshot,
+    build_governed_memory_snapshot,
+)
 from .importers import (
     FAILURE_CASE_PROVENANCE_KEY,
     DictTraceImporter,
@@ -113,6 +118,8 @@ __all__ = [
     "ExportFormat",
     "FailureCaseImporter",
     "FileSystemRegistry",
+    "GovernedMemoryRecord",
+    "GovernedMemorySnapshot",
     "InclusionLevel",
     "LessonCandidate",
     "LessonCluster",
@@ -164,6 +171,7 @@ __all__ = [
     "ValidationResult",
     "ValidationSuite",
     "apply_review_answer",
+    "build_governed_memory_snapshot",
     "can_promote_skill",
     "candidates_from_failure_case",
     "diff_managed_file",
