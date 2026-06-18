@@ -11,6 +11,7 @@ from lessonweaver.export import (
     export_copilot_path_instruction,
     export_copilot_repo_instruction,
     export_eval_spec_markdown,
+    export_framework_artifact,
     export_guardrail_rule_markdown,
     export_operational_lesson_markdown,
     export_skillcard_json,
@@ -327,3 +328,82 @@ def test_export_lesson_redactor_integration() -> None:
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
     assert "[REDACTED by email]" in rendered
+
+
+def test_export_framework_prompt_artifact_includes_governance_metadata() -> None:
+    candidate = _make_candidate(RecommendedActionType.SKILL)
+    candidate.owner = "agent-team"
+    candidate.approved_by = "reviewer"
+    artifact = export_framework_artifact(candidate, framework="openai-agents")
+
+    assert artifact["framework"] == "openai-agents"
+    assert artifact["artifact_type"] == "prompt_lesson"
+    assert artifact["body"]["prompt_fragment"] == candidate.proposed_lesson
+    assert artifact["governance"]["scope"] == "project"
+    assert artifact["governance"]["owner"] == "agent-team"
+    assert artifact["governance"]["approved_by"] == "reviewer"
+    assert artifact["governance"]["evidence_trace_ids"] == ["trace-gh-pr-review-001"]
+    assert artifact["does_not_apply_when"] == [
+        "When the task is unrelated to the observed trace context."
+    ]
+
+
+def test_export_framework_guardrail_artifact() -> None:
+    artifact = export_framework_artifact(
+        _make_candidate(RecommendedActionType.GUARDRAIL), framework="openai-agents"
+    )
+
+    assert artifact["artifact_type"] == "guardrail"
+    assert artifact["body"]["trigger"] == "Agent approved a PR without inspecting the diff."
+    assert "Inspect changed files" in artifact["body"]["guardrail"]
+
+
+def test_export_framework_handoff_artifact_from_failure_mode() -> None:
+    candidate = _make_candidate(RecommendedActionType.WORKFLOW_CHANGE)
+    candidate.metadata["failure_mode"] = "handoff"
+
+    artifact = export_framework_artifact(candidate, framework="langgraph")
+
+    assert artifact["artifact_type"] == "handoff_rule"
+    assert artifact["body"]["route_when"] == candidate.observed_problem
+    assert artifact["body"]["handoff_guidance"] == candidate.proposed_lesson
+
+
+def test_export_framework_retrieval_artifact() -> None:
+    artifact = export_framework_artifact(
+        _make_candidate(RecommendedActionType.RETRIEVAL_RULE), framework="llamaindex"
+    )
+
+    assert artifact["artifact_type"] == "retrieval_rule"
+    assert artifact["body"]["query_condition"] == "Inspect diffs before PR review"
+    assert artifact["body"]["retrieval_guidance"] == (
+        "Inspect changed files before drawing review conclusions."
+    )
+
+
+def test_export_framework_workflow_artifact() -> None:
+    artifact = export_framework_artifact(
+        _make_candidate(RecommendedActionType.WORKFLOW_CHANGE), framework="langgraph"
+    )
+
+    assert artifact["artifact_type"] == "workflow_change"
+    assert artifact["body"]["node_recommendation"] == (
+        "Inspect changed files before drawing review conclusions."
+    )
+
+
+def test_export_framework_eval_artifact() -> None:
+    artifact = export_framework_artifact(_make_candidate(RecommendedActionType.EVAL))
+
+    assert artifact["artifact_type"] == "eval_fixture"
+    assert artifact["body"]["expected_behavior"] == (
+        "The agent satisfies the reviewed lesson without requiring human correction."
+    )
+
+
+def test_export_framework_reject_artifact() -> None:
+    artifact = export_framework_artifact(_make_candidate(RecommendedActionType.REJECT))
+
+    assert artifact["artifact_type"] == "reject"
+    assert artifact["body"]["decision"] == "no_op"
+    assert "No runtime artifact" in artifact["body"]["reason"]
