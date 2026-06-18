@@ -203,6 +203,7 @@ Closed-loop effectiveness reports are available through the library API; see
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | Eval companion packs | Supported (`export_eval_companion_pack`) |
+| MCP server | Optional stdio server (`pip install "lessonweaver[mcp]"`, `lessonweaver-mcp`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
 ## Governance and safety
@@ -286,7 +287,7 @@ any sibling. The Mermaid source is in
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
-- [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
+- [Integrations: MCP](docs/integrations/mcp.md), [LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
 - [Interoperability](docs/interoperability.md)
 - [Adapters & trace import contract](docs/adapters.md) — the `TraceImporter` protocol
 - [Trace format](docs/trace-format.md)
