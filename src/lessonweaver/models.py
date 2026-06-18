@@ -115,12 +115,83 @@ class ExportFormat(str, Enum):
     CODEX_DIRECTORY = "codex_directory"
 
 
+class OutcomeLabelType(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    HUMAN_CORRECTION = "human_correction"
+    USER_DISSATISFACTION = "user_dissatisfaction"
+    WRONG_TOOL = "wrong_tool"
+    BAD_HANDOFF = "bad_handoff"
+    RETRIEVAL_MISS = "retrieval_miss"
+    STALE_RETRIEVAL = "stale_retrieval"
+    GUARDRAIL_VIOLATION = "guardrail_violation"
+    UNNECESSARY_ESCALATION = "unnecessary_escalation"
+    HALLUCINATED_ANSWER = "hallucinated_answer"
+    POLICY_VIOLATION = "policy_violation"
+    BUSINESS_METRIC_FAILURE = "business_metric_failure"
+    REJECTED_NO_LESSON = "rejected_no_lesson"
+
+
+class OutcomeSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 # Ordering used to compare risk levels (LOW < MEDIUM < HIGH).
 _RISK_LEVEL_ORDER: dict[RiskLevel, int] = {
     RiskLevel.LOW: 1,
     RiskLevel.MEDIUM: 2,
     RiskLevel.HIGH: 3,
 }
+
+_CONTRADICTORY_OUTCOME_LABELS: tuple[tuple[OutcomeLabelType, OutcomeLabelType], ...] = (
+    (OutcomeLabelType.SUCCESS, OutcomeLabelType.FAILURE),
+    (OutcomeLabelType.SUCCESS, OutcomeLabelType.HUMAN_CORRECTION),
+    (OutcomeLabelType.SUCCESS, OutcomeLabelType.POLICY_VIOLATION),
+    (OutcomeLabelType.SUCCESS, OutcomeLabelType.GUARDRAIL_VIOLATION),
+    (OutcomeLabelType.SUCCESS, OutcomeLabelType.USER_DISSATISFACTION),
+    (OutcomeLabelType.REJECTED_NO_LESSON, OutcomeLabelType.FAILURE),
+)
+
+
+@dataclass(slots=True)
+class OutcomeLabel:
+    """Evidence label attached to trace telemetry; it is not automatic truth."""
+
+    label: OutcomeLabelType
+    severity: OutcomeSeverity = OutcomeSeverity.MEDIUM
+    confidence: float = 1.0
+    source: str = "manual"
+    timestamp: datetime = field(default_factory=_utc_now)
+    notes: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OutcomeLabel:
+        timestamp = _parse_datetime(data.get("timestamp"), default=_utc_now())
+        assert timestamp is not None
+        return cls(
+            label=OutcomeLabelType(str(data["label"])),
+            severity=OutcomeSeverity(str(data.get("severity", OutcomeSeverity.MEDIUM.value))),
+            confidence=float(data.get("confidence", 1.0)),
+            source=str(data.get("source", "manual")),
+            timestamp=timestamp,
+            notes=str(data.get("notes", "")),
+            metadata=dict(data.get("metadata", {})),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label.value,
+            "severity": self.severity.value,
+            "confidence": self.confidence,
+            "source": self.source,
+            "timestamp": _datetime_to_str(self.timestamp),
+            "notes": self.notes,
+            "metadata": self.metadata,
+        }
 
 
 @dataclass(slots=True)
@@ -157,6 +228,7 @@ class TraceBundle:
     events: list[TraceEvent]
     outcome: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    outcome_labels: list[OutcomeLabel] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TraceBundle:
@@ -167,6 +239,9 @@ class TraceBundle:
             events=[TraceEvent.from_dict(item) for item in data.get("events", [])],
             outcome=str(data.get("outcome", "unknown")),
             metadata=dict(data.get("metadata", {})),
+            outcome_labels=[
+                OutcomeLabel.from_dict(item) for item in data.get("outcome_labels", [])
+            ],
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -177,7 +252,16 @@ class TraceBundle:
             "events": [event.to_dict() for event in self.events],
             "outcome": self.outcome,
             "metadata": self.metadata,
+            "outcome_labels": [label.to_dict() for label in self.outcome_labels],
         }
+
+    def contradictory_outcome_labels(self) -> list[tuple[str, str]]:
+        labels = {label.label for label in self.outcome_labels}
+        contradictions: list[tuple[str, str]] = []
+        for left, right in _CONTRADICTORY_OUTCOME_LABELS:
+            if left in labels and right in labels:
+                contradictions.append((left.value, right.value))
+        return contradictions
 
 
 @dataclass(slots=True)

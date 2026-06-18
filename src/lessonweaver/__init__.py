@@ -4,7 +4,7 @@ from .analysis import AnalysisFinding, SkillAnalyzer
 from .cleanup import CleanupAction, SkillCleaner
 from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
-from .detection import LessonDetector
+from .detection import LessonDetector, group_candidates_by_outcome_label
 from .detection_eval import (
     ClusteredDetectionEvalReport,
     DetectionCase,
@@ -60,6 +60,9 @@ from .models import (
     LessonStatus,
     LoadingPolicy,
     OperationalLesson,
+    OutcomeLabel,
+    OutcomeLabelType,
+    OutcomeSeverity,
     RecommendedActionType,
     ReviewAnswer,
     ReviewOption,
@@ -127,6 +130,9 @@ __all__ = [
     "LoadedSkill",
     "LoadingPolicy",
     "OperationalLesson",
+    "OutcomeLabel",
+    "OutcomeLabelType",
+    "OutcomeSeverity",
     "RecommendedActionType",
     "RetrievalDiagnostics",
     "RetrievalQuery",
@@ -185,6 +191,7 @@ __all__ = [
     "export_skillcard_json",
     "export_skillcard_markdown",
     "export_workflow_recommendation_markdown",
+    "group_candidates_by_outcome_label",
     "has_managed_block",
     "load_session",
     "load_trace_bundle",
