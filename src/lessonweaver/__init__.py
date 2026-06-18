@@ -17,6 +17,7 @@ from .detection_eval import (
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
 from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
+from .eval_companion import export_eval_companion_pack
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -176,6 +177,7 @@ __all__ = [
     "export_copilot_instruction_fragment",
     "export_copilot_path_instruction",
     "export_copilot_repo_instruction",
+    "export_eval_companion_pack",
     "export_eval_spec_markdown",
     "export_guardrail_rule_markdown",
     "export_operational_lesson_markdown",

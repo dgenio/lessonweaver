@@ -153,6 +153,9 @@ print(context.snippet)
 - `lessonweaver approve <candidate-id> [--approved-by ...] [--dry-run]`
 - `lessonweaver export-skill <skill-id-or-json> --format markdown|json|copilot|copilot-repo|copilot-path|claude|claude-skill|claude-rule|claude-md|agents-md|codex|runtime [--applies-to GLOB] [--redact] [--output FILE] [--json] [--dry-run]`
 - `lessonweaver export-lesson <candidate-id-or-json> --format eval|guardrail|workflow [--redact] [--output FILE] [--json] [--dry-run]`
+  - For a coherent eval/guardrail/workflow bundle, use
+    `export_eval_companion_pack` from the library API; see
+    [eval companion](docs/eval-companion.md).
 
 Shared output flags: `--output FILE` writes the result to a file instead of stdout;
 `--json` wraps `export-skill`/`export-lesson` output in a `{"format": ..., "content": ...}`
@@ -195,6 +198,7 @@ Closed-loop effectiveness reports are available through the library API; see
 | Codex skill directory export | Supported (`codex`) |
 | AGENTS.md fragment export | Supported (`agents-md`) |
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
+| Eval companion packs | Supported (`export_eval_companion_pack`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
 
 ## Governance and safety
