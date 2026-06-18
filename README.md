@@ -176,6 +176,7 @@ Commands return non-zero on bad input: a missing file exits `1`, and invalid JSO
 an invalid trace/skill payload exits `2` with an `Error:` message on stderr.
 - `lessonweaver review-trace <trace.json> [--answer q=opt] [--approve] [--target FORMAT] [--redact|--no-redact] [--dry-run]` — one guided command for the whole detect→review→(approve) loop (see the [developer workflow](docs/developer-workflow.md))
 - `lessonweaver export-file <skill-id-or-json> --path FILE [--format ...] [--write] [--no-redact]` — diff-first, idempotent insertion of a skill into an instruction file (previews a unified diff unless `--write`)
+- `lessonweaver doctor [--registry-root ROOT] [--payload FILE] [--export-format FORMAT] [--export-path FILE] [--no-redact] [--json]` — preflight registry, payload, export, redaction, and skill-lint checks
 - `lessonweaver lint <skill-id-or-json>`
 - `lessonweaver analyze-skills <skills-dir>`
 - `lessonweaver retrieve "<task>"`

@@ -94,6 +94,22 @@ skills with a reason code (`status_not_active`, `risk_above_threshold`,
 `no_match`, `omitted_max_results`, `omitted_budget`), the context-`budget`
 usage, and any `overlaps`/contradictions among the loaded skills.
 
+## Preflight before export or rollout: `doctor`
+
+Before committing instruction exports or wiring a registry into runtime loading,
+run the read-only doctor command:
+
+```bash
+lessonweaver doctor --registry-root .lessonweaver --export-format agents-md
+lessonweaver doctor --payload skill.json --export-format copilot-repo --json
+```
+
+`doctor` validates the registry location and permissions, parses candidate and
+skill payloads, checks the selected export surface, verifies redaction settings,
+and runs `SkillLinter` against generated skills. It exits non-zero on invalid
+registry or payload data, while risky export choices such as `--no-redact` on an
+instruction surface are reported as warnings for human review.
+
 ## Keep the library healthy: `cleanup-skills`
 
 Reviewed skills go stale, stop loading, start loading for the wrong tasks, or
