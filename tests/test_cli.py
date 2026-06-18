@@ -54,6 +54,31 @@ def test_cli_detect_produces_json(capsys) -> None:
     assert "summary" in candidates[0]
 
 
+def test_cli_version_matches_pyproject(capsys) -> None:
+    expected = next(
+        line.split("=", 1)[1].strip().strip('"')
+        for line in Path("pyproject.toml").read_text(encoding="utf-8").splitlines()
+        if line.startswith("version = ")
+    )
+
+    exit_code = main(["--version"])
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == f"lessonweaver {expected}"
+
+
+def test_cli_detect_json_envelope_is_pipe_clean(capsys) -> None:
+    exit_code = main(["detect", "examples/traces/github_pr_review_failure.json", "--json"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["command"] == "detect"
+    assert isinstance(payload["result"], list)
+    assert payload["result"][0]["id"] == "trace-gh-pr-review-001-human-correction"
+
+
 def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     main(
         [
@@ -423,6 +448,22 @@ def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
     assert "LW001" in capsys.readouterr().out
 
 
+def test_cli_lint_json_envelope_keeps_error_exit_code(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    bad = _skill()
+    bad.applies_when = []
+    registry.save_skill(bad)
+
+    exit_code = main(["lint", "skill-1", "--registry-root", str(tmp_path), "--json"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["command"] == "lint"
+    assert payload["result"][0]["rule_id"] == "LW001"
+
+
 def test_cli_retrieve(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill())
@@ -430,6 +471,38 @@ def test_cli_retrieve(capsys, tmp_path) -> None:
     assert exit_code == 0
     results = json.loads(capsys.readouterr().out)
     assert results[0]["skill_id"] == "skill-1"
+
+
+def test_cli_read_analyze_commands_support_json_envelopes(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_skill())
+
+    commands = [
+        ["retrieve", "Review this PR", "--registry-root", str(tmp_path), "--json"],
+        [
+            "explain-load",
+            "Review this PR",
+            "--registry-root",
+            str(tmp_path),
+            "--json",
+        ],
+    ]
+    for argv in commands:
+        exit_code = main(argv)
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.err == ""
+        payload = json.loads(captured.out)
+        assert payload["command"] == argv[0]
+        assert "result" in payload
+
+    skills_dir = tmp_path / "skills-src"
+    skills_dir.mkdir()
+    (skills_dir / "skill.json").write_text(json.dumps(_skill().to_dict()), encoding="utf-8")
+    exit_code = main(["analyze-skills", str(skills_dir), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload == {"command": "analyze-skills", "result": []}
 
 
 def test_cli_validate_skill_passes(capsys, tmp_path) -> None:
@@ -1292,6 +1365,28 @@ def test_cli_cleanup_skills_dry_run_reports_without_writing(capsys, tmp_path) ->
     assert registry.load_skill("exp").status is SkillStatus.ACTIVE
 
 
+def test_cli_cleanup_skills_json_envelope(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_expired_skill())
+
+    exit_code = main(
+        [
+            "cleanup-skills",
+            "--registry-root",
+            str(tmp_path),
+            "--now",
+            "2030-01-01T00:00:00Z",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "cleanup-skills"
+    assert payload["result"]["actions"][0]["reason"] == "expired"
+    assert payload["result"]["applied"] == []
+
+
 def test_cli_cleanup_skills_write_deprecates_expired(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_expired_skill())
@@ -1327,3 +1422,22 @@ def test_cli_cleanup_skills_dry_run_overrides_write(capsys, tmp_path) -> None:
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out)["applied"] == []
     assert registry.load_skill("exp").status is SkillStatus.ACTIVE
+
+
+def test_cli_contract_docs_and_changelog_describe_stable_envelopes() -> None:
+    contract = Path("docs/cli-contract.md").read_text(encoding="utf-8")
+    for command in [
+        "detect",
+        "lint",
+        "analyze-skills",
+        "retrieve",
+        "explain-load",
+        "cleanup-skills",
+    ]:
+        assert f"`{command}`" in contract
+    assert '"command"' in contract
+    assert '"result"' in contract
+    assert "Exit codes" in contract
+
+    changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+    assert "stable CLI JSON envelopes" in changelog
