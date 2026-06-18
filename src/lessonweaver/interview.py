@@ -150,7 +150,7 @@ class LessonInterviewer:
                         "specific_tools",
                         "C",
                         "Only when specific tools/data sources are used",
-                        {"_applies_when_hint": "specific_tools"},
+                        {"applies_when_hint": "specific_tools"},
                     ),
                     ReviewOption("other", "D", "Other (free text)", {}),
                 ],
@@ -213,13 +213,13 @@ class LessonInterviewer:
                         "explicit_approval",
                         "A",
                         "Require recorded approver before activation",
-                        {"_approval_required": "explicit"},
+                        {"approval_required": "explicit"},
                     ),
                     ReviewOption(
                         "standard_review",
                         "B",
                         "Standard review is sufficient",
-                        {"_approval_required": "standard"},
+                        {"approval_required": "standard"},
                     ),
                     ReviewOption("other", "C", "Other (free text)", {}),
                 ],
@@ -235,13 +235,13 @@ class LessonInterviewer:
                         "deterministic_rule",
                         "A",
                         "Deterministic rule (validation gate / code path)",
-                        {"_workflow_determinism": "deterministic_rule"},
+                        {"workflow_determinism": "deterministic_rule"},
                     ),
                     ReviewOption(
                         "prompt_hint",
                         "B",
                         "Prompt hint for the agent",
-                        {"_workflow_determinism": "prompt_hint"},
+                        {"workflow_determinism": "prompt_hint"},
                     ),
                     ReviewOption("other", "C", "Other (free text)", {}),
                 ],
@@ -322,7 +322,13 @@ class LessonInterviewer:
 
         changes: list[str] = []
         for field_def in fields(candidate_after):
-            if field_def.name in {"metadata", "id"}:
+            if field_def.name in {
+                "metadata",
+                "id",
+                "review_answers",
+                "review_effects",
+                "review_override",
+            }:
                 continue
             before = getattr(candidate_before, field_def.name)
             after = getattr(candidate_after, field_def.name)
@@ -338,19 +344,14 @@ class LessonInterviewer:
             lines.append("## Fields changed")
             lines.append("- No candidate fields changed during review.")
 
-        # Follow-up options record their effect under ``_``-prefixed metadata keys
-        # (e.g. ``_approval_required``), so surface those deltas explicitly — the
-        # plain field diff above intentionally skips ``metadata``.
         effect_changes: list[str] = []
-        meta_before = candidate_before.metadata
-        meta_after = candidate_after.metadata
-        for key in sorted(meta_after):
-            if not key.startswith("_"):
-                continue
-            if meta_before.get(key) != meta_after.get(key):
+        before_effects = candidate_before.review_effects
+        after_effects = candidate_after.review_effects
+        for key in sorted(after_effects):
+            if before_effects.get(key) != after_effects.get(key):
                 effect_changes.append(
-                    f"- {key}: {_format_value(meta_before.get(key))} -> "
-                    f"{_format_value(meta_after.get(key))}"
+                    f"- {key}: {_format_value(before_effects.get(key))} -> "
+                    f"{_format_value(after_effects.get(key))}"
                 )
         if effect_changes:
             lines.append("")
@@ -406,9 +407,10 @@ def apply_review_answer(
     allowed_fields = {field.name for field in fields(candidate)}
     for key, value in option.effect.items():
         if key.startswith("_"):
-            candidate.metadata[key] = value
+            candidate.review_effects[key.removeprefix("_")] = str(value)
             continue
         if key not in allowed_fields:
+            candidate.review_effects[key] = str(value)
             continue
         if key == "scope":
             setattr(candidate, key, Scope(str(value)))
@@ -421,10 +423,6 @@ def apply_review_answer(
         else:
             setattr(candidate, key, value)
 
-    if answer.free_text:
-        candidate.metadata[f"review_note_{question.id}"] = answer.free_text
-    history = list(candidate.metadata.get("review_history", []))
-    history.append(answer.to_dict())
-    candidate.metadata["review_history"] = history
+    candidate.review_answers.append(answer)
 
     return candidate

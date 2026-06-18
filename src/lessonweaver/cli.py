@@ -46,6 +46,7 @@ from .models import (
     OperationalLesson,
     RecommendedActionType,
     ReviewAnswer,
+    ReviewOverride,
     ReviewQuestion,
     ReviewSession,
     SensitivityLevel,
@@ -200,8 +201,6 @@ def _lesson_from_candidate(
     lesson_id: str,
     title: str,
 ) -> OperationalLesson:
-    history = candidate.metadata.get("review_history", [])
-    review_answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
     return OperationalLesson(
         lesson_id=lesson_id,
         candidate_id=candidate.id,
@@ -217,7 +216,7 @@ def _lesson_from_candidate(
         evidence_trace_ids=candidate.evidence_trace_ids,
         evidence_event_ids=candidate.evidence_event_ids,
         confidence=candidate.confidence,
-        review_answers=review_answers,
+        review_answers=candidate.review_answers,
         status=LessonStatus.APPROVED,
         approved_at=datetime.now(timezone.utc),
     )
@@ -252,9 +251,10 @@ def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
     ``workflow_change`` action queues follow-ups. An empty list means the review
     gate is satisfied.
     """
-    history = candidate.metadata.get("review_history", [])
-    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
-    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
+    return [
+        question.id
+        for question in LessonInterviewer().next_questions(candidate, candidate.review_answers)
+    ]
 
 
 def _apply_answers(
@@ -314,7 +314,11 @@ def _do_approve(
             "approved_by": approved_by,
             "approved_at": now.isoformat(),
         }
-        approved.metadata["incomplete_review_override"] = override
+        approved.review_override = ReviewOverride(
+            unanswered_questions=remaining,
+            approved_by=approved_by,
+            approved_at=now,
+        )
         skill.metadata["incomplete_review_override"] = override
 
     if not dry_run:

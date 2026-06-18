@@ -55,9 +55,8 @@ def test_apply_review_answer_updates_scope_and_history() -> None:
     question = next(q for q in LessonInterviewer().build_questions(candidate) if q.id == "scope")
     result = apply_review_answer(candidate, question, ReviewAnswer("scope", "team"))
     assert result.scope is Scope.TEAM
-    assert result.metadata["review_history"] == [
-        {"question_id": "scope", "chosen_option_id": "team", "free_text": ""}
-    ]
+    assert result.review_answers == [ReviewAnswer("scope", "team")]
+    assert "review_history" not in result.metadata
 
 
 def test_apply_review_answer_updates_status_approved_and_rejected() -> None:
@@ -91,9 +90,12 @@ def test_apply_review_answer_preserves_free_text_and_accumulates_history() -> No
     apply_review_answer(
         candidate, risk_question, ReviewAnswer("risk_level", "high", "User-visible failure.")
     )
-    assert candidate.metadata["review_note_scope"] == "Only platform repositories."
-    assert candidate.metadata["review_note_risk_level"] == "User-visible failure."
-    assert len(candidate.metadata["review_history"]) == 2
+    assert candidate.review_answers == [
+        ReviewAnswer("scope", "other", "Only platform repositories."),
+        ReviewAnswer("risk_level", "high", "User-visible failure."),
+    ]
+    assert "review_note_scope" not in candidate.metadata
+    assert "review_history" not in candidate.metadata
     assert candidate.risk_level is RiskLevel.HIGH
 
 
@@ -103,7 +105,8 @@ def test_apply_review_answer_stores_applies_when_hint() -> None:
         q for q in LessonInterviewer().build_questions(candidate) if q.id == "applicability"
     )
     apply_review_answer(candidate, question, ReviewAnswer("applicability", "specific_tools"))
-    assert candidate.metadata["_applies_when_hint"] == "specific_tools"
+    assert candidate.review_effects["applies_when_hint"] == "specific_tools"
+    assert "_applies_when_hint" not in candidate.metadata
 
 
 def test_apply_review_answer_rejects_mismatched_question() -> None:
@@ -154,14 +157,15 @@ def test_next_questions_workflow_change_queues_determinism_follow_up() -> None:
     assert ids.index("workflow_determinism") < ids.index("risk_level")
 
 
-def test_follow_up_answer_is_stored_in_metadata() -> None:
+def test_follow_up_answer_is_stored_in_review_effects() -> None:
     interviewer = LessonInterviewer()
     candidate = _candidate("nq5")
     follow_up = interviewer.build_follow_up_questions(candidate)["workflow_determinism"]
     apply_review_answer(
         candidate, follow_up, ReviewAnswer("workflow_determinism", "deterministic_rule")
     )
-    assert candidate.metadata["_workflow_determinism"] == "deterministic_rule"
+    assert candidate.review_effects["workflow_determinism"] == "deterministic_rule"
+    assert "_workflow_determinism" not in candidate.metadata
 
 
 def test_build_session_summary_reports_changes_and_notes() -> None:
@@ -219,7 +223,7 @@ def test_build_session_summary_reports_follow_up_effects() -> None:
     interviewer = LessonInterviewer()
     before = _candidate("eff1")
     after = _candidate("eff1")
-    after.metadata["_approval_required"] = "explicit"
+    after.review_effects["approval_required"] = "explicit"
     summary = interviewer.build_session_summary(before, after, [])
     assert "## Follow-up effects" in summary
-    assert "_approval_required: None -> explicit" in summary
+    assert "approval_required: None -> explicit" in summary
