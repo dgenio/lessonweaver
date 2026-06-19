@@ -16,7 +16,7 @@ from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
-from .detection_eval import DetectionCorpus, run_detection_eval
+from .detection_eval import DetectionCorpus, run_clustered_detection_eval, run_detection_eval
 from .diagnostics import explain_load
 from .export import (
     export_agents_md_fragment,
@@ -384,6 +384,25 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
+def _redact_packet(value: Any, redactor: SimpleRedactor) -> Any:
+    if isinstance(value, str):
+        return redactor.redact(value)
+    if isinstance(value, list):
+        return [_redact_packet(item, redactor) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_packet(item, redactor) for key, item in value.items()}
+    return value
+
+
+def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Redact rendered output before printing (default: on; pass --no-redact to disable)",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
 
@@ -411,7 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     detect_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     failure_case_parser = subparsers.add_parser(
@@ -439,7 +458,7 @@ def main(argv: list[str] | None = None) -> int:
     cluster_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     eval_detection_parser = subparsers.add_parser(
@@ -456,6 +475,15 @@ def main(argv: list[str] | None = None) -> int:
         "--min-recall",
         type=float,
         help="Exit non-zero if recall falls below this floor (CI gate)",
+    )
+    eval_detection_parser.add_argument(
+        "--compare-results",
+        help="Exit non-zero if the JSON report differs from this recorded results file",
+    )
+    eval_detection_parser.add_argument(
+        "--with-clustering",
+        action="store_true",
+        help="Report recall with and without clustering repeated weak signals",
     )
 
     interview_parser = subparsers.add_parser(
@@ -543,11 +571,11 @@ def main(argv: list[str] | None = None) -> int:
         "--target", help="Preview an export of the resulting skill in this format"
     )
     review_trace_parser.add_argument("--applies-to", default="**")
-    review_trace_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(review_trace_parser)
     review_trace_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     export_parser = subparsers.add_parser(
@@ -587,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
     export_parser.add_argument("--registry-root")
-    export_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_parser)
 
     export_lesson_parser = subparsers.add_parser(
         "export-lesson",
@@ -599,7 +627,7 @@ def main(argv: list[str] | None = None) -> int:
         "--format", choices=["eval", "guardrail", "workflow"], required=True
     )
     export_lesson_parser.add_argument("--registry-root")
-    export_lesson_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_lesson_parser)
     export_lesson_parser.add_argument(
         "--json",
         action="store_true",
@@ -636,12 +664,7 @@ def main(argv: list[str] | None = None) -> int:
         default="**",
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
-    export_file_parser.add_argument(
-        "--redact",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Redact before writing (default: on; pass --no-redact to disable)",
-    )
+    _add_redact_argument(export_file_parser)
     export_file_parser.add_argument(
         "--write",
         action="store_true",
@@ -822,8 +845,45 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "eval-detection":
         corpus = DetectionCorpus.from_file(args.corpus_path)
+        if args.with_clustering:
+            clustered_report = run_clustered_detection_eval(corpus)
+            _print_json(clustered_report.to_dict())
+            if (
+                args.min_precision is not None
+                and clustered_report.base_report is not None
+                and clustered_report.base_report.precision < args.min_precision
+            ):
+                print(
+                    f"Error: detection precision "
+                    f"{clustered_report.base_report.precision:.3f} is below the required "
+                    f"minimum {args.min_precision:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            if (
+                args.min_recall is not None
+                and clustered_report.recall_with_clustering < args.min_recall
+            ):
+                print(
+                    f"Error: clustered detection recall "
+                    f"{clustered_report.recall_with_clustering:.3f} is below the required "
+                    f"minimum {args.min_recall:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         report = run_detection_eval(corpus)
-        _print_json(report.to_dict())
+        report_payload = report.to_dict()
+        _print_json(report_payload)
+        if args.compare_results is not None:
+            expected_payload = _read_json(args.compare_results)
+            if report_payload != expected_payload:
+                print(
+                    "Error: recorded detection benchmark results differ; rerun "
+                    "eval-detection and update the results file intentionally.",
+                    file=sys.stderr,
+                )
+                return 1
         if args.min_precision is not None and report.precision < args.min_precision:
             print(
                 f"Error: detection precision {report.precision:.3f} is below the required "
@@ -1037,6 +1097,8 @@ def _run(args: argparse.Namespace) -> int:
             "candidates": [_review_packet(candidate, args) for candidate in reviewed],
             "approval": approval,
         }
+        if args.redact:
+            packet = _redact_packet(packet, SimpleRedactor())
         _print_json(packet)
         return 0
 

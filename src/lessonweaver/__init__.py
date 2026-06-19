@@ -6,13 +6,18 @@ from .clustering import LessonCluster, LessonClusterer
 from .compile import CompiledContext, InclusionLevel, SkillCompiler
 from .detection import LessonDetector
 from .detection_eval import (
+    ClusteredDetectionEvalReport,
     DetectionCase,
     DetectionCorpus,
+    DetectionEvalPatternMetrics,
     DetectionEvalReport,
     DetectionEvalResult,
+    run_clustered_detection_eval,
     run_detection_eval,
 )
 from .diagnostics import BudgetUsage, LoadDiagnostics, LoadedSkill, explain_load
+from .effectiveness import SkillEffectivenessReport, SkillEffectivenessReporter
+from .eval_companion import export_eval_companion_pack
 from .export import (
     export_agents_md_fragment,
     export_claude_md_snippet,
@@ -96,9 +101,11 @@ __all__ = [
     "AnalysisFinding",
     "BudgetUsage",
     "CleanupAction",
+    "ClusteredDetectionEvalReport",
     "CompiledContext",
     "DetectionCase",
     "DetectionCorpus",
+    "DetectionEvalPatternMetrics",
     "DetectionEvalReport",
     "DetectionEvalResult",
     "DictTraceImporter",
@@ -137,6 +144,8 @@ __all__ = [
     "SkillCard",
     "SkillCleaner",
     "SkillCompiler",
+    "SkillEffectivenessReport",
+    "SkillEffectivenessReporter",
     "SkillEvalResult",
     "SkillLinter",
     "SkillLoader",
@@ -168,6 +177,7 @@ __all__ = [
     "export_copilot_instruction_fragment",
     "export_copilot_path_instruction",
     "export_copilot_repo_instruction",
+    "export_eval_companion_pack",
     "export_eval_spec_markdown",
     "export_guardrail_rule_markdown",
     "export_operational_lesson_markdown",
@@ -181,6 +191,7 @@ __all__ = [
     "managed_block",
     "merge_managed_block",
     "promote_skill",
+    "run_clustered_detection_eval",
     "run_detection_eval",
     "run_validation_suite",
     "save_session",

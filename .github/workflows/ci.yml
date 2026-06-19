@@ -32,3 +32,5 @@ jobs:
         run: mypy src/lessonweaver/
       - name: Run tests
         run: pytest
+      - name: Guard detection benchmark
+        run: lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json

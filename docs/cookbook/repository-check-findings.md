@@ -62,13 +62,13 @@ After approval, export the reviewed skill to the surface your agents read:
 
 ```bash
 # AGENTS.md fragment
-lessonweaver export-skill <skill-id-or-json> --format agents-md --redact
+lessonweaver export-skill <skill-id-or-json> --format agents-md
 
 # GitHub Copilot repository instructions
-lessonweaver export-skill <skill-id-or-json> --format copilot-repo --redact
+lessonweaver export-skill <skill-id-or-json> --format copilot-repo
 
 # Claude Code rule
-lessonweaver export-skill <skill-id-or-json> --format claude-rule --redact
+lessonweaver export-skill <skill-id-or-json> --format claude-rule
 ```
 
 ## Safeguards against over-learning
@@ -77,6 +77,7 @@ lessonweaver export-skill <skill-id-or-json> --format claude-rule --redact
   a new instruction may be redundant noise — see
   [when not to create a skill](../when-not-to-create-a-skill.md).
 - **Require repetition.** One finding is not a pattern; wait for recurrence.
-- **Redact evidence.** Findings can contain secrets or PII; always export with
-  `--redact` and review the fragment before committing.
+- **Redact evidence.** Findings can contain secrets or PII; exports redact by
+  default. Use `--no-redact` only when you intentionally need raw content, and
+  review the fragment before committing.
 - **Keep scope tight.** A repo-specific finding rarely deserves global scope.
