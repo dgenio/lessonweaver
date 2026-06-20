@@ -988,14 +988,14 @@ def _run(args: argparse.Namespace) -> int:
                 return 1
         question = _find_review_question(candidate, args.question_id)
         if question is None:
-            print(f"question '{args.question_id}' not found", file=sys.stderr)
-            return 1
+            print(f"Error: question '{args.question_id}' not found", file=sys.stderr)
+            return 2
         answer = ReviewAnswer(args.question_id, args.chosen_option_id, args.free_text)
         try:
             updated_candidate = apply_review_answer(candidate, question, answer)
         except ValueError as exc:
-            print(str(exc), file=sys.stderr)
-            return 1
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         registry.save_candidate(updated_candidate)
         if review_session is not None:
             review_session.answers.append(answer)
@@ -1133,7 +1133,7 @@ def _run(args: argparse.Namespace) -> int:
         candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
         if candidate.status is not LessonStatus.APPROVED:
             print(
-                f"candidate '{candidate.id}' is not approved "
+                f"Error: candidate '{candidate.id}' is not approved "
                 f"(status: {candidate.status.value}); approve it before exporting",
                 file=sys.stderr,
             )
@@ -1145,7 +1145,7 @@ def _run(args: argparse.Namespace) -> int:
         }[args.format]
         if candidate.recommended_action_type is not expected_action:
             print(
-                f"candidate '{candidate.id}' has action type "
+                f"Error: candidate '{candidate.id}' has action type "
                 f"'{candidate.recommended_action_type.value}'; cannot export as "
                 f"'{args.format}' (expected '{expected_action.value}')",
                 file=sys.stderr,

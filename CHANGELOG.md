@@ -54,6 +54,8 @@ changelog; their dates are the dates of the corresponding work landing on
   the required (adaptive) review questions before it can be approved. Use
   `--allow-incomplete-review` to override; the bypass and the unanswered
   questions are recorded in the candidate and skill metadata (#108).
+- CLI validation failures now consistently print `Error:` on stderr; malformed
+  `answer` question/option inputs now exit `2` like other invalid inputs (#174).
 
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).

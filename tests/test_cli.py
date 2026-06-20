@@ -182,7 +182,8 @@ def test_cli_answer_unknown_question_returns_error(capsys, tmp_path) -> None:
         ]
     )
     captured = capsys.readouterr()
-    assert exit_code == 1
+    assert exit_code == 2
+    assert "Error:" in captured.err
     assert "question 'not-a-question' not found" in captured.err
 
 
@@ -208,7 +209,8 @@ def test_cli_answer_unknown_option_returns_error(capsys, tmp_path) -> None:
         ]
     )
     captured = capsys.readouterr()
-    assert exit_code == 1
+    assert exit_code == 2
+    assert "Error:" in captured.err
     assert "unknown option 'not-an-option'" in captured.err
 
 
@@ -400,7 +402,9 @@ def test_cli_export_lesson_rejects_unapproved_candidate(capsys, tmp_path) -> Non
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
     )
     assert exit_code == 1
-    assert "not approved" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "not approved" in err
 
 
 def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> None:
@@ -410,7 +414,9 @@ def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> Non
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )
     assert exit_code == 1
-    assert "cannot export as 'guardrail'" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "cannot export as 'guardrail'" in err
 
 
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
@@ -1054,7 +1060,9 @@ def test_cli_review_trace_bad_question_id_leaves_no_partial_writes(capsys, tmp_p
         ]
     )
     assert exit_code == 2
-    assert "question 'not-a-question' not found" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "question 'not-a-question' not found" in err
     assert FileSystemRegistry(tmp_path).list_candidates() == []
 
 
