@@ -22,7 +22,9 @@ def _candidate(
     *,
     action_type: RecommendedActionType = RecommendedActionType.EVAL,
     status: LessonStatus = LessonStatus.APPROVED,
+    review_history: list[dict[str, str]] | None = None,
 ) -> LessonCandidate:
+    metadata = {"review_history": review_history} if review_history is not None else {}
     return LessonCandidate(
         id="cand-1",
         summary="Inspect diffs before PR review",
@@ -35,7 +37,30 @@ def _candidate(
         risk_level=RiskLevel.LOW,
         scope=Scope.PROJECT,
         status=status,
+        metadata=metadata,
     )
+
+
+def _complete_review_history(action_type: RecommendedActionType) -> list[dict[str, str]]:
+    action_option = {
+        RecommendedActionType.EVAL: "eval",
+        RecommendedActionType.GUARDRAIL: "guardrail",
+        RecommendedActionType.WORKFLOW_CHANGE: "workflow_change",
+    }[action_type]
+    answers = [
+        ("scope", "project"),
+        ("action_type", action_option),
+        ("risk_level", "low"),
+        ("applicability", "always"),
+        ("negative_conditions", "none"),
+    ]
+    if action_type is RecommendedActionType.WORKFLOW_CHANGE:
+        answers.append(("workflow_determinism", "deterministic_rule"))
+    answers.append(("decision", "approve"))
+    return [
+        {"question_id": question_id, "chosen_option_id": option_id, "free_text": ""}
+        for question_id, option_id in answers
+    ]
 
 
 CliCase = Callable[[Path], tuple[list[str], int, tuple[str, ...]]]
@@ -84,7 +109,12 @@ def _export_lesson_unapproved(tmp_path: Path) -> tuple[list[str], int, tuple[str
 
 def _export_lesson_action_mismatch(tmp_path: Path) -> tuple[list[str], int, tuple[str, ...]]:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.EVAL))
+    registry.save_candidate(
+        _candidate(
+            action_type=RecommendedActionType.EVAL,
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
+    )
     return (
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)],
         1,
