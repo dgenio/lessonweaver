@@ -234,6 +234,8 @@ Closed-loop effectiveness reports are available through the library API; see
 
 See [when not to create a skill](docs/when-not-to-create-a-skill.md) — turning
 every observation into a skill causes context poisoning.
+See the [security model](docs/security-model.md) for the instruction-poisoning
+threat model, review gates, export surfaces, and activation boundaries.
 
 ## Anti-goals
 
@@ -295,6 +297,7 @@ any sibling. The Mermaid source is in
 - [Ecosystem positioning](docs/ecosystem.md) — integration boundaries
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
+- [Security model](docs/security-model.md) — instruction poisoning, review gates, export surfaces, activation boundaries
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
 - [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
