@@ -378,7 +378,10 @@ def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
 def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(
-        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
     )
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
@@ -392,7 +395,10 @@ def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
 def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(
-        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
     )
     exit_code = main(
         [
