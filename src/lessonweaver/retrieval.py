@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
+from ._text import expand_query_synonyms, tokens
 from .models import RiskLevel, Scope, SkillCard, SkillStatus
 
 
@@ -50,7 +50,6 @@ class RetrievalDiagnostics:
     skipped: list[SkippedSkill]
 
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_']+")
 _RISK_ORDER = {
     RiskLevel.LOW.value: 1,
     RiskLevel.MEDIUM.value: 2,
@@ -59,10 +58,7 @@ _RISK_ORDER = {
 
 
 def _tokens(value: str) -> set[str]:
-    tokens = {token.lower() for token in _TOKEN_RE.findall(value)}
-    if "pr" in tokens:
-        tokens.update({"pull", "request", "requests"})
-    return tokens
+    return expand_query_synonyms(tokens(value))
 
 
 def _skill_tokens(skill: SkillCard) -> set[str]:
