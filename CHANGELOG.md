@@ -49,6 +49,10 @@ changelog; their dates are the dates of the corresponding work landing on
   raw export text when a redaction rule raises (#176).
 - `export-skill`, `export-lesson`, and `review-trace --target` now redact by
   default, matching `export-file`; pass `--no-redact` to emit raw content (#177).
+- Registry defaults now resolve consistently for CLI and library callers:
+  explicit `--registry-root`, `LESSONWEAVER_REGISTRY`, nearest project-local
+  `.lessonweaver/registry/`, then the existing `~/.lessonweaver/registry`
+  fallback (#180).
 
 - `approve` now enforces the human-review gate: a candidate must have answered
   the required (adaptive) review questions before it can be approved. Use
