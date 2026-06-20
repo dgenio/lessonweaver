@@ -1,5 +1,7 @@
 """Tests for the lesson/skill registry."""
 
+import json
+
 import pytest
 
 from lessonweaver.models import (
@@ -14,6 +16,7 @@ from lessonweaver.models import (
     SkillUsageEvent,
 )
 from lessonweaver.registry import FileSystemRegistry, LessonRegistry
+from lessonweaver.schema_versioning import SCHEMA_VERSION
 
 
 def _candidate() -> LessonCandidate:
@@ -98,6 +101,63 @@ def test_filesystem_registry_skill_round_trip(tmp_path) -> None:
     registry.save_skill(skill)
     assert registry.load_skill(skill.id).to_dict() == skill.to_dict()
     assert registry.list_skills()[0].id == skill.id
+
+
+def test_filesystem_registry_writes_schema_version_to_all_artifacts(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    candidate = _candidate()
+    skill = _skill()
+    lesson = _lesson()
+    artifact = ExportArtifact(
+        "artifact-1", ExportFormat.MARKDOWN, "# content", lesson_id=lesson.lesson_id
+    )
+    usage = _usage_event("usage-1")
+
+    registry.save_candidate(candidate)
+    registry.save_skill(skill)
+    registry.save_lesson(lesson)
+    registry.save_artifact(artifact)
+    registry.save_usage_event(usage)
+
+    paths = [
+        registry.candidates_dir / f"{candidate.id}.json",
+        registry.skills_dir / f"{skill.id}.json",
+        registry.lessons_dir / f"{lesson.lesson_id}.json",
+        registry.artifacts_dir / f"{artifact.artifact_id}.json",
+        registry.usage_dir / f"{usage.id}.json",
+    ]
+    for path in paths:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["schema_version"] == SCHEMA_VERSION
+
+
+def test_filesystem_registry_loads_v0_payload_and_resaves_current_version(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    candidate = _candidate()
+    registry.candidates_dir.mkdir(parents=True)
+    path = registry.candidates_dir / f"{candidate.id}.json"
+    path.write_text(json.dumps(candidate.to_dict()), encoding="utf-8")
+
+    loaded = registry.load_candidate(candidate.id)
+    assert loaded.to_dict() == candidate.to_dict()
+
+    registry.save_candidate(loaded)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == SCHEMA_VERSION
+
+
+def test_filesystem_registry_rejects_future_schema_version(tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    candidate = _candidate()
+    registry.candidates_dir.mkdir(parents=True)
+    payload = candidate.to_dict()
+    payload["schema_version"] = SCHEMA_VERSION + 1
+    (registry.candidates_dir / f"{candidate.id}.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="newer lessonweaver"):
+        registry.load_candidate(candidate.id)
 
 
 def test_filesystem_registry_lesson_and_artifact_round_trip(tmp_path) -> None:
