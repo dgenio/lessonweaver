@@ -6,6 +6,21 @@ agents (VS Code / Copilot, Claude Code, AGENTS.md). It builds on the explicit
 canonical, scriptable API — and adds ergonomics and governance on top. Every
 step stays deterministic: no LLM or network calls.
 
+## Registry discovery
+
+Every command that accepts `--registry-root` uses the same registry resolution
+order as `FileSystemRegistry()`:
+
+1. explicit `--registry-root`;
+2. `LESSONWEAVER_REGISTRY`;
+3. the nearest `.lessonweaver/registry/` directory found by walking up from the
+   current working directory;
+4. `~/.lessonweaver/registry`.
+
+Project-local discovery is opt-in: create `.lessonweaver/registry/` in a repo to
+make commands run from that repo or its subdirectories use the shared project
+registry without repeating `--registry-root`.
+
 ## One guided command: `review-trace`
 
 Instead of memorizing the five-step pipeline, drive it from a single command:
@@ -38,10 +53,11 @@ approval.
 
 ## The review gate is enforced
 
-`approve` (and `review-trace --approve`) now **refuse to approve a candidate
-until the required review questions are answered**. The adaptive interviewer
-decides what "complete" means — a `reject` decision drops the scoping questions,
-and `high` risk or a `workflow_change` action type queues a follow-up.
+`approve`, `review-trace --approve`, and `export-lesson` now **refuse to approve
+or export a candidate until the required review questions are answered**. The
+adaptive interviewer decides what "complete" means — a `reject` decision drops
+the scoping questions, and `high` risk or a `workflow_change` action type queues
+a follow-up.
 
 ```bash
 lessonweaver approve cand-1 --registry-root .lessonweaver
@@ -52,9 +68,10 @@ lessonweaver approve cand-1 --registry-root .lessonweaver
 
 For advanced/automated cases you can override with `--allow-incomplete-review`.
 The override and the list of unanswered questions are recorded under
-`incomplete_review_override` in the candidate and skill metadata
-(`LessonCandidate.metadata` and `SkillCard.metadata`), so the bypass is
-auditable.
+`incomplete_review_override` in metadata, so the bypass is auditable. Approval
+overrides record both candidate and skill metadata (`LessonCandidate.metadata`
+and `SkillCard.metadata`); export overrides record the candidate metadata before
+rendering the lesson export.
 
 ## Diff-first file writes: `export-file`
 

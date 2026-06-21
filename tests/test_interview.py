@@ -3,7 +3,9 @@ import pytest
 from lessonweaver.interview import (
     LessonInterviewer,
     apply_review_answer,
+    is_review_complete,
     load_session,
+    remaining_review_questions,
     save_session,
 )
 from lessonweaver.models import (
@@ -11,6 +13,8 @@ from lessonweaver.models import (
     LessonStatus,
     RecommendedActionType,
     ReviewAnswer,
+    ReviewOption,
+    ReviewQuestion,
     ReviewSession,
     RiskLevel,
     Scope,
@@ -135,6 +139,42 @@ def test_apply_review_answer_stores_applies_when_hint() -> None:
     assert candidate.metadata["_applies_when_hint"] == "specific_tools"
 
 
+def test_apply_review_answer_accepts_metadata_effect() -> None:
+    candidate = _candidate("c7b")
+    candidate.metadata["existing"] = "old"
+    question = ReviewQuestion(
+        id="custom_metadata",
+        question="Apply custom metadata?",
+        options=[
+            ReviewOption(
+                "apply",
+                "A",
+                "Apply metadata",
+                {"metadata": {"custom": "value"}},
+            )
+        ],
+        recommended_option_id="apply",
+        rationale="Custom review options may replace metadata.",
+    )
+
+    result = apply_review_answer(
+        candidate,
+        question,
+        ReviewAnswer("custom_metadata", "apply", "custom note"),
+    )
+
+    assert result.metadata["custom"] == "value"
+    assert "existing" not in result.metadata
+    assert result.metadata["review_note_custom_metadata"] == "custom note"
+    assert result.metadata["review_history"] == [
+        {
+            "question_id": "custom_metadata",
+            "chosen_option_id": "apply",
+            "free_text": "custom note",
+        }
+    ]
+
+
 def test_apply_review_answer_rejects_mismatched_question() -> None:
     candidate = _candidate("c8")
     question = next(q for q in LessonInterviewer().build_questions(candidate) if q.id == "scope")
@@ -181,6 +221,34 @@ def test_next_questions_workflow_change_queues_determinism_follow_up() -> None:
     ids = [q.id for q in remaining]
     assert "workflow_determinism" in ids
     assert ids.index("workflow_determinism") < ids.index("risk_level")
+
+
+def test_remaining_review_questions_uses_persisted_review_history() -> None:
+    candidate = _candidate("gate1")
+    candidate.metadata["review_history"] = [
+        {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""}
+    ]
+    assert remaining_review_questions(candidate) == [
+        "scope",
+        "action_type",
+        "risk_level",
+        "applicability",
+        "negative_conditions",
+    ]
+
+
+def test_is_review_complete_uses_persisted_review_history() -> None:
+    candidate = _candidate("gate-complete")
+    candidate.metadata["review_history"] = [
+        {"question_id": "scope", "chosen_option_id": "project", "free_text": ""},
+        {"question_id": "action_type", "chosen_option_id": "skill", "free_text": ""},
+        {"question_id": "risk_level", "chosen_option_id": "low", "free_text": ""},
+        {"question_id": "applicability", "chosen_option_id": "always", "free_text": ""},
+        {"question_id": "negative_conditions", "chosen_option_id": "none", "free_text": ""},
+        {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""},
+    ]
+
+    assert is_review_complete(candidate)
 
 
 def test_follow_up_answer_is_stored_in_metadata() -> None:

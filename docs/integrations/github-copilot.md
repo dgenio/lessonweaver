@@ -5,16 +5,17 @@ Copilot reads. lessonweaver only **generates the text** — you decide where to
 put it and you review it before committing. Nothing is written or committed
 automatically.
 
-> **Do not paste raw trace evidence into instructions.** Export with `--redact`
-> and read the fragment before committing it. Instruction files are loaded into
-> every Copilot interaction, so they must not contain secrets or PII.
+> **Do not paste raw trace evidence into instructions.** Exports redact by
+> default; use `--no-redact` only when you intentionally need raw content, and
+> read the fragment before committing it. Instruction files are loaded into every
+> Copilot interaction, so they must not contain secrets or PII.
 
 ## Repository-wide instructions (`.github/copilot-instructions.md`)
 
 Loaded for all Copilot interactions in the repo. Generate a block with:
 
 ```bash
-lessonweaver export-skill <skill-id-or-json> --format copilot-repo --redact
+lessonweaver export-skill <skill-id-or-json> --format copilot-repo
 ```
 
 The output is a Markdown block with an HTML comment header (carrying the skill
@@ -29,7 +30,7 @@ Loaded only for interactions matching specific file paths. Generate a file with:
 
 ```bash
 lessonweaver export-skill <skill-id-or-json> --format copilot-path \
-  --applies-to "src/**/*.py" --redact
+  --applies-to "src/**/*.py"
 ```
 
 The output includes `applyTo` frontmatter scoping the instructions to the glob

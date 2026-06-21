@@ -102,12 +102,15 @@ between these.
   `exported`, `deprecated`).
 - **Skill status** — Lifecycle state of a skill. Enum: `SkillStatus` (`draft`,
   `approved`, `experimental`, `active`, `rejected`, `deprecated`).
-- **Redaction** — Best-effort removal of obvious secrets/PII before export.
-  Class: `SimpleRedactor` (`privacy.py`). A safety net, not a compliance control.
+- **Redaction** — Best-effort removal of obvious secrets/PII before export or
+  pre-mining sanitization. `SimpleRedactor` and `TraceSanitizer` share one rule
+  set and emit markers such as `[REDACTED by email]`. A safety net, not a
+  compliance control.
 
 ## Registry
 
 - **Registry** — Storage for lessonweaver objects. Classes (`registry.py`):
   `LessonRegistry` (in-memory; holds candidates and skills only) and
-  `FileSystemRegistry` (JSON files under `~/.lessonweaver/registry` by default;
-  persists candidates, skills, operational lessons, and artifacts).
+  `FileSystemRegistry` (JSON files resolved from explicit root, env var,
+  project-local `.lessonweaver/registry/`, or home default; persists candidates,
+  skills, operational lessons, and artifacts).

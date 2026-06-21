@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import itertools
-import re
 import string
 from dataclasses import dataclass
 
+from ._text import ANALYSIS_STOPWORDS, jaccard, token_list, tokens
 from .models import SkillCard
 
 
@@ -28,24 +28,6 @@ class AnalysisFinding:
         }
 
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_']+")
-_STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "before",
-    "for",
-    "if",
-    "in",
-    "is",
-    "it",
-    "must",
-    "not",
-    "or",
-    "the",
-    "to",
-    "when",
-}
 _POSITIVE_MODALS = {"must", "always", "required"}
 _NEGATIVE_MARKERS = {"never", "avoid"}
 
@@ -55,39 +37,21 @@ def _normalize_name(value: str) -> str:
     return " ".join(value.lower().translate(table).split())
 
 
-def _tokens(value: str) -> set[str]:
-    return set(_token_list(value))
-
-
-def _token_list(value: str) -> list[str]:
-    return [token.lower() for token in _TOKEN_RE.findall(value)]
-
-
 def _applies_tokens(skill: SkillCard) -> set[str]:
     return (
-        set().union(*[_tokens(item) for item in skill.applies_when])
-        if skill.applies_when
-        else set()
+        set().union(*[tokens(item) for item in skill.applies_when]) if skill.applies_when else set()
     )
-
-
-def _jaccard(left: set[str], right: set[str]) -> float:
-    if not left or not right:
-        return 0.0
-    return len(left & right) / len(left | right)
 
 
 def _instruction_tokens(skill: SkillCard) -> set[str]:
-    tokens = (
-        set().union(*[_tokens(item) for item in skill.instructions])
-        if skill.instructions
-        else set()
+    instruction_tokens = (
+        set().union(*[tokens(item) for item in skill.instructions]) if skill.instructions else set()
     )
-    return {token for token in tokens if token not in _STOPWORDS}
+    return {token for token in instruction_tokens if token not in ANALYSIS_STOPWORDS}
 
 
 def _has_positive_modal(skill: SkillCard) -> bool:
-    tokens = _token_list(" ".join(skill.instructions))
+    tokens = token_list(" ".join(skill.instructions))
     for index, token in enumerate(tokens):
         if token == "must" and _next_token(tokens, index) != "not":
             return True
@@ -100,8 +64,8 @@ def _has_positive_modal(skill: SkillCard) -> bool:
 
 def _has_negative_modal(skill: SkillCard) -> bool:
     text = " ".join(skill.instructions).lower()
-    tokens = _tokens(text)
-    return bool(tokens & _NEGATIVE_MARKERS) or "must not" in text or "do not" in text
+    instruction_tokens = tokens(text)
+    return bool(instruction_tokens & _NEGATIVE_MARKERS) or "must not" in text or "do not" in text
 
 
 def _previous_token(tokens: list[str], index: int) -> str:
@@ -141,7 +105,7 @@ class SkillAnalyzer:
 
             left_applies = _applies_tokens(left)
             right_applies = _applies_tokens(right)
-            overlap = _jaccard(left_applies, right_applies)
+            overlap = jaccard(left_applies, right_applies)
             if overlap >= 0.5:
                 findings.append(
                     AnalysisFinding(

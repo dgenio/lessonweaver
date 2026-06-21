@@ -17,9 +17,9 @@ installed or committed automatically.
 | CLAUDE.md snippet | `claude-md` | `CLAUDE.md` | Short project-level guidance loaded into every session |
 
 ```bash
-lessonweaver export-skill <skill-id-or-json> --format claude-skill --redact
-lessonweaver export-skill <skill-id-or-json> --format claude-rule --redact
-lessonweaver export-skill <skill-id-or-json> --format claude-md --redact
+lessonweaver export-skill <skill-id-or-json> --format claude-skill
+lessonweaver export-skill <skill-id-or-json> --format claude-rule
+lessonweaver export-skill <skill-id-or-json> --format claude-md
 ```
 
 `claude-skill` emits a full SKILL.md (when-to-use, when-NOT-to-use,
@@ -33,5 +33,6 @@ fragment and is kept for backward compatibility.
 
 - It does not install skills into Claude Code or run hooks.
 - It does not test against a real Claude Code installation.
-- Always export with `--redact` and review the output before committing —
-  these files are loaded into agent context.
+- Exports redact by default. Use `--no-redact` only when you intentionally need
+  raw content, and review the output before committing — these files are loaded
+  into agent context.

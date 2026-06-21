@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from lessonweaver.cli import main
 from lessonweaver.models import (
     LessonCandidate,
@@ -36,6 +38,12 @@ def _skill(skill_id: str = "skill-1", *, status: SkillStatus = SkillStatus.ACTIV
     )
 
 
+def _sensitive_skill() -> SkillCard:
+    skill = _skill()
+    skill.instructions = ["Email admin@example.com before committing instructions."]
+    return skill
+
+
 def test_cli_detect_produces_json(capsys) -> None:
     exit_code = main(["detect", "examples/traces/github_pr_review_failure.json"])
     assert exit_code == 0
@@ -63,6 +71,17 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     assert exit_code == 0
     questions = json.loads(capsys.readouterr().out)
     assert any(question["id"] == "decision" for question in questions)
+
+
+def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch) -> None:
+    registry_root = tmp_path / "registry"
+    monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(registry_root))
+
+    exit_code = main(["detect", _TRACE, "--save"])
+
+    assert exit_code == 0
+    capsys.readouterr()
+    assert FileSystemRegistry(registry_root).load_candidate(_CID).id == _CID
 
 
 # The full set of base review answers that satisfies the enforced review gate
@@ -174,7 +193,8 @@ def test_cli_answer_unknown_question_returns_error(capsys, tmp_path) -> None:
         ]
     )
     captured = capsys.readouterr()
-    assert exit_code == 1
+    assert exit_code == 2
+    assert "Error:" in captured.err
     assert "question 'not-a-question' not found" in captured.err
 
 
@@ -200,7 +220,8 @@ def test_cli_answer_unknown_option_returns_error(capsys, tmp_path) -> None:
         ]
     )
     captured = capsys.readouterr()
-    assert exit_code == 1
+    assert exit_code == 2
+    assert "Error:" in captured.err
     assert "unknown option 'not-an-option'" in captured.err
 
 
@@ -208,20 +229,82 @@ def _candidate(
     candidate_id: str = "cand-1",
     action_type: RecommendedActionType = RecommendedActionType.EVAL,
     status: LessonStatus = LessonStatus.APPROVED,
+    proposed_lesson: str = "Inspect changed files before drawing review conclusions.",
+    review_history: list[dict[str, str]] | None = None,
 ) -> LessonCandidate:
+    metadata = {"review_history": review_history} if review_history is not None else {}
     return LessonCandidate(
         id=candidate_id,
         summary="Inspect diffs before PR review",
         evidence_trace_ids=["trace-1"],
         evidence_event_ids=["e1"],
         observed_problem="Agent approved a PR without inspecting the diff.",
-        proposed_lesson="Inspect changed files before drawing review conclusions.",
+        proposed_lesson=proposed_lesson,
         confidence=0.62,
         recommended_action_type=action_type,
         risk_level=RiskLevel.MEDIUM,
         scope=Scope.PROJECT,
         status=status,
+        metadata=metadata,
     )
+
+
+def _complete_review_history(action_type: RecommendedActionType) -> list[dict[str, str]]:
+    action_option = {
+        RecommendedActionType.EVAL: "eval",
+        RecommendedActionType.GUARDRAIL: "guardrail",
+        RecommendedActionType.WORKFLOW_CHANGE: "workflow_change",
+    }[action_type]
+    answers = [
+        ("scope", "project"),
+        ("action_type", action_option),
+        ("risk_level", "low"),
+        ("applicability", "always"),
+        ("negative_conditions", "none"),
+    ]
+    if action_type is RecommendedActionType.WORKFLOW_CHANGE:
+        answers.append(("workflow_determinism", "deterministic_rule"))
+    answers.append(("decision", "approve"))
+    return [
+        {"question_id": question_id, "chosen_option_id": option_id, "free_text": ""}
+        for question_id, option_id in answers
+    ]
+
+
+def _reviewed_candidate(
+    action_type: RecommendedActionType = RecommendedActionType.EVAL,
+) -> LessonCandidate:
+    return _candidate(
+        action_type=action_type,
+        review_history=_complete_review_history(action_type),
+    )
+
+
+def _sensitive_trace(path: Path) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "trace_id": "trace-sensitive-review",
+                "source": "test",
+                "task": "Review sensitive export behavior",
+                "events": [
+                    {
+                        "id": "e1",
+                        "type": "assistant_message",
+                        "content": "Prepared export guidance.",
+                    }
+                ],
+                "outcome": "success",
+                "metadata": {
+                    "lesson_candidate": True,
+                    "lesson_problem": "Agent exposed admin@example.com in an export.",
+                    "lesson_note": "Do not include admin@example.com in committed instructions.",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
@@ -230,6 +313,24 @@ def test_cli_export_skill_from_registry(capsys, tmp_path) -> None:
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
     assert exit_code == 0
     assert "# PR Diff First" in capsys.readouterr().out
+
+
+def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_sensitive_skill())
+    exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "[REDACTED by email]" in out
+    assert "admin@example.com" not in out
+
+
+def test_cli_export_skill_no_redact_emits_raw_content(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_skill(_sensitive_skill())
+    exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path), "--no-redact"])
+    assert exit_code == 0
+    assert "admin@example.com" in capsys.readouterr().out
 
 
 def test_cli_export_skill_agents_md(capsys, tmp_path) -> None:
@@ -277,7 +378,7 @@ def test_cli_export_skill_codex_is_json_directory(capsys, tmp_path) -> None:
 
 def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate())
+    registry.save_candidate(_reviewed_candidate())
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
     )
@@ -285,9 +386,49 @@ def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
     assert "# Eval: Inspect diffs before PR review" in capsys.readouterr().out
 
 
+def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
+    )
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "[REDACTED by email]" in out
+    assert "admin@example.com" not in out
+
+
+def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
+    )
+    exit_code = main(
+        [
+            "export-lesson",
+            "cand-1",
+            "--format",
+            "eval",
+            "--registry-root",
+            str(tmp_path),
+            "--no-redact",
+        ]
+    )
+    assert exit_code == 0
+    assert "admin@example.com" in capsys.readouterr().out
+
+
 def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.GUARDRAIL))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.GUARDRAIL))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )
@@ -297,7 +438,7 @@ def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
 
 def test_cli_export_lesson_workflow(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.WORKFLOW_CHANGE))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.WORKFLOW_CHANGE))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "workflow", "--registry-root", str(tmp_path)]
     )
@@ -312,17 +453,88 @@ def test_cli_export_lesson_rejects_unapproved_candidate(capsys, tmp_path) -> Non
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
     )
     assert exit_code == 1
-    assert "not approved" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "not approved" in err
+
+
+def test_cli_export_lesson_rejects_incomplete_review_even_when_status_approved(
+    capsys, tmp_path
+) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(
+            status=LessonStatus.APPROVED,
+            review_history=[
+                {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""}
+            ],
+        )
+    )
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "review is incomplete" in err
+    assert "scope" in err
+
+
+def test_cli_export_lesson_allow_incomplete_records_override(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(status=LessonStatus.APPROVED))
+    exit_code = main(
+        [
+            "export-lesson",
+            "cand-1",
+            "--format",
+            "eval",
+            "--registry-root",
+            str(tmp_path),
+            "--allow-incomplete-review",
+        ]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+    override = (
+        FileSystemRegistry(tmp_path).load_candidate("cand-1").metadata["incomplete_review_override"]
+    )
+    assert "decision" in override["unanswered_questions"]
+
+
+def test_cli_export_lesson_allow_incomplete_records_override_for_path(capsys, tmp_path) -> None:
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(_candidate(status=LessonStatus.APPROVED).to_dict()),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "export-lesson",
+            str(candidate_path),
+            "--format",
+            "eval",
+            "--allow-incomplete-review",
+        ]
+    )
+
+    assert exit_code == 0
+    capsys.readouterr()
+    persisted = json.loads(candidate_path.read_text(encoding="utf-8"))
+    override = persisted["metadata"]["incomplete_review_override"]
+    assert "decision" in override["unanswered_questions"]
 
 
 def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.EVAL))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.EVAL))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )
     assert exit_code == 1
-    assert "cannot export as 'guardrail'" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "cannot export as 'guardrail'" in err
 
 
 def test_cli_lint_returns_one_for_errors(capsys, tmp_path) -> None:
@@ -485,7 +697,8 @@ def test_cli_detect_invalid_json_returns_two(capsys, tmp_path) -> None:
     assert exit_code == 2
     err = capsys.readouterr().err
     assert "invalid JSON" in err
-    assert "line" in err and "column" in err
+    assert "line" in err
+    assert "column" in err
 
 
 def test_cli_export_skill_output_writes_file(capsys, tmp_path) -> None:
@@ -819,9 +1032,19 @@ def test_cli_eval_detection_reports_metrics(capsys) -> None:
     assert exit_code == 0
     report = json.loads(capsys.readouterr().out)
     assert report["true_positives"] == 5
-    assert report["false_negatives"] == 1
+    assert report["false_negatives"] == 2
     assert report["precision"] == 1.0
     assert report["recall"] < 1.0
+
+
+def test_cli_eval_detection_reports_clustered_recall(capsys) -> None:
+    exit_code = main(
+        ["eval-detection", "examples/detection_corpus/corpus.json", "--with-clustering"]
+    )
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["recall_with_clustering"] > report["recall_without_clustering"]
+    assert report["clustering_recall_lift"] > 0
 
 
 def test_cli_eval_detection_min_recall_gate_fails(capsys) -> None:
@@ -838,6 +1061,81 @@ def test_cli_eval_detection_min_precision_gate_passes(capsys) -> None:
         ["eval-detection", "examples/detection_corpus/corpus.json", "--min-precision", "1.0"]
     )
     assert exit_code == 0
+
+
+def test_cli_eval_detection_compare_results_passes(capsys) -> None:
+    exit_code = main(
+        [
+            "eval-detection",
+            "benchmark/v1/corpus.json",
+            "--compare-results",
+            "benchmark/v1/results.json",
+        ]
+    )
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["corpus_id"] == "lessonweaver-detection-benchmark-v1"
+
+
+def test_cli_eval_detection_compare_results_fails(capsys, tmp_path) -> None:
+    stale_results = tmp_path / "results.json"
+    stale_results.write_text(
+        json.dumps({"corpus_id": "lessonweaver-detection-benchmark-v1", "total_cases": 0}),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "eval-detection",
+            "benchmark/v1/corpus.json",
+            "--compare-results",
+            str(stale_results),
+        ]
+    )
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "recorded detection benchmark results differ" in err
+
+
+def test_cli_eval_detection_with_clustering_preserves_precision_gate(capsys, tmp_path) -> None:
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "corpus_id": "precision-gate",
+                "cases": [
+                    {
+                        "case_id": "mislabeled",
+                        "should_detect": False,
+                        "trace": {
+                            "trace_id": "false-positive",
+                            "source": "unit-test",
+                            "task": "Benign trace",
+                            "events": [],
+                            "outcome": "success",
+                            "metadata": {"lesson_candidate": True},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "eval-detection",
+            str(corpus_path),
+            "--with-clustering",
+            "--min-precision",
+            "1.0",
+        ]
+    )
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "precision" in err
 
 
 # --- review-trace (#106) ----------------------------------------------------
@@ -880,7 +1178,9 @@ def test_cli_review_trace_bad_question_id_leaves_no_partial_writes(capsys, tmp_p
         ]
     )
     assert exit_code == 2
-    assert "question 'not-a-question' not found" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "question 'not-a-question' not found" in err
     assert FileSystemRegistry(tmp_path).list_candidates() == []
 
 
@@ -892,6 +1192,36 @@ def test_cli_review_trace_target_includes_export_preview(capsys, tmp_path) -> No
     preview = json.loads(capsys.readouterr().out)["candidates"][0]["export_preview"]
     assert preview["format"] == "agents-md"
     assert "<!-- lessonweaver skill_id=" in preview["content"]
+
+
+def test_cli_review_trace_target_redacts_by_default(capsys, tmp_path) -> None:
+    trace_path = _sensitive_trace(tmp_path / "sensitive-trace.json")
+    exit_code = main(
+        ["review-trace", str(trace_path), "--registry-root", str(tmp_path), "--target", "agents-md"]
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    preview = json.loads(out)["candidates"][0]["export_preview"]
+    assert "[REDACTED by email]" in preview["content"]
+    assert "admin@example.com" not in out
+
+
+def test_cli_review_trace_target_no_redact_emits_raw_preview(capsys, tmp_path) -> None:
+    trace_path = _sensitive_trace(tmp_path / "sensitive-trace.json")
+    exit_code = main(
+        [
+            "review-trace",
+            str(trace_path),
+            "--registry-root",
+            str(tmp_path),
+            "--target",
+            "agents-md",
+            "--no-redact",
+        ]
+    )
+    assert exit_code == 0
+    preview = json.loads(capsys.readouterr().out)["candidates"][0]["export_preview"]
+    assert "admin@example.com" in preview["content"]
 
 
 def test_cli_review_trace_approve_blocked_when_incomplete(capsys, tmp_path) -> None:
@@ -1024,6 +1354,16 @@ def test_cli_export_file_preserves_handwritten_content(capsys, tmp_path) -> None
     assert "lessonweaver:begin skill_id=skill-1" in content
 
 
+def test_cli_export_redact_help_states_default_on(capsys) -> None:
+    for command in ["review-trace", "export-skill", "export-lesson", "export-file"]:
+        with pytest.raises(SystemExit) as exc_info:
+            main([command, "--help"])
+        assert exc_info.value.code == 0
+        out = capsys.readouterr().out
+        assert "--no-redact" in out
+        assert "default: on" in out
+
+
 # --- explain-load / load --explain (#110) -----------------------------------
 
 
@@ -1047,7 +1387,9 @@ def test_cli_load_explain_flag_emits_diagnostics(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     diag = json.loads(capsys.readouterr().out)
-    assert "loaded" in diag and "budget" in diag and "skipped" in diag
+    assert "loaded" in diag
+    assert "budget" in diag
+    assert "skipped" in diag
 
 
 # --- cleanup-skills (#112) --------------------------------------------------

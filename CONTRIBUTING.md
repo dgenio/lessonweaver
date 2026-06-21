@@ -5,7 +5,11 @@ clear set of principles. Contributions that respect those principles are easy to
 review and merge.
 
 Read [AGENTS.md](AGENTS.md) for the full agent/contributor rules and
-[docs/architecture.md](docs/architecture.md) for how the pieces fit together.
+[docs/architecture.md](docs/architecture.md) for how the pieces fit together,
+and [docs/protected-invariants.md](docs/protected-invariants.md) before
+changing deterministic core behavior or adding ML/LLM-backed extensions.
+Significant architecture changes should add or supersede an
+[Architecture Decision Record](docs/adr/README.md).
 
 ## Project principles
 

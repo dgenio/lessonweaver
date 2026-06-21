@@ -16,7 +16,7 @@ from .cleanup import SkillCleaner
 from .clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonClusterer
 from .compile import InclusionLevel, SkillCompiler
 from .detection import LessonDetector
-from .detection_eval import DetectionCorpus, run_detection_eval
+from .detection_eval import DetectionCorpus, run_clustered_detection_eval, run_detection_eval
 from .diagnostics import explain_load
 from .export import (
     export_agents_md_fragment,
@@ -38,7 +38,13 @@ from .export import (
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
 from .importers import candidates_from_failure_case
-from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
+from .interview import (
+    LessonInterviewer,
+    apply_review_answer,
+    load_session,
+    remaining_review_questions,
+    save_session,
+)
 from .lint import LintSeverity, SkillLinter
 from .models import (
     LessonCandidate,
@@ -46,6 +52,7 @@ from .models import (
     OperationalLesson,
     RecommendedActionType,
     ReviewAnswer,
+    ReviewQuestion,
     ReviewSession,
     SensitivityLevel,
     SkillCard,
@@ -67,6 +74,10 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return payload
+
+
+def _write_json(path: str | Path, payload: dict[str, Any]) -> None:
+    Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _print_json(payload: object) -> None:
@@ -127,7 +138,7 @@ def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> Les
     return registry.load_candidate(candidate_ref)
 
 
-def _find_review_question(candidate: LessonCandidate, question_id: str):
+def _find_review_question(candidate: LessonCandidate, question_id: str) -> ReviewQuestion | None:
     """Find a review question by id across both base and adaptive follow-up questions."""
     interviewer = LessonInterviewer()
     for question in interviewer.build_questions(candidate):
@@ -243,19 +254,6 @@ def _parse_kv(items: list[str]) -> dict[str, str]:
     return parsed
 
 
-def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
-    """Return the ids of required review questions still unanswered for a candidate.
-
-    The adaptive interviewer is the single source of truth for what "complete"
-    means: a ``reject`` decision drops scoping questions, and ``high`` risk or a
-    ``workflow_change`` action queues follow-ups. An empty list means the review
-    gate is satisfied.
-    """
-    history = candidate.metadata.get("review_history", [])
-    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
-    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
-
-
 def _apply_answers(
     candidate: LessonCandidate,
     answers: dict[str, str],
@@ -289,7 +287,7 @@ def _do_approve(
     used, the unanswered questions are recorded on the lesson candidate and skill
     metadata so the bypass is auditable.
     """
-    remaining = _remaining_review_questions(candidate)
+    remaining = remaining_review_questions(candidate)
     if remaining and not allow_incomplete:
         return None, remaining
 
@@ -300,6 +298,7 @@ def _do_approve(
         approved_by=approved_by,
         approved_at=now,
         updated_at=now,
+        metadata=dict(candidate.metadata),
     )
     title = name or approved.summary
     lesson_id = lesson_id or f"lesson-{approved.id}"
@@ -325,7 +324,7 @@ def _do_approve(
 
 def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict[str, Any]:
     """Build the guided-review summary for one candidate (questions, lint, preview)."""
-    remaining = _remaining_review_questions(candidate)
+    remaining = remaining_review_questions(candidate)
     skill = _skill_from_candidate(
         candidate,
         skill_id=f"skill-{candidate.id}",
@@ -383,6 +382,25 @@ def _export_skill(skill: SkillCard, fmt: str, redact: bool, applies_to: str = "*
     return export_runtime_prompt_snippet(skill, redactor=redactor)
 
 
+def _redact_packet(value: Any, redactor: SimpleRedactor) -> Any:
+    if isinstance(value, str):
+        return redactor.redact(value)
+    if isinstance(value, list):
+        return [_redact_packet(item, redactor) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_packet(item, redactor) for key, item in value.items()}
+    return value
+
+
+def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--redact",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Redact rendered output before printing (default: on; pass --no-redact to disable)",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="lessonweaver")
 
@@ -410,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     detect_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     failure_case_parser = subparsers.add_parser(
@@ -438,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     cluster_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     eval_detection_parser = subparsers.add_parser(
@@ -455,6 +473,15 @@ def main(argv: list[str] | None = None) -> int:
         "--min-recall",
         type=float,
         help="Exit non-zero if recall falls below this floor (CI gate)",
+    )
+    eval_detection_parser.add_argument(
+        "--compare-results",
+        help="Exit non-zero if the JSON report differs from this recorded results file",
+    )
+    eval_detection_parser.add_argument(
+        "--with-clustering",
+        action="store_true",
+        help="Report recall with and without clustering repeated weak signals",
     )
 
     interview_parser = subparsers.add_parser(
@@ -542,11 +569,11 @@ def main(argv: list[str] | None = None) -> int:
         "--target", help="Preview an export of the resulting skill in this format"
     )
     review_trace_parser.add_argument("--applies-to", default="**")
-    review_trace_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(review_trace_parser)
     review_trace_parser.add_argument(
         "--sanitize",
         action="store_true",
-        help="Scrub sensitive content (email, bearer tokens, private keys) before detection",
+        help="Scrub sensitive content (secrets and PII) before detection",
     )
 
     export_parser = subparsers.add_parser(
@@ -586,7 +613,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
     export_parser.add_argument("--registry-root")
-    export_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_parser)
 
     export_lesson_parser = subparsers.add_parser(
         "export-lesson",
@@ -598,7 +625,12 @@ def main(argv: list[str] | None = None) -> int:
         "--format", choices=["eval", "guardrail", "workflow"], required=True
     )
     export_lesson_parser.add_argument("--registry-root")
-    export_lesson_parser.add_argument("--redact", action="store_true")
+    _add_redact_argument(export_lesson_parser)
+    export_lesson_parser.add_argument(
+        "--allow-incomplete-review",
+        action="store_true",
+        help="Override the review gate; records the unanswered questions in candidate metadata",
+    )
     export_lesson_parser.add_argument(
         "--json",
         action="store_true",
@@ -635,12 +667,7 @@ def main(argv: list[str] | None = None) -> int:
         default="**",
         help="Glob for the copilot-path applyTo frontmatter (default: **)",
     )
-    export_file_parser.add_argument(
-        "--redact",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Redact before writing (default: on; pass --no-redact to disable)",
-    )
+    _add_redact_argument(export_file_parser)
     export_file_parser.add_argument(
         "--write",
         action="store_true",
@@ -821,8 +848,45 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "eval-detection":
         corpus = DetectionCorpus.from_file(args.corpus_path)
+        if args.with_clustering:
+            clustered_report = run_clustered_detection_eval(corpus)
+            _print_json(clustered_report.to_dict())
+            if (
+                args.min_precision is not None
+                and clustered_report.base_report is not None
+                and clustered_report.base_report.precision < args.min_precision
+            ):
+                print(
+                    f"Error: detection precision "
+                    f"{clustered_report.base_report.precision:.3f} is below the required "
+                    f"minimum {args.min_precision:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            if (
+                args.min_recall is not None
+                and clustered_report.recall_with_clustering < args.min_recall
+            ):
+                print(
+                    f"Error: clustered detection recall "
+                    f"{clustered_report.recall_with_clustering:.3f} is below the required "
+                    f"minimum {args.min_recall:.3f}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         report = run_detection_eval(corpus)
-        _print_json(report.to_dict())
+        report_payload = report.to_dict()
+        _print_json(report_payload)
+        if args.compare_results is not None:
+            expected_payload = _read_json(args.compare_results)
+            if report_payload != expected_payload:
+                print(
+                    "Error: recorded detection benchmark results differ; rerun "
+                    "eval-detection and update the results file intentionally.",
+                    file=sys.stderr,
+                )
+                return 1
         if args.min_precision is not None and report.precision < args.min_precision:
             print(
                 f"Error: detection precision {report.precision:.3f} is below the required "
@@ -927,14 +991,14 @@ def _run(args: argparse.Namespace) -> int:
                 return 1
         question = _find_review_question(candidate, args.question_id)
         if question is None:
-            print(f"question '{args.question_id}' not found", file=sys.stderr)
-            return 1
+            print(f"Error: question '{args.question_id}' not found", file=sys.stderr)
+            return 2
         answer = ReviewAnswer(args.question_id, args.chosen_option_id, args.free_text)
         try:
             updated_candidate = apply_review_answer(candidate, question, answer)
         except ValueError as exc:
-            print(str(exc), file=sys.stderr)
-            return 1
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         registry.save_candidate(updated_candidate)
         if review_session is not None:
             review_session.answers.append(answer)
@@ -1013,23 +1077,22 @@ def _run(args: argparse.Namespace) -> int:
                 registry.save_candidate(candidate)
 
         approval: dict[str, str] | None = None
-        if focus is not None:
-            if args.approve:
-                approval, missing = _do_approve(
-                    focus,
-                    registry,
-                    approved_by=args.approved_by,
-                    allow_incomplete=args.allow_incomplete_review,
-                    dry_run=args.dry_run,
+        if focus is not None and args.approve:
+            approval, missing = _do_approve(
+                focus,
+                registry,
+                approved_by=args.approved_by,
+                allow_incomplete=args.allow_incomplete_review,
+                dry_run=args.dry_run,
+            )
+            if approval is None:
+                print(
+                    f"Error: cannot approve '{focus.id}': review is incomplete; unanswered "
+                    f"required questions: {', '.join(missing)}. Answer them with --answer, "
+                    f"or pass --allow-incomplete-review to override.",
+                    file=sys.stderr,
                 )
-                if approval is None:
-                    print(
-                        f"Error: cannot approve '{focus.id}': review is incomplete; unanswered "
-                        f"required questions: {', '.join(missing)}. Answer them with --answer, "
-                        f"or pass --allow-incomplete-review to override.",
-                        file=sys.stderr,
-                    )
-                    return 1
+                return 1
 
         reviewed = [focus] if focus is not None else candidates
         packet = {
@@ -1037,6 +1100,8 @@ def _run(args: argparse.Namespace) -> int:
             "candidates": [_review_packet(candidate, args) for candidate in reviewed],
             "approval": approval,
         }
+        if args.redact:
+            packet = _redact_packet(packet, SimpleRedactor())
         _print_json(packet)
         return 0
 
@@ -1068,11 +1133,21 @@ def _run(args: argparse.Namespace) -> int:
         return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "export-lesson":
-        candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        registry = _registry(args.registry_root)
+        candidate = _load_candidate_ref(args.candidate, registry)
         if candidate.status is not LessonStatus.APPROVED:
             print(
-                f"candidate '{candidate.id}' is not approved "
+                f"Error: candidate '{candidate.id}' is not approved "
                 f"(status: {candidate.status.value}); approve it before exporting",
+                file=sys.stderr,
+            )
+            return 1
+        missing_review_questions = remaining_review_questions(candidate)
+        if missing_review_questions and not args.allow_incomplete_review:
+            print(
+                f"Error: cannot export lesson '{candidate.id}': review is incomplete; unanswered "
+                f"required questions: {', '.join(missing_review_questions)}. Answer them with "
+                f"`lessonweaver answer`, or pass --allow-incomplete-review to override.",
                 file=sys.stderr,
             )
             return 1
@@ -1083,12 +1158,26 @@ def _run(args: argparse.Namespace) -> int:
         }[args.format]
         if candidate.recommended_action_type is not expected_action:
             print(
-                f"candidate '{candidate.id}' has action type "
+                f"Error: candidate '{candidate.id}' has action type "
                 f"'{candidate.recommended_action_type.value}'; cannot export as "
                 f"'{args.format}' (expected '{expected_action.value}')",
                 file=sys.stderr,
             )
             return 1
+        if missing_review_questions and args.allow_incomplete_review:
+            now = datetime.now(timezone.utc)
+            candidate.metadata["incomplete_review_override"] = {
+                "unanswered_questions": missing_review_questions,
+                "approved_by": candidate.approved_by,
+                "approved_at": now.isoformat(),
+                "export_format": args.format,
+            }
+            if not args.dry_run:
+                candidate_path = Path(args.candidate)
+                if candidate_path.exists():
+                    _write_json(candidate_path, candidate.to_dict())
+                else:
+                    registry.save_candidate(candidate)
         redactor = SimpleRedactor() if args.redact else None
         if args.format == "eval":
             content = export_eval_spec_markdown(candidate, redactor=redactor)

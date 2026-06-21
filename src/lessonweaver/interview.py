@@ -367,6 +367,24 @@ class LessonInterviewer:
         return "\n".join(lines)
 
 
+def remaining_review_questions(candidate: LessonCandidate) -> list[str]:
+    """Return required review question ids still unanswered for ``candidate``.
+
+    The adaptive interviewer is the single source of truth for review
+    completeness: a reject decision drops scoping questions, while high risk and
+    workflow-change answers queue their follow-ups. An empty list means the
+    review gate is satisfied.
+    """
+    history = candidate.metadata.get("review_history", [])
+    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
+    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
+
+
+def is_review_complete(candidate: LessonCandidate) -> bool:
+    """Return whether ``candidate`` has satisfied the adaptive review gate."""
+    return not remaining_review_questions(candidate)
+
+
 def _format_value(value: object) -> str:
     """Render enum members by value and everything else via ``str`` for summaries."""
     enum_value = getattr(value, "value", None)
@@ -412,6 +430,10 @@ def apply_review_answer(
             metadata[key] = value
             continue
         if key not in allowed_fields:
+            continue
+        if key == "metadata":
+            if isinstance(value, dict):
+                metadata = dict(value)
             continue
         if key == "scope":
             updates[key] = Scope(str(value))
