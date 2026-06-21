@@ -6,6 +6,21 @@ agents (VS Code / Copilot, Claude Code, AGENTS.md). It builds on the explicit
 canonical, scriptable API — and adds ergonomics and governance on top. Every
 step stays deterministic: no LLM or network calls.
 
+## Registry discovery
+
+Every command that accepts `--registry-root` uses the same registry resolution
+order as `FileSystemRegistry()`:
+
+1. explicit `--registry-root`;
+2. `LESSONWEAVER_REGISTRY`;
+3. the nearest `.lessonweaver/registry/` directory found by walking up from the
+   current working directory;
+4. `~/.lessonweaver/registry`.
+
+Project-local discovery is opt-in: create `.lessonweaver/registry/` in a repo to
+make commands run from that repo or its subdirectories use the shared project
+registry without repeating `--registry-root`.
+
 ## One guided command: `review-trace`
 
 Instead of memorizing the five-step pipeline, drive it from a single command:

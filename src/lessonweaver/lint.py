@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from enum import Enum
 
+from ._text import token_list
 from .models import RiskLevel, SkillCard, SkillStatus
 
 
@@ -31,17 +31,12 @@ class LintFinding:
         }
 
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_']+")
 _ABSOLUTE_WORDS = {"always", "never"}
 _QUALIFIERS = {"when", "unless", "except", "if"}
 
 
-def _tokens(text: str) -> list[str]:
-    return [token.lower() for token in _TOKEN_RE.findall(text)]
-
-
 def _has_unqualified_absolute(text: str) -> bool:
-    tokens = _tokens(text)
+    tokens = token_list(text)
     for index, token in enumerate(tokens):
         if token not in _ABSOLUTE_WORDS:
             continue

@@ -115,7 +115,9 @@ Before any exported fragment is loaded into an agent, confirm:
   `claude-rule`, `claude-md`, `agents-md`, `codex`, `runtime`.
 - Non-skill candidates (eval / guardrail / workflow recommendations) export via
   `lessonweaver export-lesson <candidate> --format eval|guardrail|workflow`.
-- Drop `--registry-root /tmp/lw` to use the default `~/.lessonweaver/registry`.
+- Drop `--registry-root /tmp/lw` to use registry discovery. Commands first honor
+  `LESSONWEAVER_REGISTRY`, then the nearest `.lessonweaver/registry/` directory,
+  then `~/.lessonweaver/registry`.
 - See the [glossary](../glossary.md) and [architecture](../architecture.md) for
   the underlying model, and [when not to create a skill](../when-not-to-create-a-skill.md)
   before promoting a candidate.

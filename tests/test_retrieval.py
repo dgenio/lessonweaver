@@ -37,6 +37,12 @@ def test_relevant_skill_scores_higher_than_unrelated_skill() -> None:
     assert [result.skill.id for result in results] == ["pr"]
 
 
+def test_pr_synonym_expansion_matches_pull_request_query() -> None:
+    pr_skill = _skill("pr", "PR Diff First", ["reviewing code changes"])
+    results = SkillRetriever().retrieve([pr_skill], RetrievalQuery(task="Review pull request"))
+    assert [result.skill.id for result in results] == ["pr"]
+
+
 def test_non_active_skills_are_excluded_by_default() -> None:
     skill = _skill("draft", "Draft Skill", ["reviewing pull requests"], status=SkillStatus.DRAFT)
     assert SkillRetriever().retrieve([skill], RetrievalQuery(task="Review this PR")) == []

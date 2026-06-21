@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,24 @@ from .models import (
 )
 
 T = TypeVar("T")
+_REGISTRY_ENV_VAR = "LESSONWEAVER_REGISTRY"
+
+
+def resolve_registry_root(explicit: str | Path | None = None) -> Path:
+    """Resolve the registry root using flag, env, project-local, then home default."""
+    if explicit is not None:
+        return Path(explicit).expanduser()
+
+    env_root = os.environ.get(_REGISTRY_ENV_VAR)
+    if env_root:
+        return Path(env_root).expanduser()
+
+    for directory in (Path.cwd(), *Path.cwd().parents):
+        project_registry = directory / ".lessonweaver" / "registry"
+        if project_registry.is_dir():
+            return project_registry
+
+    return Path.home() / ".lessonweaver" / "registry"
 
 
 @dataclass(slots=True)
@@ -41,11 +60,7 @@ class FileSystemRegistry:
     """Filesystem-backed JSON registry for lessonweaver objects."""
 
     def __init__(self, root: str | Path | None = None) -> None:
-        self.root = (
-            Path(root).expanduser()
-            if root is not None
-            else Path.home() / ".lessonweaver" / "registry"
-        )
+        self.root = resolve_registry_root(root)
         self.candidates_dir = self.root / "candidates"
         self.skills_dir = self.root / "skills"
         self.lessons_dir = self.root / "lessons"
