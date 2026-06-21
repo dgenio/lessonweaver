@@ -126,6 +126,15 @@ A `LessonCandidate` is ephemeral and unreviewed — a hypothesis. An
 durable, named, governed artifact that gets exported and loaded at runtime.
 Keeping them separate makes the human-review gate explicit and auditable.
 
+## Registry durability
+
+`FileSystemRegistry` writes JSON objects through a temp file in the target
+directory followed by `os.replace`, so readers never observe a half-written
+registry file. Listing methods skip corrupt entries by default and print a
+warning; pass `strict=True` when a command should fail fast on any corrupt file.
+The filesystem registry assumes single-writer operation and last-write-wins for
+concurrent writers; file locking is intentionally deferred until it is needed.
+
 ## Extension points
 
 - **New detection signal** — add the smallest deterministic rule to

@@ -66,6 +66,9 @@ changelog; their dates are the dates of the corresponding work landing on
   questions are recorded in the candidate and skill metadata (#108).
 - CLI validation failures now consistently print `Error:` on stderr; malformed
   `answer` question/option inputs now exit `2` like other invalid inputs (#174).
+- Filesystem registry writes now use same-directory temp files and atomic
+  replace, and `list_*` calls skip corrupt entries with warnings by default
+  while preserving strict listing for callers that need hard failures (#165).
 - Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
   synonym expansion now live in one private text utility module (#170).
 
