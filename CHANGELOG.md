@@ -18,6 +18,12 @@ changelog; their dates are the dates of the corresponding work landing on
   coverage now asserts input-order invariance and threshold-boundary behavior
   (#282).
 
+### Changed
+
+- `export-lesson` now uses the shared human-review gate and blocks candidates
+  with unanswered review questions unless `--allow-incomplete-review` is passed
+  (#163).
+
 ## [0.4.0] - 2026-06-16
 
 ### Added
@@ -60,9 +66,6 @@ changelog; their dates are the dates of the corresponding work landing on
   questions are recorded in the candidate and skill metadata (#108).
 - CLI validation failures now consistently print `Error:` on stderr; malformed
   `answer` question/option inputs now exit `2` like other invalid inputs (#174).
-- `export-lesson` now uses the shared human-review gate and blocks candidates
-  with unanswered review questions unless `--allow-incomplete-review` is passed
-  (#163).
 - Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
   synonym expansion now live in one private text utility module (#170).
 
