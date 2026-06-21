@@ -2,8 +2,9 @@
 
 This document describes how to publish a new lessonweaver release to PyPI. The
 package is published automatically by the
-[`publish.yml`](../.github/workflows/publish.yml) workflow when a GitHub Release
-is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
+[`publish.yml`](https://github.com/dgenio/lessonweaver/blob/main/.github/workflows/publish.yml)
+workflow when a GitHub Release is published, using PyPI Trusted Publishing
+(OIDC) — no API tokens are stored.
 
 ## Prerequisites
 
@@ -16,10 +17,10 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
 1. **Pick the version.** Follow [SemVer](https://semver.org/). Update `version`
    in `pyproject.toml`.
 2. **Update the changelog.** Move the `[Unreleased]` notes in
-   [`CHANGELOG.md`](../CHANGELOG.md) into a new version section with today's
-   date. For the first tagged release, uncomment the comparison/release link
-   template at the bottom of the changelog and fill it in; on later releases,
-   update those links.
+   [`CHANGELOG.md`](https://github.com/dgenio/lessonweaver/blob/main/CHANGELOG.md)
+   into a new version section with today's date. For the first tagged release,
+   uncomment the comparison/release link template at the bottom of the changelog
+   and fill it in; on later releases, update those links.
 3. **Run the full local check** (the same checks CI runs):
    ```bash
    ruff check src/ tests/

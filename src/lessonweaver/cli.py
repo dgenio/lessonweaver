@@ -401,7 +401,7 @@ def _add_redact_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lessonweaver")
 
     dry_run_parent = argparse.ArgumentParser(add_help=False)
@@ -799,6 +799,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Apply the safe automated subset (deprecate expired skills through the lifecycle)",
     )
 
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     try:

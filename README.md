@@ -44,6 +44,8 @@ core is **deterministic** with no LLM calls. See
 lessonweaver **complements** observability, evals, and memory — see
 [comparisons](docs/comparisons.md) and [ecosystem](docs/ecosystem.md).
 
+Documentation site: https://dgenio.github.io/lessonweaver/
+
 ## How it works
 
 A trace becomes governed guidance only after a human review gate and a governed

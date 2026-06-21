@@ -1,0 +1,61 @@
+site_name: lessonweaver
+site_description: Reviewed operational lessons from agent traces
+repo_url: https://github.com/dgenio/lessonweaver
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Get started:
+      - Overview: index.md
+      - Release process: release.md
+  - Guides:
+      - Developer workflow: developer-workflow.md
+      - Coding-agent cookbook: cookbook/coding-agents.md
+      - Repository-check findings: cookbook/repository-check-findings.md
+      - When not to create a skill: when-not-to-create-a-skill.md
+  - Integrations:
+      - LlamaIndex: integrations/llamaindex.md
+      - OpenAI Agents SDK: integrations/openai-agents.md
+      - Pipecat: integrations/pipecat.md
+      - Claude Code: integrations/claude-code.md
+      - GitHub Copilot: integrations/github-copilot.md
+  - Reference:
+      - CLI Reference: reference/cli.md
+      - API Reference: reference/api.md
+      - Trace format: trace-format.md
+      - Adapters: adapters.md
+      - Glossary: glossary.md
+  - Project:
+      - Architecture: architecture.md
+      - Comparisons: comparisons.md
+      - Ecosystem: ecosystem.md
+      - Interoperability: interoperability.md
+      - Repository readiness: repository-readiness.md
