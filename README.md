@@ -73,18 +73,22 @@ See [docs/architecture.md](docs/architecture.md) for the module-level data flow.
 
 ## Quickstart
 
-The first PyPI release is being prepared
-([#64](https://github.com/dgenio/lessonweaver/issues/64)). Until it lands,
-install from source:
+Install the package from PyPI:
+
+```bash
+pip install lessonweaver
+lessonweaver --help
+lessonweaver detect examples/traces/github_pr_review_failure.json
+```
+
+For contributor setup from a local checkout, install the development extras:
 
 ```bash
 pip install -e ".[dev]"
 lessonweaver --help
 ```
 
-> Once published, the user install will be `pip install lessonweaver` (see
-> [Contributing](#contributing) for the contributor workflow). The release
-> process is documented in [docs/release.md](docs/release.md).
+The release process is documented in [docs/release.md](docs/release.md).
 
 ```bash
 # 1. Detect candidates from a trace and save them to a temporary registry
