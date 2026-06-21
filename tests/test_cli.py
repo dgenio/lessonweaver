@@ -73,6 +73,17 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     assert any(question["id"] == "decision" for question in questions)
 
 
+def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch) -> None:
+    registry_root = tmp_path / "registry"
+    monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(registry_root))
+
+    exit_code = main(["detect", _TRACE, "--save"])
+
+    assert exit_code == 0
+    capsys.readouterr()
+    assert FileSystemRegistry(registry_root).load_candidate(_CID).id == _CID
+
+
 # The full set of base review answers that satisfies the enforced review gate
 # (a low-risk skill with no triggered follow-ups). decision=approve last.
 _COMPLETE_REVIEW = [
