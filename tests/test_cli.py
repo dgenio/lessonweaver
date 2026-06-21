@@ -230,7 +230,9 @@ def _candidate(
     action_type: RecommendedActionType = RecommendedActionType.EVAL,
     status: LessonStatus = LessonStatus.APPROVED,
     proposed_lesson: str = "Inspect changed files before drawing review conclusions.",
+    review_history: list[dict[str, str]] | None = None,
 ) -> LessonCandidate:
+    metadata = {"review_history": review_history} if review_history is not None else {}
     return LessonCandidate(
         id=candidate_id,
         summary="Inspect diffs before PR review",
@@ -243,6 +245,38 @@ def _candidate(
         risk_level=RiskLevel.MEDIUM,
         scope=Scope.PROJECT,
         status=status,
+        metadata=metadata,
+    )
+
+
+def _complete_review_history(action_type: RecommendedActionType) -> list[dict[str, str]]:
+    action_option = {
+        RecommendedActionType.EVAL: "eval",
+        RecommendedActionType.GUARDRAIL: "guardrail",
+        RecommendedActionType.WORKFLOW_CHANGE: "workflow_change",
+    }[action_type]
+    answers = [
+        ("scope", "project"),
+        ("action_type", action_option),
+        ("risk_level", "low"),
+        ("applicability", "always"),
+        ("negative_conditions", "none"),
+    ]
+    if action_type is RecommendedActionType.WORKFLOW_CHANGE:
+        answers.append(("workflow_determinism", "deterministic_rule"))
+    answers.append(("decision", "approve"))
+    return [
+        {"question_id": question_id, "chosen_option_id": option_id, "free_text": ""}
+        for question_id, option_id in answers
+    ]
+
+
+def _reviewed_candidate(
+    action_type: RecommendedActionType = RecommendedActionType.EVAL,
+) -> LessonCandidate:
+    return _candidate(
+        action_type=action_type,
+        review_history=_complete_review_history(action_type),
     )
 
 
@@ -344,7 +378,7 @@ def test_cli_export_skill_codex_is_json_directory(capsys, tmp_path) -> None:
 
 def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate())
+    registry.save_candidate(_reviewed_candidate())
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
     )
@@ -355,7 +389,10 @@ def test_cli_export_lesson_eval_from_registry(capsys, tmp_path) -> None:
 def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(
-        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
     )
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
@@ -369,7 +406,10 @@ def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
 def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_candidate(
-        _candidate(proposed_lesson="Email admin@example.com before committing instructions.")
+        _candidate(
+            proposed_lesson="Email admin@example.com before committing instructions.",
+            review_history=_complete_review_history(RecommendedActionType.EVAL),
+        )
     )
     exit_code = main(
         [
@@ -388,7 +428,7 @@ def test_cli_export_lesson_no_redact_emits_raw_content(capsys, tmp_path) -> None
 
 def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.GUARDRAIL))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.GUARDRAIL))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )
@@ -398,7 +438,7 @@ def test_cli_export_lesson_guardrail(capsys, tmp_path) -> None:
 
 def test_cli_export_lesson_workflow(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.WORKFLOW_CHANGE))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.WORKFLOW_CHANGE))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "workflow", "--registry-root", str(tmp_path)]
     )
@@ -418,9 +458,76 @@ def test_cli_export_lesson_rejects_unapproved_candidate(capsys, tmp_path) -> Non
     assert "not approved" in err
 
 
+def test_cli_export_lesson_rejects_incomplete_review_even_when_status_approved(
+    capsys, tmp_path
+) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(
+        _candidate(
+            status=LessonStatus.APPROVED,
+            review_history=[
+                {"question_id": "decision", "chosen_option_id": "approve", "free_text": ""}
+            ],
+        )
+    )
+    exit_code = main(
+        ["export-lesson", "cand-1", "--format", "eval", "--registry-root", str(tmp_path)]
+    )
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "review is incomplete" in err
+    assert "scope" in err
+
+
+def test_cli_export_lesson_allow_incomplete_records_override(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    registry.save_candidate(_candidate(status=LessonStatus.APPROVED))
+    exit_code = main(
+        [
+            "export-lesson",
+            "cand-1",
+            "--format",
+            "eval",
+            "--registry-root",
+            str(tmp_path),
+            "--allow-incomplete-review",
+        ]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+    override = (
+        FileSystemRegistry(tmp_path).load_candidate("cand-1").metadata["incomplete_review_override"]
+    )
+    assert "decision" in override["unanswered_questions"]
+
+
+def test_cli_export_lesson_allow_incomplete_records_override_for_path(capsys, tmp_path) -> None:
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(_candidate(status=LessonStatus.APPROVED).to_dict()),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "export-lesson",
+            str(candidate_path),
+            "--format",
+            "eval",
+            "--allow-incomplete-review",
+        ]
+    )
+
+    assert exit_code == 0
+    capsys.readouterr()
+    persisted = json.loads(candidate_path.read_text(encoding="utf-8"))
+    override = persisted["metadata"]["incomplete_review_override"]
+    assert "decision" in override["unanswered_questions"]
+
+
 def test_cli_export_lesson_rejects_action_type_mismatch(capsys, tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
-    registry.save_candidate(_candidate(action_type=RecommendedActionType.EVAL))
+    registry.save_candidate(_reviewed_candidate(RecommendedActionType.EVAL))
     exit_code = main(
         ["export-lesson", "cand-1", "--format", "guardrail", "--registry-root", str(tmp_path)]
     )

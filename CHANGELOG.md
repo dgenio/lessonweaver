@@ -18,6 +18,12 @@ changelog; their dates are the dates of the corresponding work landing on
   coverage now asserts input-order invariance and threshold-boundary behavior
   (#282).
 
+### Changed
+
+- `export-lesson` now uses the shared human-review gate and blocks candidates
+  with unanswered review questions unless `--allow-incomplete-review` is passed
+  (#163).
+
 ## [0.4.0] - 2026-06-16
 
 ### Added

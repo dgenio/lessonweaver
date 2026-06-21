@@ -38,7 +38,13 @@ from .export import (
 from .filemerge import diff_managed_file, merge_managed_block
 from .governance import promote_skill
 from .importers import candidates_from_failure_case
-from .interview import LessonInterviewer, apply_review_answer, load_session, save_session
+from .interview import (
+    LessonInterviewer,
+    apply_review_answer,
+    load_session,
+    remaining_review_questions,
+    save_session,
+)
 from .lint import LintSeverity, SkillLinter
 from .models import (
     LessonCandidate,
@@ -68,6 +74,10 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return payload
+
+
+def _write_json(path: str | Path, payload: dict[str, Any]) -> None:
+    Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _print_json(payload: object) -> None:
@@ -244,19 +254,6 @@ def _parse_kv(items: list[str]) -> dict[str, str]:
     return parsed
 
 
-def _remaining_review_questions(candidate: LessonCandidate) -> list[str]:
-    """Return the ids of required review questions still unanswered for a candidate.
-
-    The adaptive interviewer is the single source of truth for what "complete"
-    means: a ``reject`` decision drops scoping questions, and ``high`` risk or a
-    ``workflow_change`` action queues follow-ups. An empty list means the review
-    gate is satisfied.
-    """
-    history = candidate.metadata.get("review_history", [])
-    answers = [ReviewAnswer.from_dict(item) for item in history if isinstance(item, dict)]
-    return [question.id for question in LessonInterviewer().next_questions(candidate, answers)]
-
-
 def _apply_answers(
     candidate: LessonCandidate,
     answers: dict[str, str],
@@ -290,7 +287,7 @@ def _do_approve(
     used, the unanswered questions are recorded on the lesson candidate and skill
     metadata so the bypass is auditable.
     """
-    remaining = _remaining_review_questions(candidate)
+    remaining = remaining_review_questions(candidate)
     if remaining and not allow_incomplete:
         return None, remaining
 
@@ -301,6 +298,7 @@ def _do_approve(
         approved_by=approved_by,
         approved_at=now,
         updated_at=now,
+        metadata=dict(candidate.metadata),
     )
     title = name or approved.summary
     lesson_id = lesson_id or f"lesson-{approved.id}"
@@ -326,7 +324,7 @@ def _do_approve(
 
 def _review_packet(candidate: LessonCandidate, args: argparse.Namespace) -> dict[str, Any]:
     """Build the guided-review summary for one candidate (questions, lint, preview)."""
-    remaining = _remaining_review_questions(candidate)
+    remaining = remaining_review_questions(candidate)
     skill = _skill_from_candidate(
         candidate,
         skill_id=f"skill-{candidate.id}",
@@ -628,6 +626,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_lesson_parser.add_argument("--registry-root")
     _add_redact_argument(export_lesson_parser)
+    export_lesson_parser.add_argument(
+        "--allow-incomplete-review",
+        action="store_true",
+        help="Override the review gate; records the unanswered questions in candidate metadata",
+    )
     export_lesson_parser.add_argument(
         "--json",
         action="store_true",
@@ -1130,11 +1133,21 @@ def _run(args: argparse.Namespace) -> int:
         return _emit_text(content, output=args.output, dry_run=args.dry_run)
 
     if args.command == "export-lesson":
-        candidate = _load_candidate_ref(args.candidate, _registry(args.registry_root))
+        registry = _registry(args.registry_root)
+        candidate = _load_candidate_ref(args.candidate, registry)
         if candidate.status is not LessonStatus.APPROVED:
             print(
                 f"Error: candidate '{candidate.id}' is not approved "
                 f"(status: {candidate.status.value}); approve it before exporting",
+                file=sys.stderr,
+            )
+            return 1
+        missing_review_questions = remaining_review_questions(candidate)
+        if missing_review_questions and not args.allow_incomplete_review:
+            print(
+                f"Error: cannot export lesson '{candidate.id}': review is incomplete; unanswered "
+                f"required questions: {', '.join(missing_review_questions)}. Answer them with "
+                f"`lessonweaver answer`, or pass --allow-incomplete-review to override.",
                 file=sys.stderr,
             )
             return 1
@@ -1151,6 +1164,20 @@ def _run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        if missing_review_questions and args.allow_incomplete_review:
+            now = datetime.now(timezone.utc)
+            candidate.metadata["incomplete_review_override"] = {
+                "unanswered_questions": missing_review_questions,
+                "approved_by": candidate.approved_by,
+                "approved_at": now.isoformat(),
+                "export_format": args.format,
+            }
+            if not args.dry_run:
+                candidate_path = Path(args.candidate)
+                if candidate_path.exists():
+                    _write_json(candidate_path, candidate.to_dict())
+                else:
+                    registry.save_candidate(candidate)
         redactor = SimpleRedactor() if args.redact else None
         if args.format == "eval":
             content = export_eval_spec_markdown(candidate, redactor=redactor)
