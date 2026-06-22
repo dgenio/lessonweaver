@@ -109,9 +109,7 @@ def test_lesson_registry_conforms_to_skill_store_protocol() -> None:
         ("load_usage_event", "usage event 'missing'"),
     ],
 )
-def test_lesson_registry_missing_id_raises_helpful_error(
-    loader: str, message: str
-) -> None:
+def test_lesson_registry_missing_id_raises_helpful_error(loader: str, message: str) -> None:
     registry = LessonRegistry()
     with pytest.raises(FileNotFoundError, match=message):
         getattr(registry, loader)("missing")
