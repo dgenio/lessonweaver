@@ -73,6 +73,9 @@ Browse the issue tracker for the most current list and labels.
 - Prefer small dataclass factory helpers for repeated test data.
 - A new behavior should have a test that fails without the change and passes
   with it.
+- Treat domain models as immutable values at service boundaries: functions that
+  update a model should return a new instance, and callers should use that
+  returned value.
 
 ## Pull request expectations
 

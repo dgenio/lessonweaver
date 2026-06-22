@@ -126,6 +126,14 @@ A `LessonCandidate` is ephemeral and unreviewed — a hypothesis. An
 durable, named, governed artifact that gets exported and loaded at runtime.
 Keeping them separate makes the human-review gate explicit and auditable.
 
+## Model update convention
+
+Domain models are treated as immutable values at service boundaries. Functions
+that change a model return a new dataclass instance, usually with
+`dataclasses.replace`, and copy mutable fields such as `metadata` before adding
+new entries. Callers should always use the returned value rather than relying on
+in-place mutation.
+
 ## Extension points
 
 - **New detection signal** — add the smallest deterministic rule to

@@ -64,6 +64,8 @@ changelog; their dates are the dates of the corresponding work landing on
   the required (adaptive) review questions before it can be approved. Use
   `--allow-incomplete-review` to override; the bypass and the unanswered
   questions are recorded in the candidate and skill metadata (#108).
+- `apply_review_answer` now returns a new candidate instead of mutating the
+  input candidate in place; callers should use the returned value (#173).
 - CLI validation failures now consistently print `Error:` on stderr; malformed
   `answer` question/option inputs now exit `2` like other invalid inputs (#174).
 - Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
