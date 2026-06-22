@@ -54,7 +54,7 @@ flowchart LR
 | `detection_eval.py` | Score detection precision/recall/F1 against a labeled corpus. |
 | `clustering.py` | Group recurring candidates across traces by lexical similarity. |
 | `interview.py` | Build MCQ review questions and apply answers to a candidate. |
-| `registry.py` | Persist/list candidates, lessons, skills, artifacts (JSON files). |
+| `registry.py` | Store candidates, skills, usage events, lessons, and artifacts; `SkillStore` is the skill/usage protocol, `LessonRegistry` is in-memory, and `FileSystemRegistry` persists JSON files. |
 | `export.py` | Render skills/lessons into downstream formats. |
 | `retrieval.py` | Rank active skills against a task with a lexical baseline. |
 | `compile.py` | Assemble retrieved skills into a context-budgeted snippet. |

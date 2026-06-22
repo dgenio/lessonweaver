@@ -16,7 +16,7 @@ from lessonweaver.models import (
     SkillCard,
     SkillUsageEvent,
 )
-from lessonweaver.registry import FileSystemRegistry, LessonRegistry
+from lessonweaver.registry import FileSystemRegistry, LessonRegistry, SkillStore
 
 
 def _candidate() -> LessonCandidate:
@@ -85,6 +85,34 @@ def test_registry_add_and_get_skill() -> None:
     registry.add_skill(skill)
     assert registry.get_skill("skill-1") is skill
     assert registry.get_skill("nonexistent") is None
+
+
+def test_lesson_registry_conforms_to_skill_store_protocol() -> None:
+    registry = LessonRegistry()
+    skill = _skill()
+    event = _usage_event("usage-1")
+
+    assert isinstance(registry, SkillStore)
+    registry.save_skill(skill)
+    registry.save_usage_event(event)
+
+    assert registry.load_skill("skill-1") is skill
+    assert registry.list_skills() == [skill]
+    assert registry.list_usage_events() == [event]
+
+
+@pytest.mark.parametrize(
+    ("loader", "message"),
+    [
+        ("load_candidate", "candidate 'missing'"),
+        ("load_skill", "skill 'missing'"),
+        ("load_usage_event", "usage event 'missing'"),
+    ],
+)
+def test_lesson_registry_missing_id_raises_helpful_error(loader: str, message: str) -> None:
+    registry = LessonRegistry()
+    with pytest.raises(FileNotFoundError, match=message):
+        getattr(registry, loader)("missing")
 
 
 def test_filesystem_registry_candidate_round_trip(tmp_path) -> None:

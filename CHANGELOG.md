@@ -68,6 +68,9 @@ changelog; their dates are the dates of the corresponding work landing on
   `answer` question/option inputs now exit `2` like other invalid inputs (#174).
 - Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
   synonym expansion now live in one private text utility module (#170).
+- `SkillLoader`, stale reporting, and cleanup now depend on a `SkillStore`
+  protocol so `FileSystemRegistry` and the in-memory `LessonRegistry` can be
+  substituted consistently (#172).
 
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).

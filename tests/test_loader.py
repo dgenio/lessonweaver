@@ -1,6 +1,6 @@
 from lessonweaver.loader import SkillLoader
 from lessonweaver.models import LoadingPolicy, RiskLevel, Scope, SkillCard, SkillStatus
-from lessonweaver.registry import FileSystemRegistry
+from lessonweaver.registry import FileSystemRegistry, LessonRegistry
 
 
 def _skill(skill_id: str, name: str, description: str) -> SkillCard:
@@ -30,6 +30,16 @@ def test_loader_single_skill_match(tmp_path) -> None:
     registry = FileSystemRegistry(tmp_path)
     registry.save_skill(_skill("pr", "PR Diff First", "Inspect diffs before reviewing."))
     context = SkillLoader(registry).load_for_task("Review this PR", budget_chars=200)
+    assert "PR Diff First" in context.snippet
+    assert context.included_skills == ["pr"]
+
+
+def test_loader_accepts_in_memory_registry() -> None:
+    registry = LessonRegistry()
+    registry.save_skill(_skill("pr", "PR Diff First", "Inspect diffs before reviewing."))
+
+    context = SkillLoader(registry).load_for_task("Review this PR", budget_chars=200)
+
     assert "PR Diff First" in context.snippet
     assert context.included_skills == ["pr"]
 

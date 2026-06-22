@@ -114,3 +114,7 @@ between these.
   `FileSystemRegistry` (JSON files resolved from explicit root, env var,
   project-local `.lessonweaver/registry/`, or home default; persists candidates,
   skills, operational lessons, and artifacts).
+- **Skill store** — The protocol boundary for skill-loading consumers.
+  `SkillStore` covers the skill and usage-event methods required by loading,
+  stale reporting, and cleanup so `FileSystemRegistry` and `LessonRegistry` can
+  be substituted consistently.

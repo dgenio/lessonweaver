@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from .analysis import SkillAnalyzer
 from .governance import can_promote_skill, promote_skill
 from .models import SkillStatus, SkillUsageEvent
-from .registry import FileSystemRegistry
+from .registry import SkillStore
 from .reporting import SkillReporter
 
 # A skill is "noisy" when, across at least this many graded usage events, the
@@ -58,11 +58,9 @@ class CleanupAction:
 
 
 class SkillCleaner:
-    """Plan and optionally apply cleanup over a filesystem registry."""
+    """Plan and optionally apply cleanup over a skill registry."""
 
-    def plan(
-        self, registry: FileSystemRegistry, now: datetime | None = None
-    ) -> list[CleanupAction]:
+    def plan(self, registry: SkillStore, now: datetime | None = None) -> list[CleanupAction]:
         moment = now or datetime.now(timezone.utc)
         actions: list[CleanupAction] = []
 
@@ -114,7 +112,7 @@ class SkillCleaner:
 
     def apply(
         self,
-        registry: FileSystemRegistry,
+        registry: SkillStore,
         actions: list[CleanupAction],
         now: datetime | None = None,
     ) -> list[str]:
