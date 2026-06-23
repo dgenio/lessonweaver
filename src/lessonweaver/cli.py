@@ -135,7 +135,12 @@ def _load_candidate_ref(candidate_ref: str, registry: FileSystemRegistry) -> Les
     path = Path(candidate_ref)
     if path.exists():
         return LessonCandidate.from_dict(_read_json(path))
-    return registry.load_candidate(candidate_ref)
+    if _looks_like_path(candidate_ref):
+        raise ValueError(_reference_not_found_message("candidate", candidate_ref))
+    try:
+        return registry.load_candidate(candidate_ref)
+    except FileNotFoundError as exc:
+        raise ValueError(_reference_not_found_message("candidate", candidate_ref)) from exc
 
 
 def _find_review_question(candidate: LessonCandidate, question_id: str) -> ReviewQuestion | None:
@@ -151,7 +156,24 @@ def _load_skill_ref(skill_ref: str, registry: FileSystemRegistry) -> SkillCard:
     path = Path(skill_ref)
     if path.exists():
         return SkillCard.from_dict(_read_json(path))
-    return registry.load_skill(skill_ref)
+    if _looks_like_path(skill_ref):
+        raise ValueError(_reference_not_found_message("skill", skill_ref))
+    try:
+        return registry.load_skill(skill_ref)
+    except FileNotFoundError as exc:
+        raise ValueError(_reference_not_found_message("skill", skill_ref)) from exc
+
+
+def _looks_like_path(reference: str) -> bool:
+    path = Path(reference)
+    return path.is_absolute() or path.parent != Path(".")
+
+
+def _reference_not_found_message(kind: str, reference: str) -> str:
+    return (
+        f"could not resolve {kind} reference '{reference}': "
+        f"path '{reference}' does not exist; registry id '{reference}' was not found"
+    )
 
 
 def _load_skill_cards_from_dir(skills_dir: str) -> list[SkillCard]:
