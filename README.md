@@ -112,7 +112,8 @@ Drop `--registry-root /tmp/lw` to use registry discovery: the
 `LESSONWEAVER_REGISTRY` environment variable, then the nearest
 `.lessonweaver/registry/` directory above the current working directory, then
 `~/.lessonweaver/registry`.
-For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md).
+For full recipes, see the [coding-agent cookbook](docs/cookbook/coding-agents.md)
+and the [conversational-agent cookbook](docs/cookbook/conversational-agents.md).
 For a complete worked example with traces, an approved skill, and a validation
 suite, see [`examples/coding_agent_pr_review/`](examples/coding_agent_pr_review/).
 
@@ -297,6 +298,7 @@ any sibling. The Mermaid source is in
 - [When not to create a skill](docs/when-not-to-create-a-skill.md)
 - [Developer workflow](docs/developer-workflow.md) — guided review, diff-first export, load diagnostics, cleanup
 - [Coding-agent cookbook](docs/cookbook/coding-agents.md)
+- [Conversational-agent cookbook](docs/cookbook/conversational-agents.md)
 - [Repository-check findings cookbook](docs/cookbook/repository-check-findings.md)
 - [Integrations: LlamaIndex](docs/integrations/llamaindex.md), [OpenAI Agents SDK](docs/integrations/openai-agents.md), [Pipecat](docs/integrations/pipecat.md)
 - [Interoperability](docs/interoperability.md)

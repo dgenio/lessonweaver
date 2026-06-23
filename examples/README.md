@@ -55,3 +55,5 @@ framework is not installed.
 See also [docs/integrations/pipecat.md](../docs/integrations/pipecat.md) for the
 voice-agent pattern using `traces/voice_slot_correction.json` and
 `skills/voice_slot_repair.md`.
+For a full chatbot and voice walkthrough, see the
+[conversational-agent cookbook](../docs/cookbook/conversational-agents.md).
