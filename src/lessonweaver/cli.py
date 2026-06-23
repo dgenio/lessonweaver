@@ -310,6 +310,7 @@ def _do_approve(
     skill_id: str | None = None,
     allow_incomplete: bool = False,
     dry_run: bool = False,
+    save_candidate: bool = True,
 ) -> tuple[dict[str, str] | None, list[str]]:
     """Approve a candidate into a lesson and skill, enforcing the review gate.
 
@@ -347,7 +348,8 @@ def _do_approve(
         skill.metadata["incomplete_review_override"] = override
 
     if not dry_run:
-        registry.save_candidate(approved)
+        if save_candidate:
+            registry.save_candidate(approved)
         registry.save_lesson(lesson)
         registry.save_skill(skill)
     return {"candidate_id": approved.id, "lesson_id": lesson.lesson_id, "skill_id": skill.id}, []
@@ -1113,9 +1115,12 @@ def _run(args: argparse.Namespace) -> int:
             focus = _apply_answers(focus, answers, free_text)
             candidates = [focus if c.id == focus.id else c for c in candidates]
 
+        saved_candidates: dict[str, bool] = {}
         if not args.dry_run:
             for candidate in candidates:
-                _save_candidate_unless_reviewed(registry, candidate, force=args.force)
+                saved_candidates[candidate.id] = _save_candidate_unless_reviewed(
+                    registry, candidate, force=args.force
+                )
 
         approval: dict[str, str] | None = None
         if focus is not None and args.approve:
@@ -1125,6 +1130,7 @@ def _run(args: argparse.Namespace) -> int:
                 approved_by=args.approved_by,
                 allow_incomplete=args.allow_incomplete_review,
                 dry_run=args.dry_run,
+                save_candidate=saved_candidates.get(focus.id, True),
             )
             if approval is None:
                 print(

@@ -72,6 +72,7 @@ def test_cli_detect_save_and_interview_candidate(capsys, tmp_path) -> None:
     questions = json.loads(capsys.readouterr().out)
     assert any(question["id"] == "decision" for question in questions)
 
+
 def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch) -> None:
     registry_root = tmp_path / "registry"
     monkeypatch.setenv("LESSONWEAVER_REGISTRY", str(registry_root))
@@ -1299,6 +1300,29 @@ def test_cli_review_trace_full_answers_then_approve(capsys, tmp_path) -> None:
     packet = json.loads(capsys.readouterr().out)
     assert packet["approval"]["skill_id"] == f"skill-{_CID}"
     assert FileSystemRegistry(tmp_path).load_skill(f"skill-{_CID}").id == f"skill-{_CID}"
+
+
+def test_cli_review_trace_approve_preserves_existing_review_state(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    registry = FileSystemRegistry(tmp_path)
+    before = registry.load_candidate(_CID).to_dict()
+
+    argv = ["review-trace", _TRACE, "--registry-root", str(tmp_path)]
+    for question_id, option_id in _COMPLETE_REVIEW:
+        argv += ["--answer", f"{question_id}={option_id}"]
+    argv += ["--approve", "--approved-by", "reviewer"]
+    exit_code = main(argv)
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    packet = json.loads(captured.out)
+    assert packet["approval"]["skill_id"] == f"skill-{_CID}"
+    assert registry.load_candidate(_CID).to_dict() == before
+    assert registry.load_skill(f"skill-{_CID}").id == f"skill-{_CID}"
 
 
 def test_cli_review_trace_ambiguous_requires_candidate(capsys, tmp_path) -> None:
