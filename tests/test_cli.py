@@ -84,6 +84,50 @@ def test_cli_detect_uses_environment_registry_root(capsys, tmp_path, monkeypatch
     assert FileSystemRegistry(registry_root).load_candidate(_CID).id == _CID
 
 
+def test_cli_detect_save_preserves_reviewed_candidate_without_force(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    before = FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict()
+
+    exit_code = main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict() == before
+
+
+def test_cli_detect_save_force_overwrites_reviewed_candidate(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).status is LessonStatus.APPROVED
+
+    exit_code = main(["detect", _TRACE, "--save", "--force", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+
+    assert exit_code == 0
+    stored = FileSystemRegistry(tmp_path).load_candidate(_CID)
+    assert stored.status is LessonStatus.CANDIDATE
+    assert "review_history" not in stored.metadata
+
+
+def test_cli_detect_save_refreshes_unreviewed_candidate(capsys, tmp_path) -> None:
+    registry = FileSystemRegistry(tmp_path)
+    stale = _candidate(_CID, status=LessonStatus.CANDIDATE)
+    stale.summary = "stale summary"
+    registry.save_candidate(stale)
+
+    exit_code = main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+
+    assert exit_code == 0
+    assert registry.load_candidate(_CID).summary != "stale summary"
+
+
 # The full set of base review answers that satisfies the enforced review gate
 # (a low-risk skill with no triggered follow-ups). decision=approve last.
 _COMPLETE_REVIEW = [
@@ -1164,6 +1208,22 @@ def test_cli_review_trace_apply_answer_reduces_remaining(capsys, tmp_path) -> No
     assert "decision" not in candidate["remaining_questions"]
 
 
+def test_cli_review_trace_preserves_existing_review_state(capsys, tmp_path) -> None:
+    argv = ["review-trace", _TRACE, "--registry-root", str(tmp_path)]
+    for question_id, option_id in _COMPLETE_REVIEW:
+        argv += ["--answer", f"{question_id}={option_id}"]
+    assert main(argv) == 0
+    capsys.readouterr()
+    before = FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict()
+
+    exit_code = main(["review-trace", _TRACE, "--registry-root", str(tmp_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    assert FileSystemRegistry(tmp_path).load_candidate(_CID).to_dict() == before
+
+
 def test_cli_review_trace_bad_question_id_leaves_no_partial_writes(capsys, tmp_path) -> None:
     # A valid KEY=VALUE whose question id does not exist must fail before any
     # candidate is persisted, so the command leaves no partial side effects.
@@ -1240,6 +1300,29 @@ def test_cli_review_trace_full_answers_then_approve(capsys, tmp_path) -> None:
     packet = json.loads(capsys.readouterr().out)
     assert packet["approval"]["skill_id"] == f"skill-{_CID}"
     assert FileSystemRegistry(tmp_path).load_skill(f"skill-{_CID}").id == f"skill-{_CID}"
+
+
+def test_cli_review_trace_approve_preserves_existing_review_state(capsys, tmp_path) -> None:
+    main(["detect", _TRACE, "--save", "--registry-root", str(tmp_path)])
+    capsys.readouterr()
+    _answer_full_review(_CID, tmp_path)
+    capsys.readouterr()
+    registry = FileSystemRegistry(tmp_path)
+    before = registry.load_candidate(_CID).to_dict()
+
+    argv = ["review-trace", _TRACE, "--registry-root", str(tmp_path)]
+    for question_id, option_id in _COMPLETE_REVIEW:
+        argv += ["--answer", f"{question_id}={option_id}"]
+    argv += ["--approve", "--approved-by", "reviewer"]
+    exit_code = main(argv)
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"skipped {_CID}: existing candidate has review state" in captured.err
+    packet = json.loads(captured.out)
+    assert packet["approval"]["skill_id"] == f"skill-{_CID}"
+    assert registry.load_candidate(_CID).to_dict() == before
+    assert registry.load_skill(f"skill-{_CID}").id == f"skill-{_CID}"
 
 
 def test_cli_review_trace_ambiguous_requires_candidate(capsys, tmp_path) -> None:
