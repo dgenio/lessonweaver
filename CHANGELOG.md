@@ -12,6 +12,8 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-24
+
 ### Added
 
 - Detection corpus metric floors are documented, and clustering regression
