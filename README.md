@@ -215,6 +215,7 @@ Closed-loop effectiveness reports are available through the library API; see
 | Eval / guardrail / workflow exports | Supported (`export-lesson`) |
 | Eval companion packs | Supported (`export_eval_companion_pack`) |
 | LlamaIndex, OpenAI Agents SDK, Pipecat | Example integrations ([LlamaIndex](examples/llamaindex_runtime_loader/), [OpenAI Agents SDK](examples/openai_agents_runtime_loader/), [Pipecat](docs/integrations/pipecat.md)) |
+| MCP server | Optional extra `pip install "lessonweaver[mcp]"`, run `lessonweaver-mcp` ([docs](docs/integrations/mcp.md)) |
 
 ## Governance and safety
 

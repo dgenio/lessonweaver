@@ -14,6 +14,14 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Added
 
+- Optional MCP server (`pip install "lessonweaver[mcp]"`, console script
+  `lessonweaver-mcp`) exposing the governed loop to agents under the human
+  review gate: read-only `detect`, `retrieve`, `load_skills`, `explain_load`,
+  `list_pending_candidates`, `get_candidate`, and a propose-only `submit_trace`.
+  No tool can answer review questions, approve, or promote a skill. The base
+  install and `import lessonweaver` stay dependency-free; the `mcp` SDK is
+  imported lazily ([docs](docs/integrations/mcp.md)) (#141, #317, #318, #319,
+  #320).
 - Detection corpus metric floors are documented, and clustering regression
   coverage now asserts input-order invariance and threshold-boundary behavior
   (#282).
