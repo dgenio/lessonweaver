@@ -163,15 +163,51 @@ def test_exposed_tools_are_exactly_the_read_or_propose_surface() -> None:
     }
 
 
-def test_validate_tool_names_rejects_a_gate_bypassing_tool() -> None:
+@pytest.mark.parametrize("name", ["approve", "promote-skill", "Promote_Skill"])
+def test_validate_tool_names_rejects_gate_bypassing_tools(name: str) -> None:
     sneaky = mcp_server.McpTool(
-        name="approve",
+        name=name,
         description="should never exist",
         input_schema={"type": "object", "properties": {}},
         handler=lambda context, arguments: {},
     )
     with pytest.raises(RuntimeError, match="review-gate operations"):
         mcp_server._validate_tool_names((sneaky,))
+
+
+# --- tool-call boundary validation ------------------------------------------
+
+
+def test_sanitize_argument_must_be_boolean(tmp_path) -> None:
+    with pytest.raises(ValueError, match="'sanitize' must be a boolean"):
+        mcp_server.dispatch_tool(
+            "detect", {"trace": _flagged_trace(), "sanitize": "false"}, _context(tmp_path)
+        )
+
+
+def test_null_budget_and_inclusion_fall_back_to_defaults(tmp_path) -> None:
+    context = _context(tmp_path)
+    FileSystemRegistry(str(tmp_path)).save_skill(_active_skill())
+    loaded = mcp_server.dispatch_tool(
+        "load_skills",
+        {"task": "Review this PR", "budget_chars": None, "inclusion_level": None},
+        context,
+    )
+    assert loaded["included_skills"] == ["pr"]
+
+
+def test_budget_chars_must_be_integer(tmp_path) -> None:
+    with pytest.raises(ValueError, match="'budget_chars' must be an integer"):
+        mcp_server.dispatch_tool(
+            "load_skills", {"task": "Review this PR", "budget_chars": "lots"}, _context(tmp_path)
+        )
+
+
+def test_budget_chars_rejects_boolean(tmp_path) -> None:
+    with pytest.raises(ValueError, match="'budget_chars' must be an integer"):
+        mcp_server.dispatch_tool(
+            "explain_load", {"task": "Review this PR", "budget_chars": True}, _context(tmp_path)
+        )
 
 
 def test_every_tool_has_an_object_input_schema() -> None:
@@ -198,11 +234,18 @@ def test_build_server_without_mcp_raises_with_install_hint(monkeypatch) -> None:
         mcp_server.build_server()
 
 
-def test_main_returns_error_code_when_server_cannot_start(monkeypatch, capsys) -> None:
-    def _raise(context=None):
-        raise RuntimeError(mcp_server._MISSING_MCP_MESSAGE)
+def test_main_reports_missing_mcp_without_traceback(monkeypatch, capsys) -> None:
+    # Block the mcp import entirely so main() exercises the real path: the
+    # missing dependency must surface as exit code 1 with an install hint, not
+    # an uncaught ImportError from the stdio transport (the _serve_stdio order).
+    real_import = builtins.__import__
 
-    monkeypatch.setattr(mcp_server, "serve", _raise)
+    def _fake_import(name: str, *args: Any, **kwargs: Any):
+        if name == "mcp" or name.startswith("mcp."):
+            raise ImportError("No module named 'mcp'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
     assert mcp_server.main([]) == 1
     assert "lessonweaver[mcp]" in capsys.readouterr().err
 

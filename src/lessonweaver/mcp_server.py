@@ -129,6 +129,42 @@ def _candidates_payload(candidates: list[LessonCandidate]) -> dict[str, Any]:
     }
 
 
+def _opt_bool(arguments: dict[str, Any], key: str, default: bool) -> bool:
+    """Return a boolean tool argument, defaulting when absent or null.
+
+    The schema declares these as booleans, so a non-boolean (e.g. the JSON
+    string ``"false"``) is a client error rather than something to coerce
+    silently — coercion here would let ``"false"`` enable sanitization.
+    """
+    value = arguments.get(key, default)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"argument '{key}' must be a boolean")
+    return value
+
+
+def _opt_int(arguments: dict[str, Any], key: str, default: int) -> int:
+    """Return an integer tool argument, defaulting when absent or null."""
+    value = arguments.get(key, default)
+    if value is None:
+        return default
+    # bool is an int subclass; reject it so True/False is not read as 1/0.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"argument '{key}' must be an integer")
+    return int(value)
+
+
+def _opt_str(arguments: dict[str, Any], key: str, default: str) -> str:
+    """Return a string tool argument, defaulting when absent or null."""
+    value = arguments.get(key, default)
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise ValueError(f"argument '{key}' must be a string")
+    return value
+
+
 def _bundle_from_args(context: MCPServerContext, arguments: dict[str, Any]) -> Any:
     """Validate and build a trace bundle from tool arguments, optionally scrubbing.
 
@@ -140,8 +176,7 @@ def _bundle_from_args(context: MCPServerContext, arguments: dict[str, Any]) -> A
     if not isinstance(trace, dict):
         raise ValueError("argument 'trace' must be a trace-bundle object")
     bundle = DictTraceImporter().import_trace(trace)
-    sanitize = bool(arguments.get("sanitize", context.sanitize))
-    if sanitize:
+    if _opt_bool(arguments, "sanitize", context.sanitize):
         bundle = TraceSanitizer().sanitize(bundle)
     return bundle
 
@@ -155,11 +190,11 @@ def _query_from_args(arguments: dict[str, Any]) -> RetrievalQuery:
         raise ValueError("argument 'tools' must be a list of strings")
     return RetrievalQuery(
         task=task,
-        agent_type=str(arguments.get("agent_type", "")),
+        agent_type=_opt_str(arguments, "agent_type", ""),
         tools=list(tools),
-        scope=str(arguments.get("scope", "")),
-        risk_level=str(arguments.get("risk_level", "")),
-        max_results=int(arguments.get("max_results", 10)),
+        scope=_opt_str(arguments, "scope", ""),
+        risk_level=_opt_str(arguments, "risk_level", ""),
+        max_results=_opt_int(arguments, "max_results", 10),
     )
 
 
@@ -228,8 +263,8 @@ def _handle_retrieve(context: MCPServerContext, arguments: dict[str, Any]) -> di
 
 def _handle_load_skills(context: MCPServerContext, arguments: dict[str, Any]) -> dict[str, Any]:
     query = _query_from_args(arguments)
-    budget_chars = int(arguments.get("budget_chars", 2000))
-    inclusion_level = str(arguments.get("inclusion_level", "summary"))
+    budget_chars = _opt_int(arguments, "budget_chars", 2000)
+    inclusion_level = _opt_str(arguments, "inclusion_level", "summary")
     compiled = SkillLoader(registry=context.registry()).load_for_task(
         task=query.task,
         agent_type=query.agent_type,
@@ -250,7 +285,7 @@ def _handle_load_skills(context: MCPServerContext, arguments: dict[str, Any]) ->
 
 def _handle_explain_load(context: MCPServerContext, arguments: dict[str, Any]) -> dict[str, Any]:
     query = _query_from_args(arguments)
-    budget_chars = int(arguments.get("budget_chars", 2000))
+    budget_chars = _opt_int(arguments, "budget_chars", 2000)
     skills = context.registry().list_skills()
     diagnostics = explain_load(skills, query, budget_chars=budget_chars)
     return diagnostics.to_dict()
@@ -349,11 +384,16 @@ TOOLS: tuple[McpTool, ...] = (
 
 
 def _validate_tool_names(tools: tuple[McpTool, ...]) -> None:
-    """Fail fast if any exposed tool would bypass the human review gate."""
-    exposed = {tool.name for tool in tools}
-    forbidden = exposed & FORBIDDEN_TOOL_NAMES
+    """Fail fast if any exposed tool would bypass the human review gate.
+
+    Names are normalized (lowercased, ``-`` -> ``_``) before comparison so a
+    kebab-case alias such as ``promote-skill`` cannot slip past the check.
+    """
+    forbidden = sorted(
+        tool.name for tool in tools if tool.name.lower().replace("-", "_") in FORBIDDEN_TOOL_NAMES
+    )
     if forbidden:
-        raise RuntimeError(f"MCP tools must not expose review-gate operations: {sorted(forbidden)}")
+        raise RuntimeError(f"MCP tools must not expose review-gate operations: {forbidden}")
 
 
 _validate_tool_names(TOOLS)
@@ -390,24 +430,37 @@ def build_server(context: MCPServerContext | None = None) -> Server:
     _validate_tool_names(TOOLS)
     server: Server = Server("lessonweaver")
 
-    @server.list_tools()  # type: ignore[untyped-decorator]
     async def _list_tools() -> list[types.Tool]:
         return [
             types.Tool(name=tool.name, description=tool.description, inputSchema=tool.input_schema)
             for tool in TOOLS
         ]
 
-    @server.call_tool()  # type: ignore[untyped-decorator]
     async def _call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return dispatch_tool(name, arguments or {}, context)
+
+    # Register imperatively through an Any-typed alias rather than with the
+    # ``@server.list_tools()`` decorator syntax. The SDK's decorators are not
+    # precisely typed, and under mypy --strict a decorator/call resolving to an
+    # untyped object trips ``untyped-decorator`` (older mypy) or
+    # ``no-untyped-call`` (newer mypy) on different lines. Going through ``Any``
+    # without decorator syntax keeps registration version-robust and free of
+    # error-code-specific ignores, while ``server`` keeps its real type for the
+    # return value.
+    registrar: Any = server
+    registrar.list_tools()(_list_tools)
+    registrar.call_tool()(_call_tool)
 
     return server
 
 
 async def _serve_stdio(context: MCPServerContext) -> None:
+    # Build first: build_server() converts a missing 'mcp' extra into a
+    # user-friendly RuntimeError. Importing the stdio transport before that
+    # would raise a raw ImportError that main() does not catch.
+    server = build_server(context)
     from mcp.server.stdio import stdio_server
 
-    server = build_server(context)
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
