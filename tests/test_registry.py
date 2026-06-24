@@ -155,7 +155,7 @@ def test_resolve_registry_root_uses_environment_variable(tmp_path, monkeypatch) 
 def test_resolve_registry_root_discovers_project_registry_from_subdirectory(
     tmp_path, monkeypatch
 ) -> None:
-    project_registry = tmp_path / ".lessonweaver" / "registry"
+    project_registry = (tmp_path / ".lessonweaver" / "registry").resolve()
     nested = tmp_path / "src" / "pkg"
     project_registry.mkdir(parents=True)
     nested.mkdir(parents=True)
@@ -178,12 +178,12 @@ def test_resolve_registry_root_falls_back_to_home_default(tmp_path, monkeypatch)
 
 
 def test_filesystem_registry_default_uses_resolved_root(tmp_path, monkeypatch) -> None:
-    project_registry = tmp_path / ".lessonweaver" / "registry"
+    project_registry = (tmp_path / ".lessonweaver" / "registry").resolve()
     project_registry.mkdir(parents=True)
     monkeypatch.delenv("LESSONWEAVER_REGISTRY", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    assert FileSystemRegistry().root == project_registry
+    assert FileSystemRegistry().root == project_registry.resolve()
 
 
 def test_filesystem_registry_lesson_and_artifact_round_trip(tmp_path) -> None:
