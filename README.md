@@ -4,6 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/lessonweaver.svg)](https://pypi.org/project/lessonweaver/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![Read the Weaver Stack overview on Towards AI](https://img.shields.io/badge/Read_the_overview-Towards_AI-black?logo=medium&logoColor=white)](https://pub.towardsai.net/the-weaver-stack-one-contract-layer-for-safe-llm-agents-7f733cad5eac)
 
 **Turn your agent's real failures into reviewed `AGENTS.md`, Claude, and Copilot
 skills — deterministically, with a human in the loop.**
