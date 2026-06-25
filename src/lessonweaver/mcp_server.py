@@ -144,14 +144,24 @@ def _opt_bool(arguments: dict[str, Any], key: str, default: bool) -> bool:
     return value
 
 
-def _opt_int(arguments: dict[str, Any], key: str, default: int) -> int:
-    """Return an integer tool argument, defaulting when absent or null."""
+def _opt_int(
+    arguments: dict[str, Any], key: str, default: int, *, minimum: int | None = None
+) -> int:
+    """Return an integer tool argument, defaulting when absent or null.
+
+    When ``minimum`` is given, a value below it is rejected. The SDK validates
+    each tool's ``inputSchema`` (including ``minimum``) before a handler runs,
+    but :func:`dispatch_tool` is also a public, SDK-free contract layer, so the
+    same bound is enforced here for callers that bypass the SDK.
+    """
     value = arguments.get(key, default)
     if value is None:
         return default
     # bool is an int subclass; reject it so True/False is not read as 1/0.
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"argument '{key}' must be an integer")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"argument '{key}' must be >= {minimum}")
     return int(value)
 
 
@@ -194,7 +204,7 @@ def _query_from_args(arguments: dict[str, Any]) -> RetrievalQuery:
         tools=list(tools),
         scope=_opt_str(arguments, "scope", ""),
         risk_level=_opt_str(arguments, "risk_level", ""),
-        max_results=_opt_int(arguments, "max_results", 10),
+        max_results=_opt_int(arguments, "max_results", 10, minimum=1),
     )
 
 
@@ -263,7 +273,7 @@ def _handle_retrieve(context: MCPServerContext, arguments: dict[str, Any]) -> di
 
 def _handle_load_skills(context: MCPServerContext, arguments: dict[str, Any]) -> dict[str, Any]:
     query = _query_from_args(arguments)
-    budget_chars = _opt_int(arguments, "budget_chars", 2000)
+    budget_chars = _opt_int(arguments, "budget_chars", 2000, minimum=0)
     inclusion_level = _opt_str(arguments, "inclusion_level", "summary")
     compiled = SkillLoader(registry=context.registry()).load_for_task(
         task=query.task,
@@ -285,7 +295,7 @@ def _handle_load_skills(context: MCPServerContext, arguments: dict[str, Any]) ->
 
 def _handle_explain_load(context: MCPServerContext, arguments: dict[str, Any]) -> dict[str, Any]:
     query = _query_from_args(arguments)
-    budget_chars = _opt_int(arguments, "budget_chars", 2000)
+    budget_chars = _opt_int(arguments, "budget_chars", 2000, minimum=0)
     skills = context.registry().list_skills()
     diagnostics = explain_load(skills, query, budget_chars=budget_chars)
     return diagnostics.to_dict()

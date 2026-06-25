@@ -210,6 +210,22 @@ def test_budget_chars_rejects_boolean(tmp_path) -> None:
         )
 
 
+def test_budget_chars_rejects_value_below_minimum(tmp_path) -> None:
+    # The SDK enforces the schema ``minimum`` before a handler runs; dispatch_tool
+    # is the SDK-free contract layer, so it enforces the same bound itself.
+    with pytest.raises(ValueError, match="'budget_chars' must be >= 0"):
+        mcp_server.dispatch_tool(
+            "load_skills", {"task": "Review this PR", "budget_chars": -1}, _context(tmp_path)
+        )
+
+
+def test_max_results_rejects_value_below_minimum(tmp_path) -> None:
+    with pytest.raises(ValueError, match="'max_results' must be >= 1"):
+        mcp_server.dispatch_tool(
+            "retrieve", {"task": "Review this PR", "max_results": 0}, _context(tmp_path)
+        )
+
+
 def test_every_tool_has_an_object_input_schema() -> None:
     for tool in mcp_server.TOOLS:
         assert tool.input_schema["type"] == "object"
@@ -263,3 +279,24 @@ def test_build_server_registers_tool_handlers() -> None:
     assert server.name == "lessonweaver"
     assert types.ListToolsRequest in server.request_handlers
     assert types.CallToolRequest in server.request_handlers
+
+
+def test_call_tool_handler_returns_structured_content(tmp_path) -> None:
+    # Exercise the SDK binding's call path end to end (not just registration):
+    # a dict handler result must surface as CallToolResult.structuredContent
+    # with a JSON-text mirror in content.
+    pytest.importorskip("mcp")
+    import asyncio
+
+    import mcp.types as types
+
+    server = mcp_server.build_server(_context(tmp_path))
+    handler = server.request_handlers[types.CallToolRequest]
+    request = types.CallToolRequest(
+        method="tools/call",
+        params=types.CallToolRequestParams(name="detect", arguments={"trace": _flagged_trace()}),
+    )
+    result = asyncio.run(handler(request)).root
+    assert result.isError is False
+    assert result.structuredContent["count"] == 1
+    assert result.content[0].text  # JSON-text mirror of the structured payload
