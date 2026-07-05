@@ -55,6 +55,13 @@ person, customer, private repository, private service, or incident.
      --compare-results benchmark/v1/results.json
    ```
 
-4. If the detector output intentionally changed, update the matching
-   `results.json` in the same pull request and explain the scorecard delta.
+4. If the detector output intentionally changed, the guard prints exactly which
+   metric, per-pattern value, or `case_id` drifted. Regenerate the scorecard in
+   the same pull request and explain the delta. The regeneration command writes
+   deterministic, sorted-key output, so it diffs cleanly:
+
+   ```bash
+   lessonweaver eval-detection benchmark/v1/corpus.json > benchmark/v1/results.json
+   ```
+
 5. Include the sanitization checklist outcome in the pull request description.

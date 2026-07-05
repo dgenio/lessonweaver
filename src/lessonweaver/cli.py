@@ -88,6 +88,85 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _describe_detection_report_diff(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    """Return human-readable lines naming how two detection reports differ.
+
+    Compares the scalar scorecard fields, the per-pattern metrics, and the
+    per-case results (keyed by ``case_id``) so a benchmark mismatch says *what*
+    drifted instead of only that the files differ. Output is deterministic (keys
+    sorted) and bounded per section so a large drift stays readable.
+    """
+    lines: list[str] = []
+    max_per_section = 10
+
+    def _emit(section: str, diffs: list[str]) -> None:
+        for entry in diffs[:max_per_section]:
+            lines.append(f"  {section}: {entry}")
+        hidden = len(diffs) - min(len(diffs), max_per_section)
+        if hidden > 0:
+            lines.append(f"  {section}: ... and {hidden} more")
+
+    def _field(label: str, exp_val: object, act_val: object) -> str:
+        return f"{label} expected {exp_val!r}, got {act_val!r}"
+
+    def _dict_field_diffs(prefix: str, exp: dict[str, Any], act: dict[str, Any]) -> list[str]:
+        return [
+            _field(f"{prefix}.{key}", exp.get(key), act.get(key))
+            for key in sorted(set(exp) | set(act))
+            if exp.get(key) != act.get(key)
+        ]
+
+    scalar_diffs = [
+        _field(key, expected.get(key), actual.get(key))
+        for key in sorted(set(expected) | set(actual))
+        if key not in {"by_pattern", "results"} and expected.get(key) != actual.get(key)
+    ]
+    _emit("metric", scalar_diffs)
+
+    exp_patterns = expected.get("by_pattern", {})
+    act_patterns = actual.get("by_pattern", {})
+    if isinstance(exp_patterns, dict) and isinstance(act_patterns, dict):
+        pattern_diffs: list[str] = []
+        for pattern in sorted(set(exp_patterns) | set(act_patterns)):
+            exp_metrics = exp_patterns.get(pattern)
+            act_metrics = act_patterns.get(pattern)
+            if exp_metrics == act_metrics:
+                continue
+            if not isinstance(exp_metrics, dict) or not isinstance(act_metrics, dict):
+                side = "actual" if exp_metrics is None else "expected"
+                pattern_diffs.append(f"{pattern} only in {side} results")
+                continue
+            pattern_diffs.extend(_dict_field_diffs(pattern, exp_metrics, act_metrics))
+        _emit("pattern", pattern_diffs)
+
+    def _by_case(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        results = payload.get("results", [])
+        if not isinstance(results, list):
+            return {}
+        return {
+            entry["case_id"]: entry
+            for entry in results
+            if isinstance(entry, dict) and isinstance(entry.get("case_id"), str)
+        }
+
+    exp_cases = _by_case(expected)
+    act_cases = _by_case(actual)
+    case_diffs: list[str] = []
+    for case_id in sorted(set(exp_cases) | set(act_cases)):
+        exp_case = exp_cases.get(case_id)
+        act_case = act_cases.get(case_id)
+        if exp_case == act_case:
+            continue
+        if exp_case is None or act_case is None:
+            side = "actual" if exp_case is None else "expected"
+            case_diffs.append(f"{case_id} only in {side} results")
+            continue
+        case_diffs.extend(_dict_field_diffs(case_id, exp_case, act_case))
+    _emit("case", case_diffs)
+
+    return lines
+
+
 def _emit_text(content: str, *, output: str | None, dry_run: bool) -> int:
     """Print ``content`` to stdout, or write it to ``output`` honoring ``--dry-run``.
 
@@ -882,8 +961,15 @@ def _run(args: argparse.Namespace) -> int:
             expected_payload = _read_json(args.compare_results)
             if report_payload != expected_payload:
                 print(
-                    "Error: recorded detection benchmark results differ; rerun "
-                    "eval-detection and update the results file intentionally.",
+                    "Error: recorded detection benchmark results differ from the "
+                    "current detector output.",
+                    file=sys.stderr,
+                )
+                for line in _describe_detection_report_diff(expected_payload, report_payload):
+                    print(line, file=sys.stderr)
+                print(
+                    "If this change is intentional, regenerate the results file:\n"
+                    f"  lessonweaver eval-detection {args.corpus_path} > {args.compare_results}",
                     file=sys.stderr,
                 )
                 return 1
