@@ -18,6 +18,7 @@ from lessonweaver.models import (
     SkillUsageEvent,
 )
 from lessonweaver.registry import FileSystemRegistry
+from lessonweaver.sanitization import redaction_marker
 
 
 def _skill(skill_id: str = "skill-1", *, status: SkillStatus = SkillStatus.ACTIVE) -> SkillCard:
@@ -321,7 +322,7 @@ def test_cli_export_skill_redacts_by_default(capsys, tmp_path) -> None:
     exit_code = main(["export-skill", "skill-1", "--registry-root", str(tmp_path)])
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "[REDACTED by email]" in out
+    assert redaction_marker("email") in out
     assert "admin@example.com" not in out
 
 
@@ -399,7 +400,7 @@ def test_cli_export_lesson_redacts_by_default(capsys, tmp_path) -> None:
     )
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "[REDACTED by email]" in out
+    assert redaction_marker("email") in out
     assert "admin@example.com" not in out
 
 
@@ -1096,6 +1097,12 @@ def test_cli_eval_detection_compare_results_fails(capsys, tmp_path) -> None:
     assert exit_code == 1
     err = capsys.readouterr().err
     assert "recorded detection benchmark results differ" in err
+    # The mismatch is self-explanatory: it names the drifted metric and the
+    # cases present only in the actual output, and points at the regen command.
+    assert "metric: total_cases expected 0" in err
+    assert "case: " in err
+    assert "only in actual results" in err
+    assert "lessonweaver eval-detection benchmark/v1/corpus.json >" in err
 
 
 def test_cli_eval_detection_with_clustering_preserves_precision_gate(capsys, tmp_path) -> None:
@@ -1202,7 +1209,7 @@ def test_cli_review_trace_target_redacts_by_default(capsys, tmp_path) -> None:
     assert exit_code == 0
     out = capsys.readouterr().out
     preview = json.loads(out)["candidates"][0]["export_preview"]
-    assert "[REDACTED by email]" in preview["content"]
+    assert redaction_marker("email") in preview["content"]
     assert "admin@example.com" not in out
 
 

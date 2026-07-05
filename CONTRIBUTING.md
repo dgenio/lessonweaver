@@ -30,15 +30,18 @@ Significant architecture changes should add or supersede an
 # Setup (editable install with dev tooling)
 pip install -e ".[dev]"
 
-# Lint, format check, type check, tests — the same checks CI runs
+# Lint, format check, type check, tests, benchmark guard — the same checks CI runs
 ruff check src/ tests/
 ruff format --check src/ tests/
 mypy src/lessonweaver/
 pytest
+lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json
 ```
 
-CI runs lint, type check, and tests on Python 3.10, 3.11, and 3.12. Run the
-commands above locally before opening a PR so there are no surprises.
+CI runs these five gating steps on Python 3.10, 3.11, and 3.12. Run the commands
+above locally before opening a PR so there are no surprises. If you change
+detection behavior, regenerate the benchmark scorecard in the same PR (see
+[detection benchmark](docs/detection-benchmark.md)).
 
 ## Where to contribute
 
@@ -73,6 +76,9 @@ Browse the issue tracker for the most current list and labels.
 - Prefer small dataclass factory helpers for repeated test data.
 - A new behavior should have a test that fails without the change and passes
   with it.
+- Assert cross-cutting contract values (e.g. redaction markers) via the shared
+  production helper (`redaction_marker`), not inline literals, so a contract
+  change updates one place instead of every test that references it.
 - Treat domain models as immutable values at service boundaries: functions that
   update a model should return a new instance, and callers should use that
   returned value.
