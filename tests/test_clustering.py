@@ -2,7 +2,12 @@
 
 import pytest
 
-from lessonweaver.clustering import DEFAULT_SIMILARITY_THRESHOLD, LessonCluster, LessonClusterer
+from lessonweaver.clustering import (
+    DEFAULT_SIMILARITY_THRESHOLD,
+    LessonCluster,
+    LessonClusterer,
+    _is_stronger,
+)
 from lessonweaver.models import LessonCandidate, RecommendedActionType, RiskLevel, Scope
 
 
@@ -99,6 +104,21 @@ def test_representative_tie_breaks_on_lexicographic_id() -> None:
     clusters = LessonClusterer().cluster([second, first])
     assert len(clusters) == 1
     assert clusters[0].representative.id == "c1"
+
+
+def test_is_stronger_replaces_representative_on_smaller_id() -> None:
+    # `cluster()` sorts candidates by id before iterating, so the smaller id
+    # always seeds the cluster and the replacement (`True`) side of the id
+    # tie-break is unreachable end-to-end. Exercise `_is_stronger` directly so
+    # the replacement path — and the direction of the `<` comparison — stays
+    # covered against a future reordering or a flipped operator.
+    smaller = _candidate("c1", "same summary", "same problem")
+    larger = _candidate("c2", "same summary", "same problem")
+    assert smaller.confidence == larger.confidence
+    assert smaller.evidence_strength == larger.evidence_strength
+
+    assert _is_stronger(smaller, larger) is True
+    assert _is_stronger(larger, smaller) is False
 
 
 def test_cluster_output_is_independent_of_input_order() -> None:
