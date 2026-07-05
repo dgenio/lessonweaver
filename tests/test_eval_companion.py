@@ -11,6 +11,7 @@ from lessonweaver.models import (
     Scope,
 )
 from lessonweaver.privacy import SimpleRedactor
+from lessonweaver.sanitization import redaction_marker
 
 NOW = datetime(2026, 6, 14, 12, 0, tzinfo=timezone.utc)
 
@@ -107,8 +108,8 @@ def test_eval_companion_pack_redacts_metadata_readme_and_paths() -> None:
     assert "admin@example.com" not in serialized
     assert "reviewer@example.com" not in serialized
     assert "Bearer abcdefghijklmnopqrstuvwxyz123456" not in serialized
-    assert "[REDACTED by email]" in serialized
-    assert "evals/[REDACTED by email].md" in pack
+    assert redaction_marker("email") in serialized
+    assert f"evals/{redaction_marker('email')}.md" in pack
 
 
 def test_eval_companion_pack_rejects_redacted_path_collisions() -> None:
