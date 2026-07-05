@@ -22,7 +22,6 @@ lives outside ``src/lessonweaver/`` so it never touches the runtime import graph
 from __future__ import annotations
 
 import argparse
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -79,18 +78,35 @@ def render_section(version: str, date: str, grouped: dict[str, list[str]]) -> st
 
 
 def insert_section(original: str, section: str) -> str:
-    """Insert ``section`` immediately after the ``## [Unreleased]`` header."""
-    out: list[str] = []
-    inserted = False
-    for line in original.splitlines(keepends=True):
-        out.append(line)
-        if not inserted and line.strip() == UNRELEASED_HEADER:
-            out.append("\n" + section + "\n")
-            inserted = True
-    if not inserted:
+    """Insert ``section`` between the ``## [Unreleased]`` block and the next release.
+
+    The new dated section is placed just before the first ``## [`` release header
+    that follows ``## [Unreleased]`` (or at end of file if there is none), so any
+    notes that happen to live under ``## [Unreleased]`` stay there instead of
+    being absorbed into the new release. Blank lines around the inserted block are
+    normalized locally rather than by rewriting the whole file.
+    """
+    lines = original.splitlines(keepends=True)
+    unreleased_idx = next(
+        (i for i, line in enumerate(lines) if line.strip() == UNRELEASED_HEADER),
+        None,
+    )
+    if unreleased_idx is None:
         raise ValueError(f"CHANGELOG has no '{UNRELEASED_HEADER}' section to insert after.")
-    # Collapse any run of 3+ newlines the insertion introduced back to one blank line.
-    return re.sub(r"\n{3,}", "\n\n", "".join(out))
+
+    # First release header after Unreleased, or end of file.
+    insert_idx = next(
+        (i for i in range(unreleased_idx + 1, len(lines)) if lines[i].startswith("## [")),
+        len(lines),
+    )
+
+    before = lines[:insert_idx]
+    after = lines[insert_idx:]
+    while before and before[-1].strip() == "":
+        before.pop()
+
+    block = section if section.endswith("\n") else section + "\n"
+    return "".join([*before, "\n", block, "\n", *after])
 
 
 def build_changelog(version: str, date: str, changelog_path: Path, fragments_dir: Path) -> str:

@@ -95,6 +95,31 @@ def test_build_changelog_inserts_section_after_unreleased(tmp_path: Path) -> Non
     assert "\n\n\n" not in updated
 
 
+def test_build_changelog_preserves_unreleased_notes(tmp_path: Path) -> None:
+    # If notes ever live directly under [Unreleased], they must stay there and
+    # not be absorbed into the newly inserted release section.
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "# Changelog\n\n"
+        "## [Unreleased]\n\n"
+        "- A pending unreleased note.\n\n"
+        "## [0.4.1] - 2026-06-24\n\n- Prior.\n",
+        encoding="utf-8",
+    )
+    frag_dir = tmp_path / "changelog.d"
+    frag_dir.mkdir()
+    _write_fragments(frag_dir, {"1.added.md": "- New thing (#1)."})
+
+    updated = build_changelog.build_changelog("0.5.0", "2026-07-05", changelog, frag_dir)
+
+    note_idx = updated.index("- A pending unreleased note.")
+    release_idx = updated.index("## [0.5.0] - 2026-07-05")
+    # The pending note stays above (before) the new release section.
+    assert updated.index("## [Unreleased]") < note_idx < release_idx
+    assert release_idx < updated.index("## [0.4.1] - 2026-06-24")
+    assert "\n\n\n" not in updated
+
+
 def test_build_changelog_is_deterministic(tmp_path: Path) -> None:
     changelog = tmp_path / "CHANGELOG.md"
     contents = "# Changelog\n\n## [Unreleased]\n\n## [0.4.1] - 2026-06-24\n\n- Prior.\n"
