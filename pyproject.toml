@@ -39,16 +39,26 @@ Issues = "https://github.com/dgenio/lessonweaver/issues"
 Changelog = "https://github.com/dgenio/lessonweaver/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+mcp = [
+  # >=1.10: the low-level server first supported returning a plain dict as
+  # tool `structuredContent` (MCP spec revision 2025-06-18); the binding in
+  # mcp_server.py relies on that, so earlier releases would fail at call time.
+  "mcp>=1.10",
+]
 dev = [
   "pytest>=8",
   "ruff>=0.8",
   "mypy>=1.13",
   "build>=1.0",
   "twine>=6.1",
+  # Installed in dev so CI exercises the optional MCP server binding; the base
+  # install and `import lessonweaver` stay dependency-free.
+  "mcp>=1.10",
 ]
 
 [project.scripts]
 lessonweaver = "lessonweaver.cli:main"
+lessonweaver-mcp = "lessonweaver.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -81,3 +91,9 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true
+
+# The MCP SDK is an optional, lazily-imported integration (see mcp_server.py)
+# and does not ship mypy-checkable stubs; treat its imports as untyped.
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
+ignore_missing_imports = true
