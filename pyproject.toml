@@ -40,7 +40,10 @@ Changelog = "https://github.com/dgenio/lessonweaver/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 mcp = [
-  "mcp>=1.2",
+  # >=1.10: the low-level server first supported returning a plain dict as
+  # tool `structuredContent` (MCP spec revision 2025-06-18); the binding in
+  # mcp_server.py relies on that, so earlier releases would fail at call time.
+  "mcp>=1.10",
 ]
 dev = [
   "pytest>=8",
@@ -50,7 +53,7 @@ dev = [
   "twine>=6.1",
   # Installed in dev so CI exercises the optional MCP server binding; the base
   # install and `import lessonweaver` stay dependency-free.
-  "mcp>=1.2",
+  "mcp>=1.10",
 ]
 
 [project.scripts]

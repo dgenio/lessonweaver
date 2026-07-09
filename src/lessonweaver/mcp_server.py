@@ -46,8 +46,29 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # Tool names that would let a model bypass the human review gate. No exposed
 # tool may use one of these; :func:`_validate_tool_names` enforces it at import
 # time so a regression fails fast rather than shipping a gate-bypassing surface.
+# This is kept as an explicit, human-readable set so the guard's error message
+# can name a review-gate verb when that is the cause, but it is only a secondary
+# check — the authoritative guard is the allowlist below.
 FORBIDDEN_TOOL_NAMES = frozenset(
     {"answer", "approve", "promote", "promote_skill", "reject", "review"}
+)
+
+# The exact set of tool names the server is allowed to expose. Every entry is a
+# read-only or propose-only operation vetted against the human review gate.
+# :func:`_validate_tool_names` enforces membership as an allowlist so a *new*
+# gate-bypassing verb (e.g. ``publish``, ``grant``, ``approve_candidate``)
+# cannot slip past simply by not appearing in ``FORBIDDEN_TOOL_NAMES`` — the
+# import-time guard is then as strong as the exact-surface test.
+ALLOWED_TOOL_NAMES = frozenset(
+    {
+        "detect",
+        "submit_trace",
+        "list_pending_candidates",
+        "get_candidate",
+        "retrieve",
+        "load_skills",
+        "explain_load",
+    }
 )
 
 _MISSING_MCP_MESSAGE = (
@@ -394,16 +415,26 @@ TOOLS: tuple[McpTool, ...] = (
 
 
 def _validate_tool_names(tools: tuple[McpTool, ...]) -> None:
-    """Fail fast if any exposed tool would bypass the human review gate.
+    """Fail fast if any exposed tool falls outside the vetted read/propose surface.
 
-    Names are normalized (lowercased, ``-`` -> ``_``) before comparison so a
-    kebab-case alias such as ``promote-skill`` cannot slip past the check.
+    Enforced as an allowlist (``ALLOWED_TOOL_NAMES``) so a new tool name that
+    bypasses the human review gate cannot slip past merely by not matching the
+    ``FORBIDDEN_TOOL_NAMES`` denylist. Names are normalized (lowercased,
+    ``-`` -> ``_``) before comparison so a kebab-case alias such as
+    ``promote-skill`` cannot slip past either. The forbidden set is still
+    consulted first so the error explicitly calls out a review-gate operation
+    when that is the cause.
     """
     forbidden = sorted(
         tool.name for tool in tools if tool.name.lower().replace("-", "_") in FORBIDDEN_TOOL_NAMES
     )
     if forbidden:
         raise RuntimeError(f"MCP tools must not expose review-gate operations: {forbidden}")
+    unlisted = sorted(
+        tool.name for tool in tools if tool.name.lower().replace("-", "_") not in ALLOWED_TOOL_NAMES
+    )
+    if unlisted:
+        raise RuntimeError(f"MCP tools must be within the vetted read/propose surface: {unlisted}")
 
 
 _validate_tool_names(TOOLS)

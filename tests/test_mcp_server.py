@@ -175,6 +175,22 @@ def test_validate_tool_names_rejects_gate_bypassing_tools(name: str) -> None:
         mcp_server._validate_tool_names((sneaky,))
 
 
+@pytest.mark.parametrize("name", ["publish", "grant", "approve_candidate"])
+def test_validate_tool_names_rejects_unlisted_tools(name: str) -> None:
+    # A verb that is not in FORBIDDEN_TOOL_NAMES must still be rejected: the
+    # guard is an allowlist, so anything outside the vetted read/propose surface
+    # fails fast rather than silently shipping a gate-bypassing tool.
+    assert name.lower().replace("-", "_") not in mcp_server.FORBIDDEN_TOOL_NAMES
+    unlisted = mcp_server.McpTool(
+        name=name,
+        description="not a vetted read/propose tool",
+        input_schema={"type": "object", "properties": {}},
+        handler=lambda context, arguments: {},
+    )
+    with pytest.raises(RuntimeError, match="vetted read/propose surface"):
+        mcp_server._validate_tool_names((unlisted,))
+
+
 # --- tool-call boundary validation ------------------------------------------
 
 
