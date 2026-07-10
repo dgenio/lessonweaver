@@ -183,7 +183,7 @@ def test_filesystem_registry_default_uses_resolved_root(tmp_path, monkeypatch) -
     monkeypatch.delenv("LESSONWEAVER_REGISTRY", raising=False)
     monkeypatch.chdir(tmp_path)
 
-    assert FileSystemRegistry().root == project_registry.resolve()
+    assert FileSystemRegistry().root == project_registry
 
 
 def test_filesystem_registry_lesson_and_artifact_round_trip(tmp_path) -> None:
