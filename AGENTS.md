@@ -24,6 +24,9 @@ lessonweaver converts AI-agent execution traces into reviewed, reusable operatio
 - Do not make real LLM calls in tests.
 - Each new module should have a corresponding `tests/test_<module>.py`.
 - Prefer small dataclass factory helpers for repeated test data.
+- Assert cross-cutting contract values (e.g. redaction markers) via the shared
+  production helper (`redaction_marker`), not inline string literals, so a
+  contract change is a one-line edit instead of a sweep across test modules.
 
 ## Dependency Policy
 
@@ -38,6 +41,9 @@ lessonweaver converts AI-agent execution traces into reviewed, reusable operatio
 2. Call it from `LessonDetector.detect()`.
 3. Add unit tests for the true positive, false positive prevention, and edge cases.
 4. Keep detection conservative; prefer false negatives over false positives.
+5. If detector output changes, regenerate the benchmark scorecard in the same PR
+   (`lessonweaver eval-detection benchmark/v1/corpus.json > benchmark/v1/results.json`)
+   and explain the delta; the CI guard names exactly what drifted on mismatch.
 
 ## Adding an Export Format
 

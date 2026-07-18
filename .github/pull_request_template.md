@@ -21,6 +21,7 @@ Closes #
 - [ ] `ruff format --check src/ tests/`
 - [ ] `mypy src/lessonweaver/`
 - [ ] `pytest`
+- [ ] `lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json`
 
 ## Checklist
 
@@ -30,4 +31,6 @@ Closes #
 - [ ] No dataclass fields renamed/removed without a migration note.
 - [ ] New behavior has a test that fails without the change and passes with it.
 - [ ] No real credentials or personal data added (traces/examples are synthetic).
-- [ ] Docs/changelog updated if user-facing behavior changed.
+- [ ] Docs updated if user-facing behavior changed; a `changelog.d/` fragment
+      added for notable changes (see `changelog.d/README.md`) instead of editing
+      `CHANGELOG.md` directly.

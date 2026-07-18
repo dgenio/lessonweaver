@@ -54,36 +54,6 @@ changelog; their dates are the dates of the corresponding work landing on
   - `cleanup-skills` — aggregate stale, low-confidence, never-used, noisy, and
     overlapping skills into recommended actions; `--write` deprecates expired
     skills through the governed lifecycle (#112).
-
-### Changed
-
-- `LoadingPolicy.max_token_budget` was renamed to `max_budget_chars` to match
-  the character-based loader/compiler budget semantics; serialized policies
-  using the old `max_token_budget` key still load as a deprecated fallback.
-- `SimpleRedactor` and `TraceSanitizer` now use one shared redaction rule set,
-  emit named `[REDACTED by <rule>]` markers, and no longer fail open by returning
-  raw export text when a redaction rule raises (#176).
-- `export-skill`, `export-lesson`, and `review-trace --target` now redact by
-  default, matching `export-file`; pass `--no-redact` to emit raw content (#177).
-- Registry defaults now resolve consistently for CLI and library callers:
-  explicit `--registry-root`, `LESSONWEAVER_REGISTRY`, nearest project-local
-  `.lessonweaver/registry/`, then the existing `~/.lessonweaver/registry`
-  fallback (#180).
-
-- `approve` now enforces the human-review gate: a candidate must have answered
-  the required (adaptive) review questions before it can be approved. Use
-  `--allow-incomplete-review` to override; the bypass and the unanswered
-  questions are recorded in the candidate and skill metadata (#108).
-- `apply_review_answer` now returns a new candidate instead of mutating the
-  input candidate in place; callers should use the returned value (#173).
-- CLI validation failures now consistently print `Error:` on stderr; malformed
-  `answer` question/option inputs now exit `2` like other invalid inputs (#174).
-- Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
-  synonym expansion now live in one private text utility module (#170).
-- `SkillLoader`, stale reporting, and cleanup now depend on a `SkillStore`
-  protocol so `FileSystemRegistry` and the in-memory `LessonRegistry` can be
-  substituted consistently (#172).
-
 - `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` for OSS health.
 - README status badges (CI, Python versions, license, PyPI).
 - GitHub issue forms (bug, feature, trace importer, example request) and a pull
@@ -117,6 +87,31 @@ changelog; their dates are the dates of the corresponding work landing on
 
 ### Changed
 
+- `LoadingPolicy.max_token_budget` was renamed to `max_budget_chars` to match
+  the character-based loader/compiler budget semantics; serialized policies
+  using the old `max_token_budget` key still load as a deprecated fallback.
+- `SimpleRedactor` and `TraceSanitizer` now use one shared redaction rule set,
+  emit named `[REDACTED by <rule>]` markers, and no longer fail open by returning
+  raw export text when a redaction rule raises (#176).
+- `export-skill`, `export-lesson`, and `review-trace --target` now redact by
+  default, matching `export-file`; pass `--no-redact` to emit raw content (#177).
+- Registry defaults now resolve consistently for CLI and library callers:
+  explicit `--registry-root`, `LESSONWEAVER_REGISTRY`, nearest project-local
+  `.lessonweaver/registry/`, then the existing `~/.lessonweaver/registry`
+  fallback (#180).
+- `approve` now enforces the human-review gate: a candidate must have answered
+  the required (adaptive) review questions before it can be approved. Use
+  `--allow-incomplete-review` to override; the bypass and the unanswered
+  questions are recorded in the candidate and skill metadata (#108).
+- `apply_review_answer` now returns a new candidate instead of mutating the
+  input candidate in place; callers should use the returned value (#173).
+- CLI validation failures now consistently print `Error:` on stderr; malformed
+  `answer` question/option inputs now exit `2` like other invalid inputs (#174).
+- Lexical tokenization, stopword sets, Jaccard similarity, and retrieval
+  synonym expansion now live in one private text utility module (#170).
+- `SkillLoader`, stale reporting, and cleanup now depend on a `SkillStore`
+  protocol so `FileSystemRegistry` and the in-memory `LessonRegistry` can be
+  substituted consistently (#172).
 - README hero now leads with the skills / `AGENTS.md` framing and the
   human-review-gate differentiator, with the recognizable export surfaces up
   front (#85).

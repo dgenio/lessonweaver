@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from lessonweaver.sanitization import redaction_marker
+
 PRIVATE_KEY_BLOCK = (
     "-----BEGIN RSA PRIVATE KEY-----\n"
     "MIIBOgIBAAJBAKj34GkxFhD90vcNLYL\n"
@@ -12,27 +14,31 @@ PRIVATE_KEY_BLOCK = (
 )
 
 SENSITIVE_CASES = [
-    ("email", "Email admin@example.com", "Email [REDACTED by email]"),
+    ("email", "Email admin@example.com", f"Email {redaction_marker('email')}"),
     (
         "bearer token",
         "Auth Bearer abcdefghijklmnopqrstuvwxyz123456",
-        "Auth [REDACTED by bearer_token]",
+        f"Auth {redaction_marker('bearer_token')}",
     ),
-    ("api key", "api_key: sk-abc123", "[REDACTED by api_key]"),
+    ("api key", "api_key: sk-abc123", redaction_marker("api_key")),
     (
         "composed assignment marker",
         "api_key: admin@example.com",
-        "api_key: [REDACTED by email]",
+        f"api_key: {redaction_marker('email')}",
     ),
-    ("aws key", "AKIAABCDEFGHIJKLMNOP", "[REDACTED by aws_access_key_id]"),
+    ("aws key", "AKIAABCDEFGHIJKLMNOP", redaction_marker("aws_access_key_id")),
     (
         "jwt",
         "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
         "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-        "jwt [REDACTED by jwt]",
+        f"jwt {redaction_marker('jwt')}",
     ),
-    ("generic token", "token = super-secret-value", "[REDACTED by generic_token_assignment]"),
-    ("private key", f"key:\n{PRIVATE_KEY_BLOCK}\nok", "key:\n[REDACTED by private_key]\nok"),
+    ("generic token", "token = super-secret-value", redaction_marker("generic_token_assignment")),
+    (
+        "private key",
+        f"key:\n{PRIVATE_KEY_BLOCK}\nok",
+        f"key:\n{redaction_marker('private_key')}\nok",
+    ),
 ]
 
 SAFE_CASES = [

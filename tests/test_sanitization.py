@@ -6,7 +6,7 @@ import pytest
 from redaction_cases import SAFE_CASES, SENSITIVE_CASES_PARAM
 
 from lessonweaver.models import TraceBundle, TraceEvent, TraceEventType
-from lessonweaver.sanitization import SanitizationRule, TraceSanitizer
+from lessonweaver.sanitization import SanitizationRule, TraceSanitizer, redaction_marker
 
 
 def _bundle(content: str | None) -> TraceBundle:
@@ -31,7 +31,14 @@ def test_sanitize_returns_new_bundle_and_leaves_input_unchanged() -> None:
     assert sanitized is not original
     assert sanitized.events[0] is not original.events[0]
     assert original.events[0].content == "ping me at a.user@example.com"
-    assert sanitized.events[0].content == "ping me at [REDACTED by email]"
+    assert sanitized.events[0].content == f"ping me at {redaction_marker('email')}"
+
+
+def test_redaction_marker_format_is_stable() -> None:
+    # Lock the emitted marker format: many tests derive their expected strings
+    # from this helper, so a change here is intentional and must be reviewed.
+    assert redaction_marker("email") == "[REDACTED by email]"
+    assert redaction_marker("api_key") == "[REDACTED by api_key]"
 
 
 def test_none_content_is_preserved() -> None:

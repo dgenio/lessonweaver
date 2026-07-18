@@ -18,6 +18,17 @@ from dataclasses import dataclass, field, replace
 from .models import TraceBundle, TraceEvent
 
 
+def redaction_marker(rule_name: str) -> str:
+    """Return the canonical redaction marker for ``rule_name``.
+
+    This is the single source of truth for the emitted marker format. Both
+    production rules (via :func:`default_redaction_rules`) and tests derive their
+    expected strings from here, so a change to the marker format is a one-line
+    edit rather than a sweep across inline literals in every test module.
+    """
+    return f"[REDACTED by {rule_name}]"
+
+
 @dataclass(slots=True)
 class SanitizationRule:
     """A named regex rule that replaces matches in trace content."""
@@ -44,27 +55,27 @@ def default_redaction_rules() -> list[SanitizationRule]:
         SanitizationRule(
             name="email",
             pattern=r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
-            replacement="[REDACTED by email]",
+            replacement=redaction_marker("email"),
         ),
         SanitizationRule(
             name="bearer_token",
             pattern=r"Bearer\s+[A-Za-z0-9._\-]{20,}",
-            replacement="[REDACTED by bearer_token]",
+            replacement=redaction_marker("bearer_token"),
         ),
         SanitizationRule(
             name="api_key",
             pattern=r"(?i)(?:api[_-]?key|apikey)\s*[:=]\s*(?!\[REDACTED\b)\S+",
-            replacement="[REDACTED by api_key]",
+            replacement=redaction_marker("api_key"),
         ),
         SanitizationRule(
             name="aws_access_key_id",
             pattern=r"AKIA[0-9A-Z]{16}",
-            replacement="[REDACTED by aws_access_key_id]",
+            replacement=redaction_marker("aws_access_key_id"),
         ),
         SanitizationRule(
             name="jwt",
             pattern=r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
-            replacement="[REDACTED by jwt]",
+            replacement=redaction_marker("jwt"),
         ),
         SanitizationRule(
             name="generic_token_assignment",
@@ -73,7 +84,7 @@ def default_redaction_rules() -> list[SanitizationRule]:
                 r"\s*[:=]\s*(?!\[REDACTED\b)"
                 r"(?=[A-Za-z0-9._-]{8,}\b)(?=[A-Za-z0-9._-]*[0-9._-])[A-Za-z0-9._-]+"
             ),
-            replacement="[REDACTED by generic_token_assignment]",
+            replacement=redaction_marker("generic_token_assignment"),
         ),
         SanitizationRule(
             name="private_key",
@@ -85,7 +96,7 @@ def default_redaction_rules() -> list[SanitizationRule]:
                 r".*?-----END [A-Z0-9 ]{0,40}PRIVATE KEY-----"
                 r"|-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----"
             ),
-            replacement="[REDACTED by private_key]",
+            replacement=redaction_marker("private_key"),
         ),
     ]
 

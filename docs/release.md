@@ -15,11 +15,17 @@ is published, using PyPI Trusted Publishing (OIDC) — no API tokens are stored.
 
 1. **Pick the version.** Follow [SemVer](https://semver.org/). Update `version`
    in `pyproject.toml`.
-2. **Update the changelog.** Move the `[Unreleased]` notes in
-   [`CHANGELOG.md`](../CHANGELOG.md) into a new version section with today's
-   date. For the first tagged release, uncomment the comparison/release link
-   template at the bottom of the changelog and fill it in; on later releases,
-   update those links.
+2. **Assemble the changelog.** Fold the per-PR fragments in
+   [`changelog.d/`](../changelog.d/) into a new dated section of
+   [`CHANGELOG.md`](../CHANGELOG.md):
+   ```bash
+   python scripts/build_changelog.py --version X.Y.Z
+   ```
+   Preview first with `--dry-run`. This inserts the assembled `## [X.Y.Z]`
+   section under `## [Unreleased]` and removes the consumed fragments; review the
+   result before committing. For the first tagged release, uncomment the
+   comparison/release link template at the bottom of the changelog and fill it
+   in; on later releases, update those links.
 3. **Run the full local check** (the same checks CI runs):
    ```bash
    ruff check src/ tests/

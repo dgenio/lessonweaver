@@ -150,6 +150,9 @@ print(context.snippet)
 
 ## Commands
 
+<!-- This list is maintained by hand for now; a generated CLI reference that
+removes this per-feature edit point is tracked in #287. -->
+
 - `lessonweaver detect <trace.json> [--save] [--output FILE] [--dry-run]`
 - `lessonweaver interview <candidate-id-or-json> [--session FILE] [--dry-run]`
 - `lessonweaver resume-interview <session.json>` — reload a saved review and print the remaining (adaptive) questions

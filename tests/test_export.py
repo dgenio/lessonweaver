@@ -27,6 +27,7 @@ from lessonweaver.models import (
     SkillCard,
 )
 from lessonweaver.privacy import SimpleRedactor
+from lessonweaver.sanitization import redaction_marker
 
 NOW = datetime(2026, 5, 26, 12, 0, tzinfo=timezone.utc)
 
@@ -161,8 +162,8 @@ def test_export_redactor_integration() -> None:
     rendered = export_skillcard_markdown(skill, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
     assert "sk-test-value" not in rendered
-    assert "[REDACTED by email]" in rendered
-    assert "[REDACTED by api_key]" in rendered
+    assert redaction_marker("email") in rendered
+    assert redaction_marker("api_key") in rendered
 
 
 def test_export_agents_md_fragment_snapshot() -> None:
@@ -326,4 +327,4 @@ def test_export_lesson_redactor_integration() -> None:
     candidate.observed_problem = "Leaked admin@example.com during review."
     rendered = export_guardrail_rule_markdown(candidate, redactor=SimpleRedactor())
     assert "admin@example.com" not in rendered
-    assert "[REDACTED by email]" in rendered
+    assert redaction_marker("email") in rendered

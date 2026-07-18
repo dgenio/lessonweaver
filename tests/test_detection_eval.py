@@ -31,6 +31,12 @@ def test_bundled_corpus_matches_baseline_scorecard() -> None:
 
 
 def test_public_benchmark_v1_matches_checked_in_results() -> None:
+    # Intentionally overlaps the CI "Guard detection benchmark" step: this test
+    # is the in-process guard on corpus composition (pattern coverage, case
+    # count) plus the scorecard, while the CI step exercises the end-to-end
+    # `lessonweaver eval-detection --compare-results` CLI contract. Keeping both
+    # means a detector regression is caught whether contributors run `pytest`
+    # or the CLI, and neither check is a strict subset of the other.
     corpus = DetectionCorpus.from_file(BENCHMARK_CORPUS_PATH)
     expected_results = json.loads(Path(BENCHMARK_RESULTS_PATH).read_text(encoding="utf-8"))
 
