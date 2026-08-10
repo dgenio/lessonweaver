@@ -14,10 +14,16 @@ authors = [{ name = "lessonweaver contributors" }]
 keywords = [
   "agents",
   "ai",
+  "llm",
   "traces",
   "skills",
+  "agent-skills",
+  "coding-agents",
+  "human-in-the-loop",
   "governance",
   "agents.md",
+  "claude-code",
+  "github-copilot",
   "observability",
 ]
 classifiers = [
