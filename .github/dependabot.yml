@@ -19,6 +19,12 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
         update-types: [minor, patch]
+    # MCP v2 changes the API used by the optional server binding. Keep that
+    # migration explicit in #375 rather than widening the range automatically.
+    ignore:
+      - dependency-name: mcp
+        update-types:
+          - version-update:semver-major
     labels: [dependencies]
     commit-message:
       prefix: "chore(deps)"
