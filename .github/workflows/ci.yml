@@ -53,9 +53,12 @@ jobs:
           python -m pip install --upgrade pip
           if [ "${{ matrix.resolution }}" = "floor" ]; then
             python -m pip install uv
-            uv pip install --system --resolution lowest-direct -e ".[mcp]" pytest
+            # pytest is the harness, not part of the published MCP extra. Give
+            # it its own supported floor while resolving mcp to the declared
+            # minimum via lowest-direct.
+            uv pip install --system --resolution lowest-direct -e ".[mcp]" "pytest>=8"
           else
-            python -m pip install --upgrade -e ".[mcp]" pytest
+            python -m pip install --upgrade -e ".[mcp]" "pytest>=8"
           fi
           python -c "import importlib.metadata as m; print('mcp', m.version('mcp'))"
       - name: Run MCP-aware suite
