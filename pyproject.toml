@@ -44,7 +44,7 @@ mcp = [
   # tool `structuredContent` (MCP spec revision 2025-06-18); the binding in
   # mcp_server.py relies on that, so earlier releases would fail at call time.
   # MCP 2.x changes the Tool/server API used by this binding; migration is #375.
-  "mcp>=1.10,<2",
+  "mcp>=1.10,<3",
 ]
 dev = [
   "pytest>=8",
@@ -54,7 +54,7 @@ dev = [
   "twine>=6.1",
   # Installed in dev so CI exercises the optional MCP server binding; the base
   # install and `import lessonweaver` stay dependency-free.
-  "mcp>=1.10,<2",
+  "mcp>=1.10,<3",
 ]
 
 [project.scripts]
