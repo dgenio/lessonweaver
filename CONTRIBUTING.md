@@ -91,6 +91,9 @@ Browse the issue tracker for the most current list and labels.
 
 ## Pull request expectations
 
+- Start new work from the current `main` on a fresh branch. Do not reuse a
+  previously merged branch name or assume an old remote branch is still based
+  on current `main`.
 - Keep PRs focused; describe what changed and why.
 - Run lint, format check, type check, and tests before requesting review.
 - Do not add runtime dependencies casually; optional integrations go in
