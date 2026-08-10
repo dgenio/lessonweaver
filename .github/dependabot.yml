@@ -19,12 +19,14 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
         update-types: [minor, patch]
-    # MCP v2 changes the API used by the optional server binding. Keep that
-    # migration explicit in #375 rather than widening the range automatically.
+    # MCP v2 changes the API used by the optional server binding. Ignore the
+    # incompatible versions themselves: Dependabot can otherwise widen a
+    # requirement range (<2 -> <3) without treating that edit as SemVer-major.
+    # The deliberate migration remains tracked in #375.
     ignore:
       - dependency-name: mcp
-        update-types:
-          - version-update:semver-major
+        versions:
+          - ">=2,<3"
     labels: [dependencies]
     commit-message:
       prefix: "chore(deps)"
