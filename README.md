@@ -74,18 +74,23 @@ See [docs/architecture.md](docs/architecture.md) for the module-level data flow.
 
 ## Quickstart
 
-The first PyPI release is being prepared
-([#64](https://github.com/dgenio/lessonweaver/issues/64)). Until it lands,
-install from source:
+Install the published package from PyPI:
 
 ```bash
-pip install -e ".[dev]"
+pip install lessonweaver
 lessonweaver --help
 ```
 
-> Once published, the user install will be `pip install lessonweaver` (see
-> [Contributing](#contributing) for the contributor workflow). The release
-> process is documented in [docs/release.md](docs/release.md).
+For the optional MCP server integration:
+
+```bash
+pip install "lessonweaver[mcp]"
+lessonweaver-mcp --help
+```
+
+For editable source installs and maintainer tooling, use the current workflow in
+[CONTRIBUTING.md](CONTRIBUTING.md). The release process is documented in
+[docs/release.md](docs/release.md).
 
 ```bash
 # 1. Detect candidates from a trace and save them to a temporary registry
@@ -321,7 +326,8 @@ good first issues. By participating you agree to the
 [security policy](SECURITY.md).
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[mcp]" --group dev
 ruff check src/ tests/
 ruff format --check src/ tests/
 mypy src/lessonweaver/
