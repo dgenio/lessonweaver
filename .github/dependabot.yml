@@ -7,29 +7,19 @@ updates:
       day: monday
       time: "06:00"
       timezone: Etc/UTC
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
+    open-pull-requests-limit: 0
     groups:
-      dev-nonmajor:
-        applies-to: version-updates
-        patterns: ["*"]
-        update-types: [minor, patch]
-      dev-security-nonmajor:
+      python-security:
         applies-to: security-updates
         patterns: ["*"]
-        update-types: [minor, patch]
-    # MCP v2 changes the API used by the optional server binding. Ignore the
-    # incompatible versions themselves: Dependabot can otherwise widen a
-    # requirement range (<2 -> <3) without treating that edit as SemVer-major.
-    # The deliberate migration remains tracked in #375.
+    # MCP v2 changes the optional server API; migration remains #375.
     ignore:
       - dependency-name: mcp
         versions:
           - ">=2,<3"
     labels: [dependencies]
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "fix(deps)"
 
   - package-ecosystem: github-actions
     directory: "/"
