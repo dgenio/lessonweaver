@@ -104,3 +104,12 @@ ignore = [
 [tool.mypy]
 python_version = "3.10"
 strict = true
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+
+# The MCP SDK is an optional, lazily-imported integration (see mcp_server.py)
+# and does not ship mypy-checkable stubs; treat its imports as untyped.
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
+ignore_missing_imports = true
