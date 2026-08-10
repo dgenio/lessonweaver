@@ -41,6 +41,9 @@ Issues = "https://github.com/dgenio/lessonweaver/issues"
 Changelog = "https://github.com/dgenio/lessonweaver/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+# User-facing optional capability: install this when running LessonWeaver as an
+# MCP server. It remains published metadata because downstream applications may
+# depend on it.
 mcp = [
   # >=1.10: the low-level server first supported returning a plain dict as
   # tool `structuredContent` (MCP spec revision 2025-06-18); the binding in
@@ -48,15 +51,19 @@ mcp = [
   # MCP 2.x changes the Tool/server API used by this binding; migration is #375.
   "mcp>=1.10,<2",
 ]
+# Backward-compatible source-install shim only. Historical docs may still use
+# `pip install -e ".[dev]"`; keep that command harmless without publishing any
+# maintainer dependencies.
+dev = []
+
+# Local contributor/release tooling only; not emitted as wheel extras.
+[dependency-groups]
 dev = [
   "pytest>=8",
   "ruff>=0.8",
   "mypy>=1.13",
   "build>=1.0",
   "twine>=6.1",
-  # Installed in dev so CI exercises the optional MCP server binding; the base
-  # install and `import lessonweaver` stay dependency-free.
-  "mcp>=1.10,<2",
 ]
 
 [project.scripts]
