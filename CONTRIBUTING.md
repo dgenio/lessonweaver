@@ -27,8 +27,9 @@ Significant architecture changes should add or supersede an
 ## Local development
 
 ```bash
-# Setup (editable install with dev tooling)
-pip install -e ".[dev]"
+# Setup: editable package + the user-facing MCP integration + local-only tools
+python -m pip install --upgrade pip
+python -m pip install -e ".[mcp]" --group dev
 
 # Lint, format check, type check, tests, benchmark guard — the same checks CI runs
 ruff check src/ tests/
@@ -38,7 +39,12 @@ pytest
 lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json
 ```
 
-CI runs these five gating steps on Python 3.10, 3.11, and 3.12. Run the commands
+The PEP 735 `dev` dependency group contains contributor/release tooling and is
+not published as an installable wheel extra. The `[mcp]` extra is different: it
+is a real downstream capability and remains part of published package metadata.
+
+CI runs the gating suite on Python 3.10 through 3.14, plus explicit MCP floor /
+latest-v1 compatibility and a non-gating Python-next canary. Run the commands
 above locally before opening a PR so there are no surprises. If you change
 detection behavior, regenerate the benchmark scorecard in the same PR (see
 [detection benchmark](docs/detection-benchmark.md)).
@@ -88,7 +94,8 @@ Browse the issue tracker for the most current list and labels.
 - Keep PRs focused; describe what changed and why.
 - Run lint, format check, type check, and tests before requesting review.
 - Do not add runtime dependencies casually; optional integrations go in
-  `[project.optional-dependencies]`.
+  `[project.optional-dependencies]`, while maintainer-only tools belong in
+  `[dependency-groups]`.
 - Do not rename or remove dataclass fields without a migration note.
 - Do not weaken review or promotion gates, and never commit real
   credentials or personal data.
