@@ -326,6 +326,7 @@ good first issues. By participating you agree to the
 [security policy](SECURITY.md).
 
 ```bash
+python -m pip install --upgrade pip
 python -m pip install -e ".[mcp]" --group dev
 ruff check src/ tests/
 ruff format --check src/ tests/
