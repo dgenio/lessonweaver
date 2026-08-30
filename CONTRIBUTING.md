@@ -31,23 +31,34 @@ Significant architecture changes should add or supersede an
 python -m pip install --upgrade pip
 python -m pip install -e ".[mcp]" --group dev
 
-# Lint, format check, type check, tests, benchmark guard — the same checks CI runs
-ruff check src/ tests/
-ruff format --check src/ tests/
-mypy src/lessonweaver/
-pytest
-lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json
+# The full required gate — lint, format check, type check, tests, benchmark guard
+python scripts/check.py
+
+# ...or the individual commands, which is what it runs and what CI runs:
+python scripts/check.py --list
 ```
+
+`scripts/check.py` is the single place that sequence is written down.
+`tests/test_check_script.py` fails if it and `.github/workflows/ci.yml` stop
+agreeing, so the local gate cannot quietly fall behind CI the way three
+hand-maintained copies of a checklist do (#290). It runs the Python tools
+through the current interpreter (`python -m ruff`, and so on) rather than
+whatever the shell finds first, so the result describes this project's
+environment rather than some other one.
+
+It changes nothing: the benchmark step compares against the committed
+scorecard and never rewrites it.
 
 The PEP 735 `dev` dependency group contains contributor/release tooling and is
 not published as an installable wheel extra. The `[mcp]` extra is different: it
 is a real downstream capability and remains part of published package metadata.
 
 CI runs the gating suite on Python 3.10 through 3.14, plus explicit MCP floor /
-latest-v1 compatibility and a non-gating Python-next canary. Run the commands
-above locally before opening a PR so there are no surprises. If you change
-detection behavior, regenerate the benchmark scorecard in the same PR (see
-[detection benchmark](docs/detection-benchmark.md)).
+latest-v1 compatibility and a non-gating Python-next canary. Run
+`python scripts/check.py` locally before opening a PR so there are no surprises.
+If you change detection behavior, regenerate the benchmark scorecard in the same
+PR and explain the delta (see [detection benchmark](docs/detection-benchmark.md));
+the guard prints that command when it fails.
 
 ## Where to contribute
 

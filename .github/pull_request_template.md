@@ -17,11 +17,9 @@ Closes #
 
 <!-- Exact commands run and their results. -->
 
-- [ ] `ruff check src/ tests/`
-- [ ] `ruff format --check src/ tests/`
-- [ ] `mypy src/lessonweaver/`
-- [ ] `pytest`
-- [ ] `lessonweaver eval-detection benchmark/v1/corpus.json --compare-results benchmark/v1/results.json`
+- [ ] `python scripts/check.py` — the full required gate (lint, format check,
+      type check, tests, detection-benchmark guard). `--list` shows the exact
+      commands it runs, which are the ones CI runs.
 
 ## Checklist
 
